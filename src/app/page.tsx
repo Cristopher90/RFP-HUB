@@ -1,69 +1,215 @@
-import Image from "next/image";
+import Link from "next/link";
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/format";
+import { formatRfpNumber } from "@/lib/rfpNumber";
+import { StatusBadge } from "@/components/StatusBadge";
+import { RfpFilters } from "@/components/RfpFilters";
+import type { RfpStatus } from "@/generated/prisma/enums";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: PageProps<"/">) {
+  const user = await requireUser();
+  const sp = await searchParams;
+
+  const isAdmin = user.role === "ADMIN";
+  const requestedTab = sp.tab === "all" ? "all" : "mine";
+  const tab = requestedTab === "all" && isAdmin ? "all" : "mine";
+
+  const statusFilter = typeof sp.status === "string" ? sp.status : "";
+  const commodityFilter = typeof sp.commodity === "string" ? sp.commodity : "";
+  const regionFilter = typeof sp.region === "string" ? sp.region : "";
+  const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
+
+  const where = {
+    // Soft-deleted RFPs stay in the DB but never show up in normal
+    // listings unless the status filter explicitly asks for them.
+    status: statusFilter
+      ? (statusFilter as RfpStatus)
+      : { not: "DELETED" as RfpStatus },
+    ...(tab === "mine" ? { createdByUserId: user.id } : {}),
+    ...(commodityFilter ? { commodity: commodityFilter } : {}),
+    ...(regionFilter ? { region: regionFilter } : {}),
+    ...(tab === "all" && creatorFilter
+      ? { createdByUserId: creatorFilter }
+      : {}),
+  };
+
+  const [rfps, commodities, regions, creators] = await Promise.all([
+    prisma.rfp.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        items: true,
+        invitations: { include: { response: true } },
+        createdBy: true,
+      },
+    }),
+    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
+    prisma.region.findMany({ orderBy: { description: "asc" } }),
+    isAdmin ? prisma.user.findMany({ orderBy: { name: "asc" } }) : null,
+  ]);
+
+  function tabHref(target: "mine" | "all") {
+    const params = new URLSearchParams();
+    if (commodityFilter) params.set("commodity", commodityFilter);
+    if (regionFilter) params.set("region", regionFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    if (target === "all" && creatorFilter)
+      params.set("creator", creatorFilter);
+    params.set("tab", target);
+    return `/?${params.toString()}`;
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mb-8 flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Solicitudes de cotización (RFP)
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-1 text-sm text-slate-500">
+            Crea una RFP, invita proveedores y compara sus respuestas en un
+            solo lugar.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <Link
+          href="/rfps/new"
+          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
+        >
+          + Nueva RFP
+        </Link>
+      </div>
+
+      <div className="mb-4 border-b border-slate-200">
+        <nav className="-mb-px flex gap-6">
+          <Link
+            href={tabHref("mine")}
+            className={`border-b-2 px-1 pb-3 text-sm font-medium ${
+              tab === "mine"
+                ? "border-violet-600 text-violet-700"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Mis RFPs
+          </Link>
+          {isAdmin && (
+            <Link
+              href={tabHref("all")}
+              className={`border-b-2 px-1 pb-3 text-sm font-medium ${
+                tab === "all"
+                  ? "border-violet-600 text-violet-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Todas las RFPs
+            </Link>
+          )}
+        </nav>
+      </div>
+
+      <div className="mb-6">
+        <RfpFilters
+          commodities={commodities.map((c) => c.description)}
+          regions={regions.map((r) => r.description)}
+          creators={
+            tab === "all" && creators
+              ? creators.map((u) => ({ id: u.id, name: u.name }))
+              : undefined
+          }
+        />
+      </div>
+
+      {rfps.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+          <p className="text-slate-500">
+            No hay RFPs que coincidan con estos filtros.
+          </p>
+          <Link
+            href="/rfps/new"
+            className="mt-4 inline-block rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
           >
-            Documentation
-          </a>
+            Crear la primera RFP
+          </Link>
         </div>
-      </main>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-5 py-3">RFP</th>
+                <th className="px-5 py-3">Estado</th>
+                <th className="px-5 py-3">Commodity</th>
+                <th className="px-5 py-3">Región</th>
+                <th className="px-5 py-3">Creador</th>
+                <th className="px-5 py-3">Art&iacute;culos</th>
+                <th className="px-5 py-3">Proveedores</th>
+                <th className="px-5 py-3">Respuestas</th>
+                <th className="px-5 py-3">Cierre</th>
+                <th className="px-5 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rfps.map((rfp) => {
+                const responded = rfp.invitations.filter(
+                  (inv) => inv.response,
+                ).length;
+                return (
+                  <tr key={rfp.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <Link
+                        href={`/rfps/${rfp.id}`}
+                        className="font-medium text-slate-900 hover:text-violet-600"
+                      >
+                        <span className="mr-1.5 font-normal text-slate-400">
+                          {formatRfpNumber(rfp.number)}
+                        </span>
+                        {rfp.title}
+                      </Link>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {rfp.buyerName}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={rfp.status} />
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {rfp.commodity ?? "—"}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {rfp.region ?? "—"}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {rfp.createdBy?.name ?? "—"}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {rfp.items.length}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {rfp.invitations.length}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {responded} / {rfp.invitations.length}
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">
+                      {formatDate(rfp.deadlineAt)}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <Link
+                        href={`/rfps/${rfp.id}`}
+                        className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                      >
+                        Ver &rarr;
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

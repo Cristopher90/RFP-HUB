@@ -1,0 +1,122 @@
+import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { formatRfpNumber } from "@/lib/rfpNumber";
+import { buildItemsFromSourceRfp } from "../rfpActions";
+import { RfpForm, type RfpInitialData } from "./RfpForm";
+
+export default async function NewRfpPage({
+  searchParams,
+}: PageProps<"/rfps/new">) {
+  const user = await requireUser();
+  const sp = await searchParams;
+  const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
+  const copyMode = sp.mode === "based_on" ? "based_on" : "blank";
+
+  const [templates, commodities, regions, origins, supplierDirectory, creators] =
+    await Promise.all([
+      prisma.rfpTemplate.findMany({
+        where: { active: true },
+        include: {
+          items: { orderBy: { order: "asc" } },
+          questions: { orderBy: { order: "asc" } },
+        },
+      }),
+      prisma.commodity.findMany({ orderBy: { description: "asc" } }),
+      prisma.region.findMany({ orderBy: { description: "asc" } }),
+      prisma.origin.findMany({ orderBy: { description: "asc" } }),
+      prisma.supplierDirectory.findMany({
+        where: { status: "ACTIVE" },
+        orderBy: { companyName: "asc" },
+      }),
+      prisma.user.findMany({ orderBy: { name: "asc" } }),
+    ]);
+
+  let initial: RfpInitialData | undefined;
+  if (copyFrom) {
+    const result = await buildItemsFromSourceRfp(copyFrom, copyMode);
+    if (!("error" in result)) {
+      initial = {
+        title: `Copia de ${result.sourceTitle}`,
+        description: "",
+        buyerName: user.name,
+        deadlineAt: "",
+        commodity: "",
+        region: "",
+        startDate: "",
+        estimatedPrice: "",
+        origin: "",
+        predecessorDocument: "",
+        basedOnRfpId: copyMode === "based_on" ? copyFrom : null,
+        basedOnRfpLabel:
+          copyMode === "based_on"
+            ? `${formatRfpNumber(result.sourceNumber)} — ${result.sourceTitle}`
+            : null,
+        scoringEnabled: false,
+        items: result.items,
+        questions: [],
+        internalQuestions: [],
+        suppliers: [],
+      };
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl px-6 py-10">
+      <h1 className="text-2xl font-semibold tracking-tight">Nueva RFP</h1>
+      <p className="mt-1 text-sm text-slate-500">
+        Define los artículos, las preguntas para los proveedores y a quién
+        invitar a cotizar.
+      </p>
+      <div className="mt-8">
+        <RfpForm
+          currentUserRole={user.role}
+          currentUserName={user.name}
+          commodities={commodities}
+          regions={regions}
+          origins={origins}
+          supplierDirectory={supplierDirectory}
+          creators={creators}
+          initial={initial}
+          templates={templates.map((t) => ({
+            id: t.id,
+            name: t.name,
+            matchCommodity: t.matchCommodity,
+            matchRegion: t.matchRegion,
+            items: t.items.map((i) => ({
+              id: i.id,
+              section: i.section,
+              name: i.name,
+              description: i.description ?? "",
+              quantity: i.quantity,
+              unit: i.unit,
+              weight: i.weight,
+              decimals: i.decimals,
+              customFields: i.customFields
+                ? (JSON.parse(i.customFields) as {
+                    label: string;
+                    value: string;
+                  }[])
+                : [],
+              lockMinRole: i.lockMinRole,
+            })),
+            questions: t.questions.map((q) => ({
+              id: q.id,
+              section: q.section,
+              text: q.text,
+              type: q.type,
+              options: q.options ? (JSON.parse(q.options) as string[]) : [],
+              required: q.required,
+              weight: q.weight,
+              isPrerequisite: q.isPrerequisite,
+              visibility: q.visibility,
+              respondedBy: q.respondedBy,
+              numberMin: q.numberMin,
+              numberMax: q.numberMax,
+              lockMinRole: q.lockMinRole,
+            })),
+          }))}
+        />
+      </div>
+    </div>
+  );
+}

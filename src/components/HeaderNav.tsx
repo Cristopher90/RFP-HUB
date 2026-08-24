@@ -1,0 +1,47 @@
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { logout } from "@/lib/authActions";
+import { ROLE_LABEL } from "@/lib/roleLabels";
+
+export async function HeaderNav() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return (
+      <nav className="text-sm font-medium text-slate-600">
+        <Link
+          href="/login"
+          className="rounded-lg bg-violet-600 px-4 py-2 text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
+        >
+          Iniciar sesión
+        </Link>
+      </nav>
+    );
+  }
+
+  return (
+    <nav className="flex items-center gap-5 text-sm font-medium text-slate-600">
+      <Link
+        href="/rfps/new"
+        className="rounded-lg bg-violet-600 px-4 py-2 text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
+      >
+        Nueva RFP
+      </Link>
+      <div className="flex items-center gap-2 border-l border-slate-200 pl-5">
+        <div className="text-right leading-tight">
+          <p className="text-sm font-medium text-slate-800">{user.name}</p>
+          <p className="text-xs text-slate-400">{ROLE_LABEL[user.role]}</p>
+        </div>
+        <form action={logout}>
+          <button
+            type="submit"
+            title="Cerrar sesión"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+          >
+            Salir
+          </button>
+        </form>
+      </div>
+    </nav>
+  );
+}

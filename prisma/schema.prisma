@@ -1,0 +1,376 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum RfpStatus {
+  DRAFT
+  PENDING_PUBLISH_APPROVAL
+  OPEN
+  CLOSED
+  DELETED
+}
+
+enum ApproverMode {
+  ROLE
+  USERS
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  SELECT
+  MONEY
+  ATTACHMENT
+  YES_NO
+}
+
+enum QuestionResponder {
+  SUPPLIER // el proveedor la responde (default)
+  BUYER // el comprador la responde directamente, nunca se envía al proveedor
+}
+
+enum InvitationStatus {
+  INVITED
+  VIEWED
+  RESPONDED
+}
+
+enum QuestionVisibility {
+  INTERNAL // solo la ve el comprador; nunca se envía al proveedor
+  SUPPLIER_ONLY // se envía y el proveedor la responde, pero la respuesta no aparece en el detalle/comparación del comprador
+  EXTERNAL // visible para ambos; se usa en comparación y puntaje (default)
+}
+
+enum UserRole {
+  BUYER
+  SENIOR_BUYER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String // Nombre
+  lastName     String? // Apellido
+  client       String? // Cliente
+  email        String   @unique // Correo
+  companyCode  String? // Sociedad
+  plant        String? // Centro
+  costCenter   String? // Centro de coste
+  passwordHash String
+  role         UserRole @default(BUYER)
+  createdAt    DateTime @default(now())
+
+  createdRfps Rfp[]
+}
+
+// Datos maestros: los valores permitidos para los desplegables de Commodity
+// y Región en las RFPs y plantillas. code es un identificador único de
+// negocio (no el cuid interno); description es la etiqueta visible.
+// parentId permite organizarlos en árbol (categoría > subcategoría).
+model Commodity {
+  id          String      @id @default(cuid())
+  code        String      @unique
+  description String
+  parentId    String?
+  parent      Commodity?  @relation("CommodityTree", fields: [parentId], references: [id])
+  children    Commodity[] @relation("CommodityTree")
+  createdAt   DateTime    @default(now())
+}
+
+model Region {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String
+  parentId    String?
+  parent      Region?  @relation("RegionTree", fields: [parentId], references: [id])
+  children    Region[] @relation("RegionTree")
+  createdAt   DateTime @default(now())
+}
+
+// Lista de opciones para el campo "Origen" de la cabecera de RFP (no
+// visible para el proveedor). Mismo shape que Commodity/Region para
+// reutilizar el editor de datos maestros.
+model Origin {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String
+  parentId    String?
+  parent      Origin?  @relation("OriginTree", fields: [parentId], references: [id])
+  children    Origin[] @relation("OriginTree")
+  createdAt   DateTime @default(now())
+}
+
+enum SupplierDirectoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// Directorio maestro de proveedores (distinto del Supplier ad-hoc que se
+// crea al invitar a alguien a una RFP puntual).
+model SupplierDirectory {
+  id               String                  @id @default(cuid())
+  code             String                  @unique // Código Proveedor
+  taxId            String // CIF
+  companyName      String // nombre de la empresa
+  contactFirstName String
+  contactLastName  String
+  email            String
+  phone            String
+  status           SupplierDirectoryStatus @default(ACTIVE)
+  createdAt        DateTime                @default(now())
+}
+
+// Plantilla base: el administrador define artículos/preguntas por defecto
+// que se aplican automáticamente a una nueva RFP cuando coincide con las
+// condiciones (commodity/región). Cada artículo/pregunta puede bloquearse
+// para que solo un rol igual o superior a lockMinRole pueda quitarlo.
+model RfpTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  matchCommodity String?
+  matchRegion    String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  approvalWorkflowId String?
+  approvalWorkflow    ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
+
+  items     TemplateItem[]
+  questions TemplateQuestion[]
+}
+
+// Proceso de aprobación de 2 etapas (publicar / adjudicar), configurado por
+// el administrador y asignado a una o varias plantillas. El aprobador de
+// cada etapa se define por rol mínimo o por una lista puntual de usuarios.
+model ApprovalWorkflow {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  publishRequired        Boolean      @default(true)
+  publishApproverMode    ApproverMode @default(ROLE)
+  publishMinRole         UserRole     @default(SENIOR_BUYER)
+  publishApproverUserIds String? // JSON string[] cuando publishApproverMode = USERS
+
+  awardRequired        Boolean      @default(true)
+  awardApproverMode    ApproverMode @default(ROLE)
+  awardMinRole         UserRole     @default(SENIOR_BUYER)
+  awardApproverUserIds String? // JSON string[] cuando awardApproverMode = USERS
+
+  templates RfpTemplate[]
+  rfps      Rfp[]
+}
+
+model TemplateItem {
+  id           String   @id @default(cuid())
+  templateId   String
+  name         String
+  description  String?
+  quantity     Float    @default(1)
+  unit         String   @default("unidad")
+  weight       Int      @default(1)
+  decimals     Int      @default(2)
+  customFields String?
+  section      String? // nombre de la sección a la que pertenece (agrupa y numera)
+  order        Int      @default(0)
+  lockMinRole  UserRole @default(BUYER)
+
+  template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateQuestion {
+  id             String             @id @default(cuid())
+  templateId     String
+  text           String
+  type           QuestionType       @default(TEXT)
+  options        String?
+  required       Boolean            @default(true)
+  weight         Int                @default(1)
+  isPrerequisite Boolean            @default(false)
+  visibility     QuestionVisibility @default(EXTERNAL)
+  respondedBy    QuestionResponder  @default(SUPPLIER)
+  numberMin      Float?
+  numberMax      Float?
+  section        String? // nombre de la sección a la que pertenece (agrupa y numera)
+  order          Int                @default(0)
+  lockMinRole     UserRole @default(BUYER) // desde qué rol se puede quitar o editar
+
+  dependsOnQuestionId  String?
+  dependsOnHeaderField String?
+  dependsOnValue       String?
+
+  template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model Rfp {
+  id          String    @id @default(cuid())
+  number      Int       @unique // ID visible: "RFP-{number}"; asignado en código (SQLite no soporta autoincrement en campos no-id)
+  title       String
+  description String
+  buyerName   String
+  status      RfpStatus @default(OPEN)
+  deadlineAt  DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  commodity      String?
+  region         String?
+  startDate      DateTime?
+  estimatedPrice Float?
+
+  origin               String? // opcional, no visible para el proveedor
+  predecessorDocument  String? // opcional, no visible para el proveedor (texto libre)
+
+  basedOnRfpId String? // referencia navegable a la RFP anterior de la que se copió
+  basedOnRfp   Rfp?    @relation("RfpLineage", fields: [basedOnRfpId], references: [id], onDelete: SetNull)
+  copies       Rfp[]   @relation("RfpLineage")
+
+  scoringEnabled Boolean @default(true) // si se activó ponderación de artículos o preguntas al crearla
+
+  awardCriteria       String?
+  priceWeightPct       Int?
+  awardedInvitationId String?
+  awardedAt            DateTime?
+  pendingAwardInvitationId String? // adjudicación propuesta, pendiente de aprobación
+
+  approvalWorkflowId  String?
+  approvalWorkflow    ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
+  publishApprovalState String? // JSON ApprovalState snapshot (ver actions)
+  awardApprovalState    String? // JSON ApprovalState snapshot (ver actions)
+
+  appliedTemplates String? // JSON-encoded {id, name}[] snapshot de las plantillas aplicadas al crearla
+
+  createdByUserId String?
+  createdBy       User?   @relation(fields: [createdByUserId], references: [id])
+
+  items       RfpItem[]
+  questions   RfpQuestion[]
+  invitations Invitation[]
+}
+
+model RfpItem {
+  id          String  @id @default(cuid())
+  rfpId       String
+  code        String? // código de artículo (visible para el proveedor)
+  name        String
+  description String?
+  quantity    Float
+  unit        String
+  order       Int     @default(0)
+  weight      Int     @default(1) // importancia relativa al puntuar (1-10)
+  decimals    Int     @default(2) // precisión decimal para el precio unitario
+  historicalPrice Float? // precio histórico de referencia (no visible para el proveedor)
+  commodity   String? // commodity específico de esta línea (no visible para el proveedor)
+  customFields String? // JSON-encoded {label, value}[]
+  section     String? // nombre de la sección a la que pertenece (agrupa y numera)
+  sourceTemplateItemId String? // de qué TemplateItem vino (si aplica)
+  locked      Boolean @default(false) // si venía bloqueado por la plantilla
+
+  rfp         Rfp @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  itemPrices  ItemPrice[]
+}
+
+model RfpQuestion {
+  id       String       @id @default(cuid())
+  rfpId    String
+  text     String
+  type     QuestionType @default(TEXT)
+  options  String? // JSON-encoded string[] for SELECT type
+  required Boolean      @default(true)
+  weight   Int          @default(1) // importancia relativa al puntuar (1-10)
+  order    Int          @default(0)
+
+  isPrerequisite Boolean @default(false) // el proveedor debe aceptarla para participar
+  visibility QuestionVisibility @default(EXTERNAL)
+  respondedBy QuestionResponder @default(SUPPLIER)
+  buyerAnswerValue String? // respuesta del propio comprador cuando respondedBy = BUYER
+  numberMin Float?
+  numberMax Float?
+
+  dependsOnQuestionId String? // condicionada a la respuesta de otra pregunta
+  dependsOnHeaderField String? // o condicionada a un dato de cabecera (commodity, region)
+  dependsOnValue       String? // valor requerido para mostrarla
+
+  section String? // nombre de la sección a la que pertenece (agrupa y numera)
+
+  sourceTemplateQuestionId String? // de qué TemplateQuestion vino (si aplica)
+  locked                   Boolean @default(false) // si venía bloqueada por la plantilla
+
+  rfp     Rfp @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  answers Answer[]
+}
+
+model Supplier {
+  id      String @id @default(cuid())
+  name    String
+  email   String
+  company String
+
+  invitations Invitation[]
+}
+
+model Invitation {
+  id         String            @id @default(cuid())
+  rfpId      String
+  supplierId String
+  token      String            @unique @default(cuid())
+  status     InvitationStatus  @default(INVITED)
+  invitedAt  DateTime          @default(now())
+  viewedAt   DateTime?
+
+  rfp      Rfp       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  supplier Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  response Response?
+
+  @@unique([rfpId, supplierId])
+}
+
+model Response {
+  id           String   @id @default(cuid())
+  invitationId String   @unique
+  submittedAt  DateTime @default(now())
+  notes        String?
+
+  invitation Invitation  @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+  itemPrices ItemPrice[]
+}
+
+model Answer {
+  id         String @id @default(cuid())
+  responseId String
+  questionId String
+  value      String
+  score      Int? // puntaje asignado por el comprador (0-10)
+
+  response Response    @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question RfpQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+}
+
+model ItemPrice {
+  id         String @id @default(cuid())
+  responseId String
+  itemId     String
+  unitPrice  Float
+  notes      String?
+
+  response Response @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  item     RfpItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, itemId])
+}
