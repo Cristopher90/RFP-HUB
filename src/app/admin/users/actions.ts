@@ -16,7 +16,15 @@ export type UserFormInput = {
   costCenter: string;
   role: UserRole;
   password: string;
+  approvalLimit: string;
+  approvalGroupId: string;
 };
+
+function parseApprovalLimit(value: string): number | null {
+  if (!value.trim()) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 export async function createUser(
   input: UserFormInput,
@@ -47,6 +55,8 @@ export async function createUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       passwordHash: hashPassword(input.password),
+      approvalLimit: parseApprovalLimit(input.approvalLimit),
+      approvalGroupId: input.approvalGroupId || null,
     },
   });
 
@@ -84,6 +94,8 @@ export async function updateUser(
       plant: input.plant.trim() || null,
       costCenter: input.costCenter.trim() || null,
       role: input.role,
+      approvalLimit: parseApprovalLimit(input.approvalLimit),
+      approvalGroupId: input.approvalGroupId || null,
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },
   });

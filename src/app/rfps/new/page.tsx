@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatRfpNumber } from "@/lib/rfpNumber";
+import { formatRfpNumber } from "@/lib/format";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { RfpForm, type RfpInitialData } from "./RfpForm";
 
@@ -53,9 +53,9 @@ export default async function NewRfpPage({
             : null,
         scoringEnabled: false,
         items: result.items,
-        questions: [],
-        internalQuestions: [],
-        suppliers: [],
+        questions: result.questions,
+        internalQuestions: result.internalQuestions,
+        suppliers: result.suppliers,
       };
     }
   }

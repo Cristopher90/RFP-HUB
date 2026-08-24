@@ -21,6 +21,18 @@ enum RfpStatus {
 enum ApproverMode {
   ROLE
   USERS
+  GROUP
+}
+
+enum ApprovalStageKind {
+  PUBLISH
+  AWARD
+}
+
+enum RfpApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum QuestionType {
@@ -68,7 +80,12 @@ model User {
   role         UserRole @default(BUYER)
   createdAt    DateTime @default(now())
 
-  createdRfps Rfp[]
+  approvalLimit   Float? // hasta qué valor de RFP puede aprobar
+  approvalGroupId String?
+  approvalGroup   ApprovalGroup? @relation(fields: [approvalGroupId], references: [id], onDelete: SetNull)
+
+  createdRfps       Rfp[]
+  approvalDecisions RfpApprovalDecision[]
 }
 
 // Datos maestros: los valores permitidos para los desplegables de Commodity
@@ -106,6 +123,22 @@ model Origin {
   parent      Origin?  @relation("OriginTree", fields: [parentId], references: [id])
   children    Origin[] @relation("OriginTree")
   createdAt   DateTime @default(now())
+}
+
+// Grupo de aprobación (ej. "Aprobador IT"): datos maestros, mismo shape que
+// Commodity/Region/Origin para reutilizar el editor genérico. Los usuarios
+// se asignan a un grupo con un límite individual de aprobación (User.approvalLimit).
+model ApprovalGroup {
+  id          String          @id @default(cuid())
+  code        String          @unique
+  description String
+  parentId    String?
+  parent      ApprovalGroup?  @relation("ApprovalGroupTree", fields: [parentId], references: [id])
+  children    ApprovalGroup[] @relation("ApprovalGroupTree")
+  createdAt   DateTime        @default(now())
+
+  users  User[]
+  levels ApprovalLevel[]
 }
 
 enum SupplierDirectoryStatus {
@@ -149,9 +182,10 @@ model RfpTemplate {
   questions TemplateQuestion[]
 }
 
-// Proceso de aprobación de 2 etapas (publicar / adjudicar), configurado por
-// el administrador y asignado a una o varias plantillas. El aprobador de
-// cada etapa se define por rol mínimo o por una lista puntual de usuarios.
+// Proceso de aprobación de N niveles por etapa (publicar / adjudicar),
+// configurado por el administrador y asignado a una o varias plantillas.
+// Cada nivel (ApprovalLevel) se aprueba en secuencia: el nivel N+1 solo
+// queda activo cuando el nivel N está aprobado.
 model ApprovalWorkflow {
   id          String   @id @default(cuid())
   name        String
@@ -160,18 +194,33 @@ model ApprovalWorkflow {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  publishRequired        Boolean      @default(true)
-  publishApproverMode    ApproverMode @default(ROLE)
-  publishMinRole         UserRole     @default(SENIOR_BUYER)
-  publishApproverUserIds String? // JSON string[] cuando publishApproverMode = USERS
-
-  awardRequired        Boolean      @default(true)
-  awardApproverMode    ApproverMode @default(ROLE)
-  awardMinRole         UserRole     @default(SENIOR_BUYER)
-  awardApproverUserIds String? // JSON string[] cuando awardApproverMode = USERS
-
   templates RfpTemplate[]
   rfps      Rfp[]
+  levels    ApprovalLevel[]
+}
+
+// Un nivel de aprobación dentro de una etapa (publicar/adjudicar) de un
+// proceso. mode determina cómo se resuelve:
+// - ROLE: cualquier usuario con rol >= minRole
+// - USERS: cualquiera de los usuarios en userIds
+// - GROUP: usuarios del grupo approvalGroupId, evaluados contra el valor
+//   de la RFP; cumulative determina si basta uno solo (con límite propio
+//   suficiente) o si se van sumando límites hasta cubrir el valor.
+model ApprovalLevel {
+  id         String            @id @default(cuid())
+  workflowId String
+  stage      ApprovalStageKind
+  order      Int // secuencia dentro de la etapa, empezando en 0
+
+  mode    ApproverMode
+  minRole UserRole? // mode = ROLE
+  userIds String? // JSON string[], mode = USERS
+
+  approvalGroupId String? // mode = GROUP
+  approvalGroup   ApprovalGroup? @relation(fields: [approvalGroupId], references: [id], onDelete: SetNull)
+  cumulative      Boolean        @default(false) // solo aplica con mode = GROUP
+
+  workflow ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 }
 
 model TemplateItem {
@@ -248,8 +297,6 @@ model Rfp {
 
   approvalWorkflowId  String?
   approvalWorkflow    ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
-  publishApprovalState String? // JSON ApprovalState snapshot (ver actions)
-  awardApprovalState    String? // JSON ApprovalState snapshot (ver actions)
 
   appliedTemplates String? // JSON-encoded {id, name}[] snapshot de las plantillas aplicadas al crearla
 
@@ -259,6 +306,47 @@ model Rfp {
   items       RfpItem[]
   questions   RfpQuestion[]
   invitations Invitation[]
+  approvals   RfpApproval[]
+}
+
+// Snapshot en vivo de un nivel de aprobación para una RFP concreta: se crea
+// una fila por nivel al disparar la etapa (publicar/adjudicar), congelando
+// la config del nivel (mode/minRole/userIds/approvalGroupId/cumulative) y
+// el valor de la RFP evaluado en ese momento, para que editar el proceso
+// más tarde no cambie el requisito de una RFP en curso.
+model RfpApproval {
+  id     String            @id @default(cuid())
+  rfpId  String
+  stage  ApprovalStageKind
+  order  Int
+
+  mode            ApproverMode
+  minRole         UserRole?
+  userIds         String? // JSON string[]
+  approvalGroupId String?
+  cumulative      Boolean      @default(false)
+  requiredValue   Float
+
+  status         RfpApprovalStatus @default(PENDING)
+  rejectedReason String?
+  createdAt      DateTime          @default(now())
+
+  rfp       Rfp                    @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  decisions RfpApprovalDecision[]
+
+  @@unique([rfpId, stage, order])
+}
+
+model RfpApprovalDecision {
+  id         String   @id @default(cuid())
+  approvalId String
+  userId     String
+  decision   String // APPROVED | REJECTED
+  reason     String?
+  decidedAt  DateTime @default(now())
+
+  approval RfpApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id])
 }
 
 model RfpItem {

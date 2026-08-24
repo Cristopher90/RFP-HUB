@@ -3,11 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { ROLE_LEVEL, ROLE_LABEL } from "@/lib/roleLabels";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import { formatRfpNumber } from "@/lib/rfpNumber";
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatRfpNumber,
+} from "@/lib/format";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
-import { parseApprovalState, canDecideApproval } from "@/lib/approvalState";
+import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
 import { groupBySection } from "@/lib/sections";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -16,7 +19,7 @@ import { InviteSupplierForm } from "./InviteSupplierForm";
 import { BuyerQuestionForm } from "./BuyerQuestionForm";
 import { DraftActions } from "./DraftActions";
 import { CopyRfpButton } from "./CopyRfpButton";
-import { PublishApprovalBanner } from "./PublishApprovalBanner";
+import { PublishApprovalSection } from "./PublishApprovalSection";
 import { closeRfp, reopenRfp } from "./actions";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -55,15 +58,13 @@ export default async function RfpDetailPage({
 
   if (!rfp) notFound();
 
-  const publishState = parseApprovalState(rfp.publishApprovalState);
+  const publishLevels =
+    rfp.status === "PENDING_PUBLISH_APPROVAL"
+      ? await describeApprovals(rfp.id, "PUBLISH")
+      : [];
   const canDecidePublish =
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
-    canDecideApproval(publishState, user, ROLE_LEVEL);
-  const publishRequirementLabel = publishState
-    ? publishState.mode === "ROLE"
-      ? `Requiere aprobación de ${ROLE_LABEL[publishState.minRole ?? "SENIOR_BUYER"]} o superior.`
-      : "Requiere aprobación de una persona específica asignada al proceso."
-    : "";
+    (await canDecideActiveLevel(rfp.id, "PUBLISH", user));
 
   const respondedCount = rfp.invitations.filter((i) => i.response).length;
   const awardedInvitation = rfp.invitations.find(
@@ -163,10 +164,10 @@ export default async function RfpDetailPage({
       </div>
 
       {rfp.status === "PENDING_PUBLISH_APPROVAL" && (
-        <PublishApprovalBanner
+        <PublishApprovalSection
           rfpId={rfp.id}
+          levels={publishLevels}
           canDecide={canDecidePublish}
-          requirementLabel={publishRequirementLabel}
         />
       )}
 

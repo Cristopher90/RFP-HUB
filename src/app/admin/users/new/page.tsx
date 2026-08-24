@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { UserForm } from "../UserForm";
 
 export default async function NewUserPage() {
   await requireRole("ADMIN");
+  const groups = await prisma.approvalGroup.findMany({
+    orderBy: { description: "asc" },
+  });
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -17,7 +21,9 @@ export default async function NewUserPage() {
         Nuevo usuario
       </h1>
       <div className="mt-8">
-        <UserForm />
+        <UserForm
+          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
+        />
       </div>
     </div>
   );

@@ -2,8 +2,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { formatRfpNumber } from "@/lib/rfpNumber";
-import type { NewItemInput } from "./new/actions";
+import { formatRfpNumber } from "@/lib/format";
+import type {
+  NewItemInput,
+  NewQuestionInput,
+  NewSupplierInput,
+} from "./new/actions";
 
 export type PreviousRfpResult = {
   id: string;
@@ -58,22 +62,39 @@ export async function searchPreviousRfps(filters: {
   }));
 }
 
-// Builds a fresh items list from a source RFP for "Copiar"/"basar en una
-// RFP anterior". mode "based_on" pulls each item's historicalPrice from
-// the winning (awarded) unit price of that same item in the source RFP;
-// mode "blank" copies structure only, no historical pricing.
+// Builds a fresh items/questions/suppliers set from a source RFP for
+// "Copiar"/"basar en una RFP anterior". mode "based_on" pulls each item's
+// historicalPrice from the winning (awarded) unit price of that same item
+// in the source RFP; mode "blank" copies structure only, no historical
+// pricing. Neither mode carries over template-lock metadata (id,
+// sourceTemplate*Id, locked) — the new RFP re-derives its own template
+// matches from its own (initially blank) commodity/region.
 export async function buildItemsFromSourceRfp(
   sourceRfpId: string,
   mode: "blank" | "based_on",
-): Promise<{ items: NewItemInput[]; sourceTitle: string; sourceNumber: number } | { error: string }> {
+): Promise<
+  | {
+      items: NewItemInput[];
+      questions: NewQuestionInput[];
+      internalQuestions: NewQuestionInput[];
+      suppliers: NewSupplierInput[];
+      sourceTitle: string;
+      sourceNumber: number;
+    }
+  | { error: string }
+> {
   await requireUser();
 
   const source = await prisma.rfp.findUnique({
     where: { id: sourceRfpId },
     include: {
       items: { orderBy: { order: "asc" } },
+      questions: { orderBy: { order: "asc" } },
       invitations: {
-        include: { response: { include: { itemPrices: true } } },
+        include: {
+          supplier: true,
+          response: { include: { itemPrices: true } },
+        },
       },
     },
   });
@@ -105,5 +126,47 @@ export async function buildItemsFromSourceRfp(
       : [],
   }));
 
-  return { items, sourceTitle: source.title, sourceNumber: source.number };
+  function mapQuestions(respondedBy: "SUPPLIER" | "BUYER"): NewQuestionInput[] {
+    return source!.questions
+      .filter((q) => q.respondedBy === respondedBy)
+      .map((q) => ({
+        // El id real de la pregunta origen sirve como clientKey estable
+        // para resolver dependsOnQuestionKey dentro del set copiado; se
+        // descarta al crear (createRfp nunca reutiliza un id existente).
+        clientKey: q.id,
+        section: q.section,
+        text: q.text,
+        type: q.type,
+        options: q.options ? (JSON.parse(q.options) as string[]) : [],
+        required: q.required,
+        weight: q.weight,
+        isPrerequisite: q.isPrerequisite,
+        visibility: q.visibility,
+        respondedBy: q.respondedBy,
+        numberMin: q.numberMin,
+        numberMax: q.numberMax,
+        dependsOnQuestionKey: q.dependsOnQuestionId,
+        dependsOnHeaderField: q.dependsOnHeaderField as
+          | "commodity"
+          | "region"
+          | null,
+        dependsOnValue: q.dependsOnValue ?? "",
+        buyerAnswerValue: q.buyerAnswerValue ?? "",
+      }));
+  }
+
+  const suppliers: NewSupplierInput[] = source.invitations.map((inv) => ({
+    name: inv.supplier.name,
+    email: inv.supplier.email,
+    company: inv.supplier.company,
+  }));
+
+  return {
+    items,
+    questions: mapQuestions("SUPPLIER"),
+    internalQuestions: mapQuestions("BUYER"),
+    suppliers,
+    sourceTitle: source.title,
+    sourceNumber: source.number,
+  };
 }

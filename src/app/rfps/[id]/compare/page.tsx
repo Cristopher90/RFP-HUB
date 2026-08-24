@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, ROLE_LEVEL } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
 import { colorForIndex } from "@/lib/chartColors";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
-import { parseApprovalState, canDecideApproval } from "@/lib/approvalState";
-import { ROLE_LABEL } from "@/lib/roleLabels";
+import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
 import { ComparisonCharts } from "./ComparisonCharts";
 import { AwardPanel } from "./AwardPanel";
 import { ItemPriceTable } from "./ItemPriceTable";
@@ -178,15 +177,12 @@ export default async function ComparePage({
     })
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
-  const awardState = parseApprovalState(rfp.awardApprovalState);
+  const awardLevels = rfp.pendingAwardInvitationId
+    ? await describeApprovals(rfp.id, "AWARD")
+    : [];
   const canDecideAward =
     Boolean(rfp.pendingAwardInvitationId) &&
-    canDecideApproval(awardState, user, ROLE_LEVEL);
-  const awardRequirementLabel = awardState
-    ? awardState.mode === "ROLE"
-      ? `Requiere aprobación de ${ROLE_LABEL[awardState.minRole ?? "SENIOR_BUYER"]} o superior.`
-      : "Requiere aprobación de una persona específica asignada al proceso."
-    : "";
+    (await canDecideActiveLevel(rfp.id, "AWARD", user));
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -409,8 +405,8 @@ export default async function ComparePage({
               initialCriteria={rfp.awardCriteria as AwardCriteria | null}
               initialPriceWeightPct={rfp.priceWeightPct}
               initialPendingInvitationId={rfp.pendingAwardInvitationId}
+              awardLevels={awardLevels}
               canDecideAward={canDecideAward}
-              awardRequirementLabel={awardRequirementLabel}
             />
           </div>
         </>

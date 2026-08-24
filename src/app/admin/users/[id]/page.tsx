@@ -10,7 +10,10 @@ export default async function EditUserPage({
   await requireRole("ADMIN");
   const { id } = await params;
 
-  const user = await prisma.user.findUnique({ where: { id } });
+  const [user, groups] = await Promise.all([
+    prisma.user.findUnique({ where: { id } }),
+    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
+  ]);
   if (!user) notFound();
 
   return (
@@ -36,7 +39,11 @@ export default async function EditUserPage({
             plant: user.plant ?? "",
             costCenter: user.costCenter ?? "",
             role: user.role,
+            approvalLimit:
+              user.approvalLimit !== null ? String(user.approvalLimit) : "",
+            approvalGroupId: user.approvalGroupId ?? "",
           }}
+          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
         />
       </div>
     </div>

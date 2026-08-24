@@ -7,8 +7,13 @@ export default async function ApprovalsPage() {
 
   const workflows = await prisma.approvalWorkflow.findMany({
     orderBy: { createdAt: "desc" },
-    include: { templates: true },
+    include: { templates: true, levels: true },
   });
+
+  function stageSummary(count: number) {
+    if (count === 0) return "No requerida";
+    return `${count} nivel${count === 1 ? "" : "es"}`;
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -70,10 +75,14 @@ export default async function ApprovalsPage() {
                     )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {w.publishRequired ? "Requerida" : "No requerida"}
+                    {stageSummary(
+                      w.levels.filter((l) => l.stage === "PUBLISH").length,
+                    )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {w.awardRequired ? "Requerida" : "No requerida"}
+                    {stageSummary(
+                      w.levels.filter((l) => l.stage === "AWARD").length,
+                    )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {w.templates.length}

@@ -6,10 +6,9 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireUser, ROLE_LEVEL } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { validateAndShapeRfp, type CreateRfpInput } from "../new/actions";
-import { pickApprovalWorkflow, buildApprovalState } from "@/lib/approvalWorkflow";
-import { canDecideApproval, parseApprovalState } from "@/lib/approvalState";
+import { pickApprovalWorkflow, levelsForStage, startStage, recordDecision } from "@/lib/approvalEngine";
 import { matchesTemplate } from "@/lib/templateMatch";
 
 export async function inviteSupplier(
@@ -110,36 +109,35 @@ export async function publishRfp(rfpId: string) {
   const matchingTemplates = (
     await prisma.rfpTemplate.findMany({
       where: { active: true },
-      include: { approvalWorkflow: true },
+      include: { approvalWorkflow: { include: { levels: true } } },
     })
   ).filter((t) => matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? ""));
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
-  const state = buildApprovalState(
-    workflow
-      ? {
-          required: workflow.publishRequired,
-          approverMode: workflow.publishApproverMode,
-          minRole: workflow.publishMinRole,
-          approverUserIds: workflow.publishApproverUserIds,
-        }
-      : null,
-  );
-  if (canDecideApproval(state, user, ROLE_LEVEL)) {
-    state.status = "APPROVED";
-    state.decidedAt = new Date().toISOString();
-    state.decidedByUserId = user.id;
-  }
-  const status = state.status === "APPROVED" ? "OPEN" : "PENDING_PUBLISH_APPROVAL";
+  const levels = levelsForStage(workflow, "PUBLISH");
 
   await prisma.rfp.update({
     where: { id: rfpId },
     data: {
-      status,
+      status: levels.length === 0 ? "OPEN" : "PENDING_PUBLISH_APPROVAL",
       approvalWorkflowId: workflow?.id ?? null,
-      publishApprovalState: JSON.stringify(state),
     },
   });
+
+  if (levels.length > 0) {
+    // A rejected earlier attempt may have left PUBLISH-stage rows behind.
+    await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "PUBLISH" } });
+    const { completed } = await startStage({
+      rfpId,
+      stage: "PUBLISH",
+      levels,
+      requiredValue: rfp.estimatedPrice ?? 0,
+      requesterId: user.id,
+    });
+    if (completed) {
+      await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+    }
+  }
   revalidatePath(`/rfps/${rfpId}`);
 }
 
@@ -172,30 +170,13 @@ export async function updateRfp(
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
 
-  let status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = "DRAFT";
-  let approvalWorkflowId: string | null = null;
-  let publishApprovalState: string | null = existing.publishApprovalState;
-  if (!input.saveAsDraft) {
-    const workflow = pickApprovalWorkflow(matchingTemplates);
-    approvalWorkflowId = workflow?.id ?? null;
-    const state = buildApprovalState(
-      workflow
-        ? {
-            required: workflow.publishRequired,
-            approverMode: workflow.publishApproverMode,
-            minRole: workflow.publishMinRole,
-            approverUserIds: workflow.publishApproverUserIds,
-          }
-        : null,
-    );
-    if (canDecideApproval(state, user, ROLE_LEVEL)) {
-      state.status = "APPROVED";
-      state.decidedAt = new Date().toISOString();
-      state.decidedByUserId = user.id;
-    }
-    status = state.status === "APPROVED" ? "OPEN" : "PENDING_PUBLISH_APPROVAL";
-    publishApprovalState = JSON.stringify(state);
-  }
+  const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
+  const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
+  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = input.saveAsDraft
+    ? "DRAFT"
+    : publishLevels.length === 0
+      ? "OPEN"
+      : "PENDING_PUBLISH_APPROVAL";
 
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
@@ -216,8 +197,7 @@ export async function updateRfp(
       predecessorDocument: input.predecessorDocument.trim() || null,
       basedOnRfpId: input.basedOnRfpId || null,
       scoringEnabled: input.scoringEnabled,
-      approvalWorkflowId,
-      publishApprovalState,
+      approvalWorkflowId: workflow?.id ?? null,
       appliedTemplates:
         matchingTemplates.length > 0
           ? JSON.stringify(
@@ -322,6 +302,22 @@ export async function updateRfp(
     }
   }
 
+  if (publishLevels.length > 0) {
+    // A rejected earlier attempt may have left PUBLISH-stage rows behind —
+    // clear them before starting a fresh chain.
+    await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "PUBLISH" } });
+    const { completed } = await startStage({
+      rfpId,
+      stage: "PUBLISH",
+      levels: publishLevels,
+      requiredValue: estimatedPriceValue ?? 0,
+      requesterId: user.id,
+    });
+    if (completed) {
+      await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+    }
+  }
+
   revalidatePath(`/rfps/${rfpId}`);
   redirect(`/rfps/${rfpId}`);
 }
@@ -332,42 +328,33 @@ export async function approvePublish(rfpId: string) {
   if (!rfp || rfp.status !== "PENDING_PUBLISH_APPROVAL") {
     return { error: "Esta RFP no está pendiente de aprobación." };
   }
-  const state = parseApprovalState(rfp.publishApprovalState);
-  if (!canDecideApproval(state, user, ROLE_LEVEL)) {
-    return { error: "No tienes permiso para aprobar esta publicación." };
-  }
-  const updated = {
-    ...state!,
-    status: "APPROVED" as const,
-    decidedAt: new Date().toISOString(),
-    decidedByUserId: user.id,
-  };
-  await prisma.rfp.update({
-    where: { id: rfpId },
-    data: { status: "OPEN", publishApprovalState: JSON.stringify(updated) },
+  const result = await recordDecision({
+    rfpId,
+    stage: "PUBLISH",
+    userId: user.id,
+    decision: "APPROVED",
   });
+  if (!result.ok) return { error: result.error };
+  if (result.stageCompleted) {
+    await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+  }
   revalidatePath(`/rfps/${rfpId}`);
 }
 
-export async function rejectPublish(rfpId: string) {
+export async function rejectPublish(rfpId: string, reason: string) {
   const user = await requireUser();
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "PENDING_PUBLISH_APPROVAL") {
     return { error: "Esta RFP no está pendiente de aprobación." };
   }
-  const state = parseApprovalState(rfp.publishApprovalState);
-  if (!canDecideApproval(state, user, ROLE_LEVEL)) {
-    return { error: "No tienes permiso para rechazar esta publicación." };
-  }
-  const updated = {
-    ...state!,
-    status: "REJECTED" as const,
-    decidedAt: new Date().toISOString(),
-    decidedByUserId: user.id,
-  };
-  await prisma.rfp.update({
-    where: { id: rfpId },
-    data: { status: "DRAFT", publishApprovalState: JSON.stringify(updated) },
+  const result = await recordDecision({
+    rfpId,
+    stage: "PUBLISH",
+    userId: user.id,
+    decision: "REJECTED",
+    reason,
   });
+  if (!result.ok) return { error: result.error };
+  await prisma.rfp.update({ where: { id: rfpId }, data: { status: "DRAFT" } });
   revalidatePath(`/rfps/${rfpId}`);
 }

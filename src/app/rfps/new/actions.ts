@@ -5,8 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, ROLE_LEVEL } from "@/lib/auth";
 import { matchesTemplate } from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
-import { pickApprovalWorkflow, buildApprovalState } from "@/lib/approvalWorkflow";
-import { canDecideApproval } from "@/lib/approvalState";
+import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -101,7 +100,11 @@ async function findMatchingTemplates(commodity: string, region: string) {
   return (
     await prisma.rfpTemplate.findMany({
       where: { active: true },
-      include: { items: true, questions: true, approvalWorkflow: true },
+      include: {
+        items: true,
+        questions: true,
+        approvalWorkflow: { include: { levels: true } },
+      },
     })
   ).filter((t) => matchesTemplate(t, commodity, region));
 }
@@ -255,32 +258,15 @@ export async function createRfp(
   const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
 
   // Drafts skip approval entirely — only publishing needs it resolved.
-  let status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = "DRAFT";
-  let approvalWorkflowId: string | null = null;
-  let publishApprovalState: string | null = null;
-  if (!input.saveAsDraft) {
-    const workflow = pickApprovalWorkflow(matchingTemplates);
-    approvalWorkflowId = workflow?.id ?? null;
-    const state = buildApprovalState(
-      workflow
-        ? {
-            required: workflow.publishRequired,
-            approverMode: workflow.publishApproverMode,
-            minRole: workflow.publishMinRole,
-            approverUserIds: workflow.publishApproverUserIds,
-          }
-        : null,
-    );
-    if (canDecideApproval(state, user, ROLE_LEVEL)) {
-      // The creator already qualifies to approve their own publish request
-      // — auto-approve instead of making them click twice.
-      state.status = "APPROVED";
-      state.decidedAt = new Date().toISOString();
-      state.decidedByUserId = user.id;
-    }
-    status = state.status === "APPROVED" ? "OPEN" : "PENDING_PUBLISH_APPROVAL";
-    publishApprovalState = JSON.stringify(state);
-  }
+  const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
+  const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
+  const estimatedPriceValue =
+    estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
+  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = input.saveAsDraft
+    ? "DRAFT"
+    : publishLevels.length === 0
+      ? "OPEN"
+      : "PENDING_PUBLISH_APPROVAL";
 
   const rfp = await prisma.rfp.create({
     data: {
@@ -293,16 +279,12 @@ export async function createRfp(
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
       startDate: input.startDate ? new Date(input.startDate) : null,
-      estimatedPrice:
-        estimatedPrice !== null && !Number.isNaN(estimatedPrice)
-          ? estimatedPrice
-          : null,
+      estimatedPrice: estimatedPriceValue,
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
       basedOnRfpId: input.basedOnRfpId || null,
       scoringEnabled: input.scoringEnabled,
-      approvalWorkflowId,
-      publishApprovalState,
+      approvalWorkflowId: workflow?.id ?? null,
       appliedTemplates:
         matchingTemplates.length > 0
           ? JSON.stringify(
@@ -369,6 +351,19 @@ export async function createRfp(
         supplierId: createdSupplier.id,
       },
     });
+  }
+
+  if (publishLevels.length > 0) {
+    const { completed } = await startStage({
+      rfpId: rfp.id,
+      stage: "PUBLISH",
+      levels: publishLevels,
+      requiredValue: estimatedPriceValue ?? 0,
+      requesterId: user.id,
+    });
+    if (completed) {
+      await prisma.rfp.update({ where: { id: rfp.id }, data: { status: "OPEN" } });
+    }
   }
 
   redirect(`/rfps/${rfp.id}`);

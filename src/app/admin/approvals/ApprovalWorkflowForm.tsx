@@ -2,112 +2,221 @@
 
 import { useId, useState, useTransition } from "react";
 import { ROLE_LABEL } from "@/lib/roleLabels";
+import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
 import {
   createApprovalWorkflow,
   updateApprovalWorkflow,
   deleteApprovalWorkflow,
   type ApprovalWorkflowInput,
-  type ApproverMode,
+  type ApprovalLevelInput,
 } from "./actions";
 
 function inputClass() {
   return "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
 
-function StageFields({
+type LevelRow = Omit<ApprovalLevelInput, "stage"> & { clientKey: string };
+
+function emptyLevel(): LevelRow {
+  return {
+    clientKey: makeClientKey(),
+    mode: "ROLE",
+    minRole: "SENIOR_BUYER",
+    userIds: [],
+    approvalGroupId: "",
+    cumulative: false,
+  };
+}
+
+function LevelListEditor({
   title,
-  required,
-  onRequiredChange,
-  mode,
-  onModeChange,
-  minRole,
-  onMinRoleChange,
-  userIds,
-  onUserIdsChange,
+  levels,
+  onChange,
+  groups,
   users,
 }: {
   title: string;
-  required: boolean;
-  onRequiredChange: (v: boolean) => void;
-  mode: ApproverMode;
-  onModeChange: (v: ApproverMode) => void;
-  minRole: UserRole;
-  onMinRoleChange: (v: UserRole) => void;
-  userIds: string[];
-  onUserIdsChange: (v: string[]) => void;
+  levels: LevelRow[];
+  onChange: (levels: LevelRow[]) => void;
+  groups: { id: string; description: string }[];
   users: { id: string; name: string }[];
 }) {
+  function update(clientKey: string, patch: Partial<LevelRow>) {
+    onChange(levels.map((l) => (l.clientKey === clientKey ? { ...l, ...patch } : l)));
+  }
+  function remove(clientKey: string) {
+    onChange(levels.filter((l) => l.clientKey !== clientKey));
+  }
+  function move(clientKey: string, dir: -1 | 1) {
+    const idx = levels.findIndex((l) => l.clientKey === clientKey);
+    const swap = idx + dir;
+    if (idx === -1 || swap < 0 || swap >= levels.length) return;
+    const next = [...levels];
+    [next[idx], next[swap]] = [next[swap], next[idx]];
+    onChange(next);
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 p-4">
-      <label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-        <input
-          type="checkbox"
-          checked={required}
-          onChange={(e) => onRequiredChange(e.target.checked)}
-        />
-        {title}
-      </label>
-      {required && (
-        <div className="mt-3 space-y-3">
-          <div className="flex gap-3 text-sm">
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={mode === "ROLE"}
-                onChange={() => onModeChange("ROLE")}
-              />
-              Por rol mínimo
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input
-                type="radio"
-                checked={mode === "USERS"}
-                onChange={() => onModeChange("USERS")}
-              />
-              Por personas específicas
-            </label>
-          </div>
-          {mode === "ROLE" ? (
-            <select
-              className={inputClass()}
-              value={minRole}
-              onChange={(e) => onMinRoleChange(e.target.value as UserRole)}
-            >
-              {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]} o superior
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
-              {users.length === 0 && (
-                <p className="text-xs text-slate-400">No hay usuarios.</p>
-              )}
-              {users.map((u) => (
-                <label
-                  key={u.id}
-                  className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50"
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
+        <button
+          type="button"
+          onClick={() => onChange([...levels, emptyLevel()])}
+          className="text-xs font-medium text-violet-600 hover:text-violet-700"
+        >
+          + Agregar nivel
+        </button>
+      </div>
+      {levels.length === 0 && (
+        <p className="mt-2 text-xs text-slate-400">
+          Sin niveles — esta etapa no requiere aprobación.
+        </p>
+      )}
+      <div className="mt-3 space-y-3">
+        {levels.map((level, i) => (
+          <div
+            key={level.clientKey}
+            className="rounded-md border border-slate-200 bg-slate-50 p-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">
+                Aprobador {i + 1}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={i === 0}
+                  onClick={() => move(level.clientKey, -1)}
+                  className="text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30"
                 >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  disabled={i === levels.length - 1}
+                  onClick={() => move(level.clientKey, 1)}
+                  className="text-xs text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(level.clientKey)}
+                  className="text-xs text-red-500 hover:text-red-700"
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={level.mode === "ROLE"}
+                  onChange={() => update(level.clientKey, { mode: "ROLE" })}
+                />
+                Rol mínimo
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={level.mode === "USERS"}
+                  onChange={() => update(level.clientKey, { mode: "USERS" })}
+                />
+                Personas específicas
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={level.mode === "GROUP"}
+                  onChange={() => update(level.clientKey, { mode: "GROUP" })}
+                />
+                Grupo (por valor)
+              </label>
+            </div>
+
+            {level.mode === "ROLE" && (
+              <select
+                className={`${inputClass()} mt-2`}
+                value={level.minRole}
+                onChange={(e) =>
+                  update(level.clientKey, { minRole: e.target.value as UserRole })
+                }
+              >
+                {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABEL[r]} o superior
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {level.mode === "USERS" && (
+              <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 bg-white p-2">
+                {users.length === 0 && (
+                  <p className="text-xs text-slate-400">No hay usuarios.</p>
+                )}
+                {users.map((u) => (
+                  <label
+                    key={u.id}
+                    className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={level.userIds.includes(u.id)}
+                      onChange={(e) =>
+                        update(level.clientKey, {
+                          userIds: e.target.checked
+                            ? [...level.userIds, u.id]
+                            : level.userIds.filter((id) => id !== u.id),
+                        })
+                      }
+                    />
+                    {u.name}
+                  </label>
+                ))}
+              </div>
+            )}
+
+            {level.mode === "GROUP" && (
+              <div className="mt-2 space-y-2">
+                <select
+                  className={inputClass()}
+                  value={level.approvalGroupId}
+                  onChange={(e) =>
+                    update(level.clientKey, { approvalGroupId: e.target.value })
+                  }
+                >
+                  <option value="">Selecciona un grupo</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.description}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-start gap-2 text-xs text-slate-600">
                   <input
                     type="checkbox"
-                    checked={userIds.includes(u.id)}
+                    className="mt-0.5"
+                    checked={level.cumulative}
                     onChange={(e) =>
-                      onUserIdsChange(
-                        e.target.checked
-                          ? [...userIds, u.id]
-                          : userIds.filter((id) => id !== u.id),
-                      )
+                      update(level.clientKey, { cumulative: e.target.checked })
                     }
                   />
-                  {u.name}
+                  <span>
+                    Acumulativo: se van sumando los límites de aprobación de
+                    quienes aprueban hasta cubrir el valor de la RFP. Si no
+                    está marcado, aprueba cualquiera del grupo cuyo límite
+                    individual ya cubra ese valor.
+                  </span>
                 </label>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -117,39 +226,29 @@ export function ApprovalWorkflowForm({
   initial,
   templates,
   users,
+  groups,
 }: {
   workflowId?: string;
   initial?: ApprovalWorkflowInput;
   templates: { id: string; name: string }[];
   users: { id: string; name: string }[];
+  groups: { id: string; description: string }[];
 }) {
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
-  const [publishRequired, setPublishRequired] = useState(
-    initial?.publishRequired ?? true,
+  const [publishLevels, setPublishLevels] = useState<LevelRow[]>(
+    () =>
+      initial?.levels
+        .filter((l) => l.stage === "PUBLISH")
+        .map((l) => ({ ...l, clientKey: makeClientKey() })) ?? [],
   );
-  const [publishMode, setPublishMode] = useState<ApproverMode>(
-    initial?.publishApproverMode ?? "ROLE",
-  );
-  const [publishMinRole, setPublishMinRole] = useState<UserRole>(
-    initial?.publishMinRole ?? "SENIOR_BUYER",
-  );
-  const [publishUserIds, setPublishUserIds] = useState<string[]>(
-    initial?.publishApproverUserIds ?? [],
-  );
-  const [awardRequired, setAwardRequired] = useState(
-    initial?.awardRequired ?? true,
-  );
-  const [awardMode, setAwardMode] = useState<ApproverMode>(
-    initial?.awardApproverMode ?? "ROLE",
-  );
-  const [awardMinRole, setAwardMinRole] = useState<UserRole>(
-    initial?.awardMinRole ?? "SENIOR_BUYER",
-  );
-  const [awardUserIds, setAwardUserIds] = useState<string[]>(
-    initial?.awardApproverUserIds ?? [],
+  const [awardLevels, setAwardLevels] = useState<LevelRow[]>(
+    () =>
+      initial?.levels
+        .filter((l) => l.stage === "AWARD")
+        .map((l) => ({ ...l, clientKey: makeClientKey() })) ?? [],
   );
   const [templateIds, setTemplateIds] = useState<string[]>(
     initial?.templateIds ?? [],
@@ -166,14 +265,18 @@ export function ApprovalWorkflowForm({
       name,
       description,
       active,
-      publishRequired,
-      publishApproverMode: publishMode,
-      publishMinRole,
-      publishApproverUserIds: publishUserIds,
-      awardRequired,
-      awardApproverMode: awardMode,
-      awardMinRole,
-      awardApproverUserIds: awardUserIds,
+      levels: [
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        ...publishLevels.map(({ clientKey: _clientKey, ...l }) => ({
+          ...l,
+          stage: "PUBLISH" as const,
+        })),
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        ...awardLevels.map(({ clientKey: _clientKey, ...l }) => ({
+          ...l,
+          stage: "AWARD" as const,
+        })),
+      ],
       templateIds,
     };
     startTransition(async () => {
@@ -249,32 +352,23 @@ export function ApprovalWorkflowForm({
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">Etapas</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Define si se requiere aprobación para publicar y/o para adjudicar,
-          y quién puede aprobar cada una.
+          Cada etapa puede tener varios niveles en secuencia: el nivel N+1
+          solo queda activo cuando el nivel N está aprobado. Una etapa sin
+          niveles no requiere aprobación.
         </p>
         <div className="mt-4 space-y-4">
-          <StageFields
+          <LevelListEditor
             title="Aprobación para publicar"
-            required={publishRequired}
-            onRequiredChange={setPublishRequired}
-            mode={publishMode}
-            onModeChange={setPublishMode}
-            minRole={publishMinRole}
-            onMinRoleChange={setPublishMinRole}
-            userIds={publishUserIds}
-            onUserIdsChange={setPublishUserIds}
+            levels={publishLevels}
+            onChange={setPublishLevels}
+            groups={groups}
             users={users}
           />
-          <StageFields
+          <LevelListEditor
             title="Aprobación para adjudicar"
-            required={awardRequired}
-            onRequiredChange={setAwardRequired}
-            mode={awardMode}
-            onModeChange={setAwardMode}
-            minRole={awardMinRole}
-            onMinRoleChange={setAwardMinRole}
-            userIds={awardUserIds}
-            onUserIdsChange={setAwardUserIds}
+            levels={awardLevels}
+            onChange={setAwardLevels}
+            groups={groups}
             users={users}
           />
         </div>

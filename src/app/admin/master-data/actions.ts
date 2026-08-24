@@ -15,6 +15,7 @@ export type MasterDataItemInput = {
 function pathFor(kind: MasterDataKind) {
   if (kind === "commodity") return "/admin/master-data/commodities";
   if (kind === "region") return "/admin/master-data/regions";
+  if (kind === "approvalGroup") return "/admin/master-data/approval-groups";
   return "/admin/master-data/origins";
 }
 
@@ -79,7 +80,9 @@ export async function saveMasterDataList(
       ? prisma.commodity
       : kind === "region"
         ? prisma.region
-        : prisma.origin;
+        : kind === "approvalGroup"
+          ? prisma.approvalGroup
+          : prisma.origin;
 
   await model.deleteMany({});
   const idByKey = new Map<string, string>();

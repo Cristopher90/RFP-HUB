@@ -14,9 +14,11 @@ function inputClass() {
 export function UserForm({
   userId,
   initial,
+  groups = [],
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
+  groups?: { id: string; description: string }[];
 }) {
   const [form, setForm] = useState<UserFormInput>({
     name: initial?.name ?? "",
@@ -28,6 +30,8 @@ export function UserForm({
     costCenter: initial?.costCenter ?? "",
     role: initial?.role ?? "BUYER",
     password: "",
+    approvalLimit: initial?.approvalLimit ?? "",
+    approvalGroupId: initial?.approvalGroupId ?? "",
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -145,6 +149,37 @@ export function UserForm({
               {ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABEL[r]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Valor de aprobación
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              className={inputClass()}
+              value={form.approvalLimit}
+              onChange={(e) => update({ approvalLimit: e.target.value })}
+              placeholder="Sin límite"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Grupo de aprobación
+            </label>
+            <select
+              className={inputClass()}
+              value={form.approvalGroupId}
+              onChange={(e) => update({ approvalGroupId: e.target.value })}
+            >
+              <option value="">Sin grupo</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.description}
                 </option>
               ))}
             </select>

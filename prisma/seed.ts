@@ -27,10 +27,15 @@ async function main() {
   await prisma.rfpTemplate.deleteMany();
   await prisma.approvalWorkflow.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.approvalGroup.deleteMany();
   await prisma.commodity.deleteMany();
   await prisma.region.deleteMany();
   await prisma.origin.deleteMany();
   await prisma.supplierDirectory.deleteMany();
+
+  const itApprovalGroup = await prisma.approvalGroup.create({
+    data: { code: "APR-IT", description: "Aprobador IT" },
+  });
 
   await prisma.user.createMany({
     data: [
@@ -44,6 +49,8 @@ async function main() {
         costCenter: "CC-COMPRAS",
         passwordHash: hashPassword("comprador123"),
         role: "BUYER",
+        approvalLimit: 500,
+        approvalGroupId: itApprovalGroup.id,
       },
       {
         name: "Bruno",
@@ -55,6 +62,8 @@ async function main() {
         costCenter: "CC-COMPRAS",
         passwordHash: hashPassword("senior123"),
         role: "SENIOR_BUYER",
+        approvalLimit: 5000,
+        approvalGroupId: itApprovalGroup.id,
       },
       {
         name: "Carla",
@@ -150,14 +159,25 @@ async function main() {
     data: {
       name: "Aprobación estándar Hardware / IT",
       description:
-        "Publicar requiere Comprador Senior; adjudicar requiere Administrador.",
+        "Publicar requiere el grupo Aprobador IT (acumulativo, por valor); adjudicar requiere Administrador.",
       active: true,
-      publishRequired: true,
-      publishApproverMode: "ROLE",
-      publishMinRole: "SENIOR_BUYER",
-      awardRequired: true,
-      awardApproverMode: "ROLE",
-      awardMinRole: "ADMIN",
+      levels: {
+        create: [
+          {
+            stage: "PUBLISH",
+            order: 0,
+            mode: "GROUP",
+            approvalGroupId: itApprovalGroup.id,
+            cumulative: true,
+          },
+          {
+            stage: "AWARD",
+            order: 0,
+            mode: "ROLE",
+            minRole: "ADMIN",
+          },
+        ],
+      },
     },
   });
 

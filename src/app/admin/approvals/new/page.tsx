@@ -6,9 +6,10 @@ import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
 export default async function NewApprovalWorkflowPage() {
   await requireRole("ADMIN");
 
-  const [templates, users] = await Promise.all([
+  const [templates, users, groups] = await Promise.all([
     prisma.rfpTemplate.findMany({ orderBy: { name: "asc" } }),
     prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
   ]);
 
   return (
@@ -26,6 +27,7 @@ export default async function NewApprovalWorkflowPage() {
         <ApprovalWorkflowForm
           templates={templates.map((t) => ({ id: t.id, name: t.name }))}
           users={users.map((u) => ({ id: u.id, name: u.name }))}
+          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
         />
       </div>
     </div>

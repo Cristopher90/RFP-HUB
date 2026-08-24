@@ -8,7 +8,3 @@ export async function nextRfpNumber(): Promise<number> {
   const max = await prisma.rfp.aggregate({ _max: { number: true } });
   return (max._max.number ?? 0) + 1;
 }
-
-export function formatRfpNumber(number: number): string {
-  return `RFP-${number}`;
-}

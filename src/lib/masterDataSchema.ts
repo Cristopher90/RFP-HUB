@@ -8,10 +8,11 @@ export type MasterDataRow = {
   PadreID: string;
 };
 
-export type MasterDataKind = "commodity" | "region" | "origin";
+export type MasterDataKind = "commodity" | "region" | "origin" | "approvalGroup";
 
 export const MASTER_DATA_LABEL: Record<MasterDataKind, string> = {
   commodity: "Commodities",
   region: "Regiones",
   origin: "Orígenes",
+  approvalGroup: "Grupos de aprobación",
 };

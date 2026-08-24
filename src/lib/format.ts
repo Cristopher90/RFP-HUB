@@ -1,3 +1,7 @@
+export function formatRfpNumber(number: number): string {
+  return `RFP-${number}`;
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-MX", {
     style: "currency",

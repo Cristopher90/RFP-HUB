@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
-import type { ApprovalWorkflowInput } from "../actions";
+import type { ApprovalWorkflowInput, ApprovalLevelInput } from "../actions";
 
 export default async function EditApprovalWorkflowPage({
   params,
@@ -11,13 +11,17 @@ export default async function EditApprovalWorkflowPage({
   await requireRole("ADMIN");
   const { id } = await params;
 
-  const [workflow, templates, users] = await Promise.all([
-    prisma.approvalWorkflow.findUnique({ where: { id } }),
+  const [workflow, templates, users, groups] = await Promise.all([
+    prisma.approvalWorkflow.findUnique({
+      where: { id },
+      include: { levels: { orderBy: { order: "asc" } } },
+    }),
     prisma.rfpTemplate.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, approvalWorkflowId: true },
     }),
     prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
   ]);
 
   if (!workflow) notFound();
@@ -26,18 +30,16 @@ export default async function EditApprovalWorkflowPage({
     name: workflow.name,
     description: workflow.description ?? "",
     active: workflow.active,
-    publishRequired: workflow.publishRequired,
-    publishApproverMode: workflow.publishApproverMode,
-    publishMinRole: workflow.publishMinRole,
-    publishApproverUserIds: workflow.publishApproverUserIds
-      ? (JSON.parse(workflow.publishApproverUserIds) as string[])
-      : [],
-    awardRequired: workflow.awardRequired,
-    awardApproverMode: workflow.awardApproverMode,
-    awardMinRole: workflow.awardMinRole,
-    awardApproverUserIds: workflow.awardApproverUserIds
-      ? (JSON.parse(workflow.awardApproverUserIds) as string[])
-      : [],
+    levels: workflow.levels.map(
+      (l): ApprovalLevelInput => ({
+        stage: l.stage,
+        mode: l.mode,
+        minRole: l.minRole ?? "SENIOR_BUYER",
+        userIds: l.userIds ? (JSON.parse(l.userIds) as string[]) : [],
+        approvalGroupId: l.approvalGroupId ?? "",
+        cumulative: l.cumulative,
+      }),
+    ),
     templateIds: templates
       .filter((t) => t.approvalWorkflowId === workflow.id)
       .map((t) => t.id),
@@ -60,6 +62,7 @@ export default async function EditApprovalWorkflowPage({
           initial={initial}
           templates={templates.map((t) => ({ id: t.id, name: t.name }))}
           users={users.map((u) => ({ id: u.id, name: u.name }))}
+          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
         />
       </div>
     </div>

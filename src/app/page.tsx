@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/format";
-import { formatRfpNumber } from "@/lib/rfpNumber";
+import { formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RfpFilters } from "@/components/RfpFilters";
+import { findPendingApprovalsForUser } from "@/lib/approvalEngine";
+import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
 export default async function Home({
@@ -36,20 +37,22 @@ export default async function Home({
       : {}),
   };
 
-  const [rfps, commodities, regions, creators] = await Promise.all([
-    prisma.rfp.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        items: true,
-        invitations: { include: { response: true } },
-        createdBy: true,
-      },
-    }),
-    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-    prisma.region.findMany({ orderBy: { description: "asc" } }),
-    isAdmin ? prisma.user.findMany({ orderBy: { name: "asc" } }) : null,
-  ]);
+  const [rfps, commodities, regions, creators, pendingApprovals] =
+    await Promise.all([
+      prisma.rfp.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: true,
+          invitations: { include: { response: true } },
+          createdBy: true,
+        },
+      }),
+      prisma.commodity.findMany({ orderBy: { description: "asc" } }),
+      prisma.region.findMany({ orderBy: { description: "asc" } }),
+      isAdmin ? prisma.user.findMany({ orderBy: { name: "asc" } }) : null,
+      findPendingApprovalsForUser(user.id),
+    ]);
 
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
@@ -81,6 +84,19 @@ export default async function Home({
           + Nueva RFP
         </Link>
       </div>
+
+      {pendingApprovals.length > 0 && (
+        <PendingApprovalsBox
+          items={pendingApprovals.map((p) => ({
+            rfpId: p.rfpId,
+            rfpNumber: p.rfpNumber,
+            rfpTitle: p.rfpTitle,
+            stage: p.stage,
+            approvalId: p.approvalId,
+            createdAt: p.createdAt.toISOString(),
+          }))}
+        />
+      )}
 
       <div className="mb-4 border-b border-slate-200">
         <nav className="-mb-px flex gap-6">

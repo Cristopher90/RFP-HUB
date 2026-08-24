@@ -2,10 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser, ROLE_LEVEL } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { matchesTemplate } from "@/lib/templateMatch";
-import { pickApprovalWorkflow, buildApprovalState } from "@/lib/approvalWorkflow";
-import { canDecideApproval, parseApprovalState } from "@/lib/approvalState";
+import { pickApprovalWorkflow, levelsForStage, startStage, recordDecision } from "@/lib/approvalEngine";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -30,62 +29,73 @@ export async function awardInvitation(
   priceWeightPct: number,
 ) {
   const user = await requireUser();
-  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
+  const rfp = await prisma.rfp.findUnique({
+    where: { id: rfpId },
+    include: { items: true },
+  });
   if (!rfp) return { error: "RFP no encontrada." };
+
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    include: { response: { include: { itemPrices: true } } },
+  });
+  if (!invitation?.response) return { error: "Invitación no encontrada." };
+
+  // "El valor que se adjudicó": el total cotizado por el proveedor propuesto.
+  const awardedValue = rfp.items.reduce((sum, item) => {
+    const price = invitation.response!.itemPrices.find((p) => p.itemId === item.id);
+    return sum + (price ? price.unitPrice * item.quantity : 0);
+  }, 0);
 
   const matchingTemplates = (
     await prisma.rfpTemplate.findMany({
       where: { active: true },
-      include: { approvalWorkflow: true },
+      include: { approvalWorkflow: { include: { levels: true } } },
     })
   ).filter((t) => matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? ""));
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
-  const state = buildApprovalState(
-    workflow
-      ? {
-          required: workflow.awardRequired,
-          approverMode: workflow.awardApproverMode,
-          minRole: workflow.awardMinRole,
-          approverUserIds: workflow.awardApproverUserIds,
-        }
-      : null,
-  );
-  if (canDecideApproval(state, user, ROLE_LEVEL)) {
-    state.status = "APPROVED";
-    state.decidedAt = new Date().toISOString();
-    state.decidedByUserId = user.id;
-  }
+  const levels = levelsForStage(workflow, "AWARD");
 
-  if (state.status === "APPROVED") {
+  // A rejected earlier proposal may have left AWARD-stage rows behind.
+  await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
+
+  await prisma.rfp.update({
+    where: { id: rfpId },
+    data: {
+      pendingAwardInvitationId: invitationId,
+      awardCriteria: criteria,
+      priceWeightPct,
+      approvalWorkflowId: workflow?.id ?? null,
+    },
+  });
+
+  const completed =
+    levels.length === 0
+      ? true
+      : (
+          await startStage({
+            rfpId,
+            stage: "AWARD",
+            levels,
+            requiredValue: awardedValue,
+            requesterId: user.id,
+          })
+        ).completed;
+
+  if (completed) {
     await prisma.rfp.update({
       where: { id: rfpId },
       data: {
         awardedInvitationId: invitationId,
         pendingAwardInvitationId: null,
         awardedAt: new Date(),
-        awardCriteria: criteria,
-        priceWeightPct,
-        approvalWorkflowId: workflow?.id ?? null,
-        awardApprovalState: JSON.stringify(state),
-      },
-    });
-  } else {
-    // Requiere aprobación: se propone la adjudicación sin confirmarla.
-    await prisma.rfp.update({
-      where: { id: rfpId },
-      data: {
-        pendingAwardInvitationId: invitationId,
-        awardCriteria: criteria,
-        priceWeightPct,
-        approvalWorkflowId: workflow?.id ?? null,
-        awardApprovalState: JSON.stringify(state),
       },
     });
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
-  return { status: state.status === "APPROVED" ? "AWARDED" : "PENDING" } as const;
+  return { status: completed ? "AWARDED" : "PENDING" } as const;
 }
 
 export async function approveAward(rfpId: string) {
@@ -94,51 +104,44 @@ export async function approveAward(rfpId: string) {
   if (!rfp?.pendingAwardInvitationId) {
     return { error: "No hay una adjudicación pendiente de aprobación." };
   }
-  const state = parseApprovalState(rfp.awardApprovalState);
-  if (!canDecideApproval(state, user, ROLE_LEVEL)) {
-    return { error: "No tienes permiso para aprobar esta adjudicación." };
-  }
-  const updated = {
-    ...state!,
-    status: "APPROVED" as const,
-    decidedAt: new Date().toISOString(),
-    decidedByUserId: user.id,
-  };
-  await prisma.rfp.update({
-    where: { id: rfpId },
-    data: {
-      awardedInvitationId: rfp.pendingAwardInvitationId,
-      pendingAwardInvitationId: null,
-      awardedAt: new Date(),
-      awardApprovalState: JSON.stringify(updated),
-    },
+  const result = await recordDecision({
+    rfpId,
+    stage: "AWARD",
+    userId: user.id,
+    decision: "APPROVED",
   });
+  if (!result.ok) return { error: result.error };
+  if (result.stageCompleted) {
+    await prisma.rfp.update({
+      where: { id: rfpId },
+      data: {
+        awardedInvitationId: rfp.pendingAwardInvitationId,
+        pendingAwardInvitationId: null,
+        awardedAt: new Date(),
+      },
+    });
+  }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
 }
 
-export async function rejectAward(rfpId: string) {
+export async function rejectAward(rfpId: string, reason: string) {
   const user = await requireUser();
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp?.pendingAwardInvitationId) {
     return { error: "No hay una adjudicación pendiente de aprobación." };
   }
-  const state = parseApprovalState(rfp.awardApprovalState);
-  if (!canDecideApproval(state, user, ROLE_LEVEL)) {
-    return { error: "No tienes permiso para rechazar esta adjudicación." };
-  }
-  const updated = {
-    ...state!,
-    status: "REJECTED" as const,
-    decidedAt: new Date().toISOString(),
-    decidedByUserId: user.id,
-  };
+  const result = await recordDecision({
+    rfpId,
+    stage: "AWARD",
+    userId: user.id,
+    decision: "REJECTED",
+    reason,
+  });
+  if (!result.ok) return { error: result.error };
   await prisma.rfp.update({
     where: { id: rfpId },
-    data: {
-      pendingAwardInvitationId: null,
-      awardApprovalState: JSON.stringify(updated),
-    },
+    data: { pendingAwardInvitationId: null },
   });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
@@ -147,8 +150,9 @@ export async function rejectAward(rfpId: string) {
 export async function revokeAward(rfpId: string) {
   await prisma.rfp.update({
     where: { id: rfpId },
-    data: { awardedInvitationId: null, awardedAt: null, awardApprovalState: null },
+    data: { awardedInvitationId: null, awardedAt: null },
   });
+  await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
 }

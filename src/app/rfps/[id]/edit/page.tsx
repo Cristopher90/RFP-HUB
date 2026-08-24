@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { formatRfpNumber } from "@/lib/rfpNumber";
+import { formatRfpNumber } from "@/lib/format";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import type {
   NewItemInput,

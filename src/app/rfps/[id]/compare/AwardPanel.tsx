@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { ApprovalFlowBanner } from "../ApprovalFlowBanner";
+import type { ApprovalLevelView } from "@/lib/approvalEngine";
 import {
   awardInvitation,
   approveAward,
@@ -50,8 +52,8 @@ export function AwardPanel({
   initialCriteria,
   initialPriceWeightPct,
   initialPendingInvitationId,
+  awardLevels,
   canDecideAward,
-  awardRequirementLabel,
 }: {
   rfpId: string;
   scoringEnabled: boolean;
@@ -63,8 +65,8 @@ export function AwardPanel({
   initialCriteria: AwardCriteria | null;
   initialPriceWeightPct: number | null;
   initialPendingInvitationId: string | null;
+  awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
-  awardRequirementLabel: string;
 }) {
   const [answerScores, setAnswerScores] = useState<Record<string, number | null>>(
     () =>
@@ -199,9 +201,9 @@ export function AwardPanel({
     });
   }
 
-  function handleRejectAward() {
+  function handleRejectAward(reason: string) {
     startTransition(async () => {
-      await rejectAward(rfpId);
+      await rejectAward(rfpId, reason);
       setPendingId(null);
     });
   }
@@ -238,35 +240,14 @@ export function AwardPanel({
       )}
 
       {pendingSupplier && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <div>
-            <p className="text-sm font-semibold text-amber-800">
-              Pendiente de aprobación de adjudicación: {pendingSupplier.name} (
-              {pendingSupplier.company})
-            </p>
-            <p className="text-xs text-amber-700">{awardRequirementLabel}</p>
-          </div>
-          {canDecideAward && (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={handleRejectAward}
-                className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-60"
-              >
-                Rechazar
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={handleApproveAward}
-                className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-60"
-              >
-                Aprobar adjudicación
-              </button>
-            </div>
-          )}
-        </div>
+        <ApprovalFlowBanner
+          title={`Pendiente de aprobación de adjudicación: ${pendingSupplier.name} (${pendingSupplier.company})`}
+          levels={awardLevels}
+          canDecide={canDecideAward}
+          pending={pending}
+          onApprove={handleApproveAward}
+          onReject={handleRejectAward}
+        />
       )}
 
       <CollapsibleSection
