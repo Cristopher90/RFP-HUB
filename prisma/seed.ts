@@ -36,6 +36,9 @@ async function main() {
   const itApprovalGroup = await prisma.approvalGroup.create({
     data: { code: "APR-IT", description: "Aprobador IT" },
   });
+  const comprasApprovalGroup = await prisma.approvalGroup.create({
+    data: { code: "APR-COMPRAS", description: "Aprobador Compras" },
+  });
 
   await prisma.user.createMany({
     data: [
@@ -49,8 +52,6 @@ async function main() {
         costCenter: "CC-COMPRAS",
         passwordHash: hashPassword("comprador123"),
         role: "BUYER",
-        approvalLimit: 500,
-        approvalGroupId: itApprovalGroup.id,
       },
       {
         name: "Bruno",
@@ -62,8 +63,6 @@ async function main() {
         costCenter: "CC-COMPRAS",
         passwordHash: hashPassword("senior123"),
         role: "SENIOR_BUYER",
-        approvalLimit: 5000,
-        approvalGroupId: itApprovalGroup.id,
       },
       {
         name: "Carla",
@@ -78,12 +77,25 @@ async function main() {
       },
     ],
   });
-  const [buyerUser, seniorUser] = await Promise.all([
+  const [buyerUser, seniorUser, adminUser] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { email: "comprador@baseline.rfp" },
     }),
     prisma.user.findUniqueOrThrow({ where: { email: "senior@baseline.rfp" } }),
+    prisma.user.findUniqueOrThrow({ where: { email: "admin@baseline.rfp" } }),
   ]);
+
+  // Cada par usuario+grupo tiene su propio límite: Ana y Bruno solo están
+  // en "Aprobador IT" (con límites distintos); Carla está en ambos grupos,
+  // por lo que una RFP de otro tipo (sin grupo asociado) no la auto-aprueba.
+  await prisma.userApprovalGroup.createMany({
+    data: [
+      { userId: buyerUser.id, approvalGroupId: itApprovalGroup.id, limit: 500 },
+      { userId: seniorUser.id, approvalGroupId: itApprovalGroup.id, limit: 5000 },
+      { userId: adminUser.id, approvalGroupId: itApprovalGroup.id, limit: 100000 },
+      { userId: adminUser.id, approvalGroupId: comprasApprovalGroup.id, limit: 999999 },
+    ],
+  });
 
   const hwCommodity = await prisma.commodity.create({
     data: { code: "HW", description: "Hardware" },
@@ -159,7 +171,7 @@ async function main() {
     data: {
       name: "Aprobación estándar Hardware / IT",
       description:
-        "Publicar requiere el grupo Aprobador IT (acumulativo, por valor); adjudicar requiere Administrador.",
+        "Publicar requiere el grupo Aprobador IT (acumulativo, por valor); adjudicar requiere el grupo Aprobador Compras.",
       active: true,
       levels: {
         create: [
@@ -173,8 +185,9 @@ async function main() {
           {
             stage: "AWARD",
             order: 0,
-            mode: "ROLE",
-            minRole: "ADMIN",
+            mode: "GROUP",
+            approvalGroupId: comprasApprovalGroup.id,
+            cumulative: false,
           },
         ],
       },

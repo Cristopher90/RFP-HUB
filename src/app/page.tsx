@@ -174,18 +174,19 @@ export default async function Home({
                 return (
                   <tr key={rfp.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4">
-                      <Link
-                        href={`/rfps/${rfp.id}`}
-                        className="font-medium text-slate-900 hover:text-violet-600"
-                      >
-                        <span className="mr-1.5 font-normal text-slate-400">
+                      <Link href={`/rfps/${rfp.id}`} className="group flex items-start gap-2.5">
+                        <span className="mt-0.5 inline-flex shrink-0 items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
                           {formatRfpNumber(rfp.number)}
                         </span>
-                        {rfp.title}
+                        <span>
+                          <span className="block font-medium text-slate-900 group-hover:text-violet-600">
+                            {rfp.title}
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {rfp.buyerName}
+                          </span>
+                        </span>
                       </Link>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {rfp.buyerName}
-                      </p>
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={rfp.status} />
@@ -197,7 +198,8 @@ export default async function Home({
                       {rfp.region ?? "—"}
                     </td>
                     <td className="px-5 py-4 text-slate-600">
-                      {rfp.createdBy?.name ?? "—"}
+                      {`${rfp.createdBy?.name ?? ""} ${rfp.createdBy?.lastName ?? ""}`.trim() ||
+                        "—"}
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       {rfp.items.length}

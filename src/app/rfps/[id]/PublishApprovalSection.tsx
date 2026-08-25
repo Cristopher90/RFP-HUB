@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import type { ApprovalLevelView } from "@/lib/approvalEngine";
 import { ApprovalFlowBanner } from "./ApprovalFlowBanner";
-import { approvePublish, rejectPublish } from "./actions";
+import { approvePublish, rejectPublish, sendApprovalReminder } from "./actions";
 
 export function PublishApprovalSection({
   rfpId,
@@ -26,6 +26,11 @@ export function PublishApprovalSection({
       onReject={(reason) =>
         startTransition(async () => {
           await rejectPublish(rfpId, reason);
+        })
+      }
+      onSendReminder={(approvalId) =>
+        startTransition(async () => {
+          await sendApprovalReminder(rfpId, approvalId);
         })
       }
     />

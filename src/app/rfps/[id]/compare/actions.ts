@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { matchesTemplate } from "@/lib/templateMatch";
-import { pickApprovalWorkflow, levelsForStage, startStage, recordDecision } from "@/lib/approvalEngine";
+import {
+  pickApprovalWorkflow,
+  levelsForStage,
+  startStage,
+  recordDecision,
+  sendReminder,
+} from "@/lib/approvalEngine";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -155,4 +161,12 @@ export async function revokeAward(rfpId: string) {
   await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
+}
+
+export async function sendApprovalReminder(rfpId: string, approvalId: string) {
+  await requireUser();
+  const result = await sendReminder(approvalId);
+  if (!result.ok) return { error: result.error };
+  revalidatePath(`/rfps/${rfpId}/compare`);
+  return { error: null };
 }

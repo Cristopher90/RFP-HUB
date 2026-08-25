@@ -115,6 +115,7 @@ export function TemplateForm({
     matchCommodity: string;
     matchRegion: string;
     active: boolean;
+    hideResponsesUntilClosed: boolean;
     items: TemplateItemInput[];
     questions: TemplateQuestionInput[];
   };
@@ -127,6 +128,9 @@ export function TemplateForm({
   );
   const [matchRegion, setMatchRegion] = useState(initial?.matchRegion ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
+  const [hideResponsesUntilClosed, setHideResponsesUntilClosed] = useState(
+    initial?.hideResponsesUntilClosed ?? false,
+  );
   const [items, setItems] = useState<TemplateItemInput[]>(
     initial?.items && initial.items.length > 0 ? initial.items : [emptyItem()],
   );
@@ -399,6 +403,7 @@ export function TemplateForm({
       matchCommodity,
       matchRegion,
       active,
+      hideResponsesUntilClosed,
       items,
       questions: [...questions, ...internalQuestions],
     };
@@ -502,6 +507,17 @@ export function TemplateForm({
                 onChange={(e) => setActive(e.target.checked)}
               />
               Plantilla activa (se aplica a nuevas RFPs que coincidan)
+            </label>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={hideResponsesUntilClosed}
+                onChange={(e) => setHideResponsesUntilClosed(e.target.checked)}
+              />
+              No mostrar respuestas de proveedores hasta el cierre (oferta a
+              ciegas)
             </label>
           </div>
         </div>

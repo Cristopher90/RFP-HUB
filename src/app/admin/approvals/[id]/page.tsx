@@ -34,7 +34,6 @@ export default async function EditApprovalWorkflowPage({
       (l): ApprovalLevelInput => ({
         stage: l.stage,
         mode: l.mode,
-        minRole: l.minRole ?? "SENIOR_BUYER",
         userIds: l.userIds ? (JSON.parse(l.userIds) as string[]) : [],
         approvalGroupId: l.approvalGroupId ?? "",
         cumulative: l.cumulative,

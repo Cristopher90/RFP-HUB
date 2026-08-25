@@ -11,7 +11,7 @@ export default async function EditUserPage({
   const { id } = await params;
 
   const [user, groups] = await Promise.all([
-    prisma.user.findUnique({ where: { id } }),
+    prisma.user.findUnique({ where: { id }, include: { approvalGroups: true } }),
     prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
   ]);
   if (!user) notFound();
@@ -39,9 +39,10 @@ export default async function EditUserPage({
             plant: user.plant ?? "",
             costCenter: user.costCenter ?? "",
             role: user.role,
-            approvalLimit:
-              user.approvalLimit !== null ? String(user.approvalLimit) : "",
-            approvalGroupId: user.approvalGroupId ?? "",
+            approvalGroups: user.approvalGroups.map((g) => ({
+              approvalGroupId: g.approvalGroupId,
+              limit: String(g.limit),
+            })),
           }}
           groups={groups.map((g) => ({ id: g.id, description: g.description }))}
         />

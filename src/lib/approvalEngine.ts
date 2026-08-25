@@ -1,16 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { ROLE_LEVEL, ROLE_LABEL } from "@/lib/roleLabels";
 import { formatCurrency } from "@/lib/format";
-import type {
-  ApprovalStageKind,
-  ApproverMode,
-  UserRole,
-} from "@/generated/prisma/enums";
+import type { ApprovalStageKind, ApproverMode } from "@/generated/prisma/enums";
 
 export type LevelConfig = {
   mode: ApproverMode;
-  minRole: UserRole | null;
   userIds: string | null; // JSON string[]
   approvalGroupId: string | null;
   cumulative: boolean;
@@ -22,7 +16,6 @@ type ApprovalRow = {
   stage: ApprovalStageKind;
   order: number;
   mode: ApproverMode;
-  minRole: UserRole | null;
   userIds: string | null;
   approvalGroupId: string | null;
   cumulative: boolean;
@@ -30,12 +23,28 @@ type ApprovalRow = {
   status: "PENDING" | "APPROVED" | "REJECTED";
 };
 
+// A user may hold a different approval limit per group (e.g. "Aprobador IT"
+// up to $500 and "Aprobador Compras" up to $999,999) — never a single flat
+// limit across every group they belong to.
 type DeciderUser = {
   id: string;
-  role: UserRole;
-  approvalLimit: number | null;
-  approvalGroupId: string | null;
+  groups: { approvalGroupId: string; limit: number }[];
 };
+
+async function loadDeciderUser(userId: string): Promise<DeciderUser | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { approvalGroups: true },
+  });
+  if (!user) return null;
+  return {
+    id: user.id,
+    groups: user.approvalGroups.map((g) => ({
+      approvalGroupId: g.approvalGroupId,
+      limit: g.limit,
+    })),
+  };
+}
 
 // Picks the first matched template (in match order — same "first match
 // wins" convention already used for item/question application via
@@ -59,7 +68,6 @@ export function levelsForStage(
       stage: ApprovalStageKind;
       order: number;
       mode: ApproverMode;
-      minRole: UserRole | null;
       userIds: string | null;
       approvalGroupId: string | null;
       cumulative: boolean;
@@ -73,7 +81,6 @@ export function levelsForStage(
     .sort((a, b) => a.order - b.order)
     .map((l) => ({
       mode: l.mode,
-      minRole: l.minRole,
       userIds: l.userIds,
       approvalGroupId: l.approvalGroupId,
       cumulative: l.cumulative,
@@ -85,23 +92,20 @@ export function levelsForStage(
 export function canDecide(
   approval: Pick<
     ApprovalRow,
-    "mode" | "minRole" | "userIds" | "approvalGroupId" | "cumulative" | "requiredValue"
+    "mode" | "userIds" | "approvalGroupId" | "cumulative" | "requiredValue"
   >,
   user: DeciderUser,
 ): boolean {
-  if (approval.mode === "ROLE") {
-    return ROLE_LEVEL[user.role] >= ROLE_LEVEL[approval.minRole ?? "SENIOR_BUYER"];
-  }
   if (approval.mode === "USERS") {
     const ids = approval.userIds ? (JSON.parse(approval.userIds) as string[]) : [];
     return ids.includes(user.id);
   }
-  // GROUP
-  if (!user.approvalGroupId || user.approvalGroupId !== approval.approvalGroupId) {
-    return false;
-  }
+  // GROUP — the caller's limit is specific to *this* group, not a flat
+  // per-user value, so an unrelated group membership never qualifies them.
+  const membership = user.groups.find((g) => g.approvalGroupId === approval.approvalGroupId);
+  if (!membership) return false;
   if (approval.cumulative) return true;
-  return (user.approvalLimit ?? 0) >= approval.requiredValue;
+  return membership.limit >= approval.requiredValue;
 }
 
 // A user may only decide once per level — otherwise a cumulative GROUP
@@ -119,10 +123,12 @@ async function hasAlreadyDecided(approvalId: string, userId: string) {
 export async function canDecideActiveLevel(
   rfpId: string,
   stage: ApprovalStageKind,
-  user: DeciderUser,
+  userId: string,
 ): Promise<boolean> {
   const { active, rejected } = await getActiveApproval(rfpId, stage);
   if (rejected || !active) return false;
+  const user = await loadDeciderUser(userId);
+  if (!user) return false;
   if (!canDecide(active, user)) return false;
   if (await hasAlreadyDecided(active.id, user.id)) return false;
   return true;
@@ -139,10 +145,11 @@ async function getActiveApproval(rfpId: string, stage: ApprovalStageKind) {
 }
 
 // Creates one RfpApproval row per level (re-sequenced 0..n-1 so gaps in the
-// configured `order` never matter) and auto-decides on behalf of the
-// requester through as many leading levels as they qualify for, so a
-// sufficiently-authorized requester doesn't have to approve their own
-// request in a second click.
+// configured `order` never matter), stamping activatedAt on the first level
+// only (later levels get it once they actually become active), and
+// auto-decides on behalf of the requester through as many leading levels as
+// they qualify for, so a sufficiently-authorized requester doesn't have to
+// approve their own request in a second click.
 export async function startStage(params: {
   rfpId: string;
   stage: ApprovalStageKind;
@@ -153,17 +160,18 @@ export async function startStage(params: {
   const { rfpId, stage, levels, requiredValue, requesterId } = params;
   if (levels.length === 0) return { completed: true };
 
+  const now = new Date();
   await prisma.rfpApproval.createMany({
     data: levels.map((lvl, order) => ({
       rfpId,
       stage,
       order,
       mode: lvl.mode,
-      minRole: lvl.minRole,
       userIds: lvl.userIds,
       approvalGroupId: lvl.approvalGroupId,
       cumulative: lvl.cumulative,
       requiredValue,
+      activatedAt: order === 0 ? now : null,
     })),
   });
 
@@ -192,7 +200,7 @@ export async function recordDecision(input: {
 }): Promise<{ ok: true; stageCompleted: boolean } | { ok: false; error: string }> {
   const { rfpId, stage, userId, decision, reason } = input;
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await loadDeciderUser(userId);
   if (!user) return { ok: false, error: "Usuario no encontrado." };
 
   const { active, rejected } = await getActiveApproval(rfpId, stage);
@@ -227,12 +235,16 @@ export async function recordDecision(input: {
   if (active.mode === "GROUP" && active.cumulative) {
     const approvedDecisions = await prisma.rfpApprovalDecision.findMany({
       where: { approvalId: active.id, decision: "APPROVED" },
-      include: { user: true },
     });
-    const sum = approvedDecisions.reduce(
-      (acc, d) => acc + (d.user.approvalLimit ?? 0),
-      0,
-    );
+    const approvedUserIds = approvedDecisions.map((d) => d.userId);
+    const memberships = await prisma.userApprovalGroup.findMany({
+      where: {
+        approvalGroupId: active.approvalGroupId ?? "",
+        userId: { in: approvedUserIds },
+      },
+    });
+    const limitByUserId = new Map(memberships.map((m) => [m.userId, m.limit]));
+    const sum = approvedUserIds.reduce((acc, id) => acc + (limitByUserId.get(id) ?? 0), 0);
     levelDone = sum >= active.requiredValue;
   }
 
@@ -241,6 +253,17 @@ export async function recordDecision(input: {
       where: { id: active.id },
       data: { status: "APPROVED" },
     });
+    // Activate the next level in the chain, if any — its "pending since"
+    // clock starts now, not back when the whole stage was first triggered.
+    const next = await prisma.rfpApproval.findFirst({
+      where: { rfpId, stage, order: active.order + 1 },
+    });
+    if (next && !next.activatedAt) {
+      await prisma.rfpApproval.update({
+        where: { id: next.id },
+        data: { activatedAt: new Date() },
+      });
+    }
   }
 
   const remaining = await prisma.rfpApproval.count({
@@ -249,13 +272,31 @@ export async function recordDecision(input: {
   return { ok: true, stageCompleted: remaining === 0 };
 }
 
+// Records a reminder nudge on a still-pending level. No email/notification
+// system exists in this app — this only stamps lastReminderAt so the chip
+// popover can show "recordatorio enviado hace X".
+export async function sendReminder(
+  approvalId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const approval = await prisma.rfpApproval.findUnique({ where: { id: approvalId } });
+  if (!approval) return { ok: false, error: "Nivel no encontrado." };
+  if (approval.status !== "PENDING") {
+    return { ok: false, error: "Este nivel ya no está pendiente." };
+  }
+  await prisma.rfpApproval.update({
+    where: { id: approvalId },
+    data: { lastReminderAt: new Date() },
+  });
+  return { ok: true };
+}
+
 // Homepage "pendientes de validar": every (rfpId, stage) pair with a
 // currently-active PENDING level the given user is eligible to decide.
 // Small demo-scale dataset — fetches everything and groups in memory
 // rather than trying to express "earliest pending, no rejected sibling"
 // as a single SQL query.
 export async function findPendingApprovalsForUser(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await loadDeciderUser(userId);
   if (!user) return [];
 
   const rows = await prisma.rfpApproval.findMany({
@@ -298,6 +339,7 @@ export async function findPendingApprovalsForUser(userId: string) {
 }
 
 export type ApprovalLevelView = {
+  id: string;
   order: number;
   label: string;
   cumulative: boolean;
@@ -306,11 +348,15 @@ export type ApprovalLevelView = {
   rejectedReason: string | null;
   active: boolean;
   approverNames: string[];
+  pendingSince: string | null;
+  lastReminderAt: string | null;
+  eligibleApprovers: { id: string; name: string; limit: number | null }[];
 };
 
 // Builds the display data for the header approval-flow chips: one row per
-// level, with a human label (role / user names / group + threshold) and
-// which chip is currently "active" (awaiting a decision).
+// level, with a human label (user names / group + threshold), which chip
+// is currently "active" (awaiting a decision), and enough detail (who's
+// eligible, since when, last reminder) to power the click-to-open popover.
 export async function describeApprovals(
   rfpId: string,
   stage: ApprovalStageKind,
@@ -330,6 +376,22 @@ export async function describeApprovals(
     : [];
   const groupNameById = new Map(groups.map((g) => [g.id, g.description]));
 
+  const memberships = groupIds.length
+    ? await prisma.userApprovalGroup.findMany({
+        where: { approvalGroupId: { in: groupIds } },
+        include: { user: true },
+      })
+    : [];
+  const membersByGroupId = new Map<
+    string,
+    { id: string; name: string; limit: number | null }[]
+  >();
+  for (const m of memberships) {
+    const arr = membersByGroupId.get(m.approvalGroupId) ?? [];
+    arr.push({ id: m.userId, name: m.user.name, limit: m.limit });
+    membersByGroupId.set(m.approvalGroupId, arr);
+  }
+
   const allUserIds = [
     ...new Set(
       approvals.flatMap((a) => (a.userIds ? (JSON.parse(a.userIds) as string[]) : [])),
@@ -345,20 +407,27 @@ export async function describeApprovals(
 
   return approvals.map((a) => {
     const label =
-      a.mode === "ROLE"
-        ? `${ROLE_LABEL[a.minRole ?? "SENIOR_BUYER"]} o superior`
-        : a.mode === "USERS"
-          ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : [])
-              .map((id) => userNameById.get(id) ?? "?")
-              .join(", ")
-          : `${groupNameById.get(a.approvalGroupId ?? "") ?? "Grupo"}${
-              a.cumulative
-                ? " (acumulativo)"
-                : ` (hasta ${formatCurrency(a.requiredValue)})`
-            }`;
+      a.mode === "USERS"
+        ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : [])
+            .map((id) => userNameById.get(id) ?? "?")
+            .join(", ")
+        : `${groupNameById.get(a.approvalGroupId ?? "") ?? "Grupo"}${
+            a.cumulative
+              ? " (acumulativo)"
+              : ` (hasta ${formatCurrency(a.requiredValue)})`
+          }`;
     const active = !blocked && a.status === "PENDING" && !rejectedStage;
     if (a.status !== "APPROVED") blocked = true;
+    const eligibleApprovers =
+      a.mode === "USERS"
+        ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : []).map((id) => ({
+            id,
+            name: userNameById.get(id) ?? "?",
+            limit: null,
+          }))
+        : (membersByGroupId.get(a.approvalGroupId ?? "") ?? []);
     return {
+      id: a.id,
       order: a.order,
       label,
       cumulative: a.cumulative,
@@ -369,6 +438,42 @@ export async function describeApprovals(
       approverNames: a.decisions
         .filter((d) => d.decision === "APPROVED")
         .map((d) => d.user.name),
+      pendingSince: a.activatedAt ? a.activatedAt.toISOString() : null,
+      lastReminderAt: a.lastReminderAt ? a.lastReminderAt.toISOString() : null,
+      eligibleApprovers,
     };
   });
+}
+
+export type ApprovalHistoryEntry = {
+  stage: ApprovalStageKind;
+  order: number;
+  decision: "APPROVED" | "REJECTED";
+  userName: string;
+  reason: string | null;
+  decidedAt: string;
+};
+
+// Flat, chronologically-sortable list of every approve/reject decision
+// across both stages, for the RFP detail page's "Histórico" section.
+export async function getApprovalHistory(rfpId: string): Promise<ApprovalHistoryEntry[]> {
+  const approvals = await prisma.rfpApproval.findMany({
+    where: { rfpId },
+    include: { decisions: { include: { user: true } } },
+    orderBy: [{ stage: "asc" }, { order: "asc" }],
+  });
+  const entries: ApprovalHistoryEntry[] = [];
+  for (const a of approvals) {
+    for (const d of a.decisions) {
+      entries.push({
+        stage: a.stage,
+        order: a.order,
+        decision: d.decision as "APPROVED" | "REJECTED",
+        userName: d.user.name,
+        reason: d.reason,
+        decidedAt: d.decidedAt.toISOString(),
+      });
+    }
+  }
+  return entries.sort((a, b) => a.decidedAt.localeCompare(b.decidedAt));
 }

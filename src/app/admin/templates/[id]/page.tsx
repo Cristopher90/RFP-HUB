@@ -36,6 +36,7 @@ export default async function EditTemplatePage({
     matchCommodity: template.matchCommodity ?? "",
     matchRegion: template.matchRegion ?? "",
     active: template.active,
+    hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     items: template.items.map((i) => ({
       section: i.section,
       name: i.name,

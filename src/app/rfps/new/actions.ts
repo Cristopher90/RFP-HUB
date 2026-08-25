@@ -276,6 +276,7 @@ export async function createRfp(
       buyerName,
       deadlineAt: new Date(input.deadlineAt),
       status,
+      publishedAt: status === "OPEN" ? new Date() : null,
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
       startDate: input.startDate ? new Date(input.startDate) : null,
@@ -285,6 +286,7 @@ export async function createRfp(
       basedOnRfpId: input.basedOnRfpId || null,
       scoringEnabled: input.scoringEnabled,
       approvalWorkflowId: workflow?.id ?? null,
+      hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),
       appliedTemplates:
         matchingTemplates.length > 0
           ? JSON.stringify(
@@ -362,7 +364,10 @@ export async function createRfp(
       requesterId: user.id,
     });
     if (completed) {
-      await prisma.rfp.update({ where: { id: rfp.id }, data: { status: "OPEN" } });
+      await prisma.rfp.update({
+        where: { id: rfp.id },
+        data: { status: "OPEN", publishedAt: new Date() },
+      });
     }
   }
 

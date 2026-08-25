@@ -8,7 +8,13 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { validateAndShapeRfp, type CreateRfpInput } from "../new/actions";
-import { pickApprovalWorkflow, levelsForStage, startStage, recordDecision } from "@/lib/approvalEngine";
+import {
+  pickApprovalWorkflow,
+  levelsForStage,
+  startStage,
+  recordDecision,
+  sendReminder,
+} from "@/lib/approvalEngine";
 import { matchesTemplate } from "@/lib/templateMatch";
 
 export async function inviteSupplier(
@@ -34,12 +40,18 @@ export async function inviteSupplier(
 }
 
 export async function closeRfp(rfpId: string) {
-  await prisma.rfp.update({ where: { id: rfpId }, data: { status: "CLOSED" } });
+  await prisma.rfp.update({
+    where: { id: rfpId },
+    data: { status: "CLOSED", closedAt: new Date() },
+  });
   revalidatePath(`/rfps/${rfpId}`);
 }
 
 export async function reopenRfp(rfpId: string) {
-  await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+  await prisma.rfp.update({
+    where: { id: rfpId },
+    data: { status: "OPEN", closedAt: null },
+  });
   revalidatePath(`/rfps/${rfpId}`);
 }
 
@@ -120,6 +132,7 @@ export async function publishRfp(rfpId: string) {
     where: { id: rfpId },
     data: {
       status: levels.length === 0 ? "OPEN" : "PENDING_PUBLISH_APPROVAL",
+      publishedAt: levels.length === 0 ? new Date() : null,
       approvalWorkflowId: workflow?.id ?? null,
     },
   });
@@ -135,7 +148,10 @@ export async function publishRfp(rfpId: string) {
       requesterId: user.id,
     });
     if (completed) {
-      await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+      await prisma.rfp.update({
+        where: { id: rfpId },
+        data: { status: "OPEN", publishedAt: new Date() },
+      });
     }
   }
   revalidatePath(`/rfps/${rfpId}`);
@@ -189,6 +205,7 @@ export async function updateRfp(
       buyerName,
       deadlineAt: new Date(input.deadlineAt),
       status,
+      publishedAt: status === "OPEN" ? new Date() : null,
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
       startDate: input.startDate ? new Date(input.startDate) : null,
@@ -198,6 +215,7 @@ export async function updateRfp(
       basedOnRfpId: input.basedOnRfpId || null,
       scoringEnabled: input.scoringEnabled,
       approvalWorkflowId: workflow?.id ?? null,
+      hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),
       appliedTemplates:
         matchingTemplates.length > 0
           ? JSON.stringify(
@@ -314,7 +332,10 @@ export async function updateRfp(
       requesterId: user.id,
     });
     if (completed) {
-      await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+      await prisma.rfp.update({
+        where: { id: rfpId },
+        data: { status: "OPEN", publishedAt: new Date() },
+      });
     }
   }
 
@@ -336,7 +357,10 @@ export async function approvePublish(rfpId: string) {
   });
   if (!result.ok) return { error: result.error };
   if (result.stageCompleted) {
-    await prisma.rfp.update({ where: { id: rfpId }, data: { status: "OPEN" } });
+    await prisma.rfp.update({
+      where: { id: rfpId },
+      data: { status: "OPEN", publishedAt: new Date() },
+    });
   }
   revalidatePath(`/rfps/${rfpId}`);
 }
@@ -357,4 +381,12 @@ export async function rejectPublish(rfpId: string, reason: string) {
   if (!result.ok) return { error: result.error };
   await prisma.rfp.update({ where: { id: rfpId }, data: { status: "DRAFT" } });
   revalidatePath(`/rfps/${rfpId}`);
+}
+
+export async function sendApprovalReminder(rfpId: string, approvalId: string) {
+  await requireUser();
+  const result = await sendReminder(approvalId);
+  if (!result.ok) return { error: result.error };
+  revalidatePath(`/rfps/${rfpId}`);
+  return { error: null };
 }

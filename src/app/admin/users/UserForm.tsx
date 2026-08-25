@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ROLE_LABEL } from "@/lib/roleLabels";
+import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
 import { createUser, updateUser, type UserFormInput } from "./actions";
 
@@ -10,6 +11,8 @@ const ROLES: UserRole[] = ["BUYER", "SENIOR_BUYER", "ADMIN"];
 function inputClass() {
   return "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
+
+type ApprovalGroupRow = { clientKey: string; approvalGroupId: string; limit: string };
 
 export function UserForm({
   userId,
@@ -20,7 +23,7 @@ export function UserForm({
   initial?: Omit<UserFormInput, "password">;
   groups?: { id: string; description: string }[];
 }) {
-  const [form, setForm] = useState<UserFormInput>({
+  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",
     client: initial?.client ?? "",
@@ -30,23 +33,47 @@ export function UserForm({
     costCenter: initial?.costCenter ?? "",
     role: initial?.role ?? "BUYER",
     password: "",
-    approvalLimit: initial?.approvalLimit ?? "",
-    approvalGroupId: initial?.approvalGroupId ?? "",
   });
+  const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
+    () =>
+      initial?.approvalGroups?.map((g) => ({ ...g, clientKey: makeClientKey() })) ?? [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function update(patch: Partial<UserFormInput>) {
+  function update(patch: Partial<typeof form>) {
     setForm((prev) => ({ ...prev, ...patch }));
+  }
+
+  function updateGroupRow(clientKey: string, patch: Partial<ApprovalGroupRow>) {
+    setApprovalGroupRows((prev) =>
+      prev.map((r) => (r.clientKey === clientKey ? { ...r, ...patch } : r)),
+    );
+  }
+  function removeGroupRow(clientKey: string) {
+    setApprovalGroupRows((prev) => prev.filter((r) => r.clientKey !== clientKey));
+  }
+  function addGroupRow() {
+    setApprovalGroupRows((prev) => [
+      ...prev,
+      { clientKey: makeClientKey(), approvalGroupId: "", limit: "" },
+    ]);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const payload: UserFormInput = {
+      ...form,
+      approvalGroups: approvalGroupRows.map(({ approvalGroupId, limit }) => ({
+        approvalGroupId,
+        limit,
+      })),
+    };
     startTransition(async () => {
       const result = userId
-        ? await updateUser(userId, form)
-        : await createUser(form);
+        ? await updateUser(userId, payload)
+        : await createUser(payload);
       if (result?.error) setError(result.error);
     });
   }
@@ -139,7 +166,7 @@ export function UserForm({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Grupo (rol)
+              Rol
             </label>
             <select
               className={inputClass()}
@@ -149,37 +176,6 @@ export function UserForm({
               {ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Valor de aprobación
-            </label>
-            <input
-              type="number"
-              min={0}
-              step="any"
-              className={inputClass()}
-              value={form.approvalLimit}
-              onChange={(e) => update({ approvalLimit: e.target.value })}
-              placeholder="Sin límite"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Grupo de aprobación
-            </label>
-            <select
-              className={inputClass()}
-              value={form.approvalGroupId}
-              onChange={(e) => update({ approvalGroupId: e.target.value })}
-            >
-              <option value="">Sin grupo</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.description}
                 </option>
               ))}
             </select>
@@ -200,6 +196,66 @@ export function UserForm({
             />
           </div>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">
+          Grupos de aprobación
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Un usuario puede pertenecer a varios grupos, cada uno con su propio
+          límite. Por ejemplo, hasta $100,000 en &ldquo;Aprobador IT&rdquo;
+          pero sin ningún grupo asociado a otro tipo de compra, lo que exige
+          aprobación desde $0.
+        </p>
+        <div className="mt-4 space-y-2">
+          {approvalGroupRows.length === 0 && (
+            <p className="text-xs text-slate-400">
+              Sin grupos de aprobación asignados.
+            </p>
+          )}
+          {approvalGroupRows.map((row) => (
+            <div key={row.clientKey} className="flex items-center gap-3">
+              <select
+                className={inputClass()}
+                value={row.approvalGroupId}
+                onChange={(e) =>
+                  updateGroupRow(row.clientKey, { approvalGroupId: e.target.value })
+                }
+              >
+                <option value="">Selecciona un grupo</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.description}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={0}
+                step="any"
+                placeholder="Monto"
+                className={`${inputClass()} max-w-[10rem]`}
+                value={row.limit}
+                onChange={(e) => updateGroupRow(row.clientKey, { limit: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() => removeGroupRow(row.clientKey)}
+                className="shrink-0 text-xs font-medium text-red-500 hover:text-red-700"
+              >
+                Quitar
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={addGroupRow}
+          className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700"
+        >
+          + Agregar grupo
+        </button>
       </section>
 
       <div className="flex justify-end">

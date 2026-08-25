@@ -1,9 +1,7 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { ROLE_LABEL } from "@/lib/roleLabels";
 import { makeClientKey } from "@/lib/clientKey";
-import type { UserRole } from "@/generated/prisma/enums";
 import {
   createApprovalWorkflow,
   updateApprovalWorkflow,
@@ -21,8 +19,7 @@ type LevelRow = Omit<ApprovalLevelInput, "stage"> & { clientKey: string };
 function emptyLevel(): LevelRow {
   return {
     clientKey: makeClientKey(),
-    mode: "ROLE",
-    minRole: "SENIOR_BUYER",
+    mode: "USERS",
     userIds: [],
     approvalGroupId: "",
     cumulative: false,
@@ -114,14 +111,6 @@ function LevelListEditor({
               <label className="flex items-center gap-1.5">
                 <input
                   type="radio"
-                  checked={level.mode === "ROLE"}
-                  onChange={() => update(level.clientKey, { mode: "ROLE" })}
-                />
-                Rol mínimo
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
                   checked={level.mode === "USERS"}
                   onChange={() => update(level.clientKey, { mode: "USERS" })}
                 />
@@ -136,22 +125,6 @@ function LevelListEditor({
                 Grupo (por valor)
               </label>
             </div>
-
-            {level.mode === "ROLE" && (
-              <select
-                className={`${inputClass()} mt-2`}
-                value={level.minRole}
-                onChange={(e) =>
-                  update(level.clientKey, { minRole: e.target.value as UserRole })
-                }
-              >
-                {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABEL[r]} o superior
-                  </option>
-                ))}
-              </select>
-            )}
 
             {level.mode === "USERS" && (
               <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 bg-white p-2">

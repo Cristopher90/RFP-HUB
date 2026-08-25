@@ -182,7 +182,13 @@ export default async function ComparePage({
     : [];
   const canDecideAward =
     Boolean(rfp.pendingAwardInvitationId) &&
-    (await canDecideActiveLevel(rfp.id, "AWARD", user));
+    (await canDecideActiveLevel(rfp.id, "AWARD", user.id));
+
+  // "Oferta a ciegas": mientras la plantilla aplicada lo pida y la RFP siga
+  // Abierta, el comprador no ve montos/respuestas de proveedores. Se
+  // revela automáticamente al cerrar (o si ya no está Abierta por otro
+  // motivo, ej. adjudicada).
+  const isBlind = rfp.hideResponsesUntilClosed && rfp.status === "OPEN";
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -241,6 +247,15 @@ export default async function ComparePage({
       {responded.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
           Todavía no hay cotizaciones para comparar.
+        </div>
+      ) : isBlind ? (
+        <div className="mt-8 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-12 text-center text-amber-800">
+          <p className="font-medium">Oferta a ciegas activada</p>
+          <p className="mt-1 text-sm">
+            Las respuestas de los proveedores se mostrarán una vez que
+            cierres la RFP. Ya hay {responded.length} de{" "}
+            {rfp.invitations.length} respuestas recibidas.
+          </p>
         </div>
       ) : (
         <>

@@ -16,14 +16,23 @@ export type UserFormInput = {
   costCenter: string;
   role: UserRole;
   password: string;
-  approvalLimit: string;
-  approvalGroupId: string;
+  approvalGroups: { approvalGroupId: string; limit: string }[];
 };
 
-function parseApprovalLimit(value: string): number | null {
-  if (!value.trim()) return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+// Cleans up the group-limit table: drops incomplete rows, dedupes by group
+// (last one wins), parses the amount.
+function shapeApprovalGroups(rows: { approvalGroupId: string; limit: string }[]) {
+  const byGroupId = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.approvalGroupId) continue;
+    const n = Number(r.limit);
+    if (!Number.isFinite(n)) continue;
+    byGroupId.set(r.approvalGroupId, n);
+  }
+  return [...byGroupId.entries()].map(([approvalGroupId, limit]) => ({
+    approvalGroupId,
+    limit,
+  }));
 }
 
 export async function createUser(
@@ -44,6 +53,7 @@ export async function createUser(
     return { error: `Ya existe un usuario con el correo "${email}".` };
   }
 
+  const approvalGroups = shapeApprovalGroups(input.approvalGroups);
   await prisma.user.create({
     data: {
       name,
@@ -55,8 +65,7 @@ export async function createUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       passwordHash: hashPassword(input.password),
-      approvalLimit: parseApprovalLimit(input.approvalLimit),
-      approvalGroupId: input.approvalGroupId || null,
+      approvalGroups: { create: approvalGroups },
     },
   });
 
@@ -83,6 +92,8 @@ export async function updateUser(
     return { error: `Ya existe un usuario con el correo "${email}".` };
   }
 
+  const approvalGroups = shapeApprovalGroups(input.approvalGroups);
+  await prisma.userApprovalGroup.deleteMany({ where: { userId } });
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -94,8 +105,7 @@ export async function updateUser(
       plant: input.plant.trim() || null,
       costCenter: input.costCenter.trim() || null,
       role: input.role,
-      approvalLimit: parseApprovalLimit(input.approvalLimit),
-      approvalGroupId: input.approvalGroupId || null,
+      approvalGroups: { create: approvalGroups },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },
   });

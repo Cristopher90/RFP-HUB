@@ -4,15 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
-import type { UserRole } from "@/generated/prisma/enums";
 
-export type ApproverMode = "ROLE" | "USERS" | "GROUP";
+export type ApproverMode = "USERS" | "GROUP";
 export type ApprovalStageKind = "PUBLISH" | "AWARD";
 
 export type ApprovalLevelInput = {
   stage: ApprovalStageKind;
   mode: ApproverMode;
-  minRole: UserRole; // mode = ROLE
   userIds: string[]; // mode = USERS
   approvalGroupId: string; // mode = GROUP
   cumulative: boolean; // mode = GROUP
@@ -39,7 +37,6 @@ function shapeLevels(levels: ApprovalLevelInput[], workflowId: string) {
       stage,
       order,
       mode: l.mode,
-      minRole: l.mode === "ROLE" ? l.minRole : null,
       userIds: l.mode === "USERS" ? JSON.stringify(l.userIds) : null,
       approvalGroupId: l.mode === "GROUP" ? l.approvalGroupId : null,
       cumulative: l.mode === "GROUP" ? l.cumulative : false,

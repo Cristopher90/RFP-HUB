@@ -10,7 +10,11 @@ import {
   formatRfpNumber,
 } from "@/lib/format";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
-import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
+import {
+  describeApprovals,
+  canDecideActiveLevel,
+  getApprovalHistory,
+} from "@/lib/approvalEngine";
 import { groupBySection } from "@/lib/sections";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
@@ -20,6 +24,7 @@ import { BuyerQuestionForm } from "./BuyerQuestionForm";
 import { DraftActions } from "./DraftActions";
 import { CopyRfpButton } from "./CopyRfpButton";
 import { PublishApprovalSection } from "./PublishApprovalSection";
+import { CountdownTimer } from "./CountdownTimer";
 import { closeRfp, reopenRfp } from "./actions";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -64,7 +69,35 @@ export default async function RfpDetailPage({
       : [];
   const canDecidePublish =
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
-    (await canDecideActiveLevel(rfp.id, "PUBLISH", user));
+    (await canDecideActiveLevel(rfp.id, "PUBLISH", user.id));
+
+  const STAGE_LABEL: Record<"PUBLISH" | "AWARD", string> = {
+    PUBLISH: "Publicar",
+    AWARD: "Adjudicar",
+  };
+  const history: { date: Date; label: string; detail?: string }[] = [
+    { date: rfp.createdAt, label: "Creación" },
+  ];
+  if (rfp.publishedAt) history.push({ date: rfp.publishedAt, label: "Publicación" });
+  for (const h of await getApprovalHistory(rfp.id)) {
+    history.push({
+      date: new Date(h.decidedAt),
+      label: `${h.decision === "APPROVED" ? "Aprobado" : "Rechazado"} · ${STAGE_LABEL[h.stage]} (nivel ${h.order + 1})`,
+      detail: h.reason ? `${h.userName} — ${h.reason}` : h.userName,
+    });
+  }
+  if (rfp.closedAt) history.push({ date: rfp.closedAt, label: "Cierre" });
+  if (rfp.status === "CLOSED") {
+    for (const inv of rfp.invitations) {
+      if (inv.response) {
+        history.push({
+          date: inv.response.submittedAt,
+          label: `Respuesta de ${inv.supplier.name}`,
+        });
+      }
+    }
+  }
+  history.sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const respondedCount = rfp.invitations.filter((i) => i.response).length;
   const awardedInvitation = rfp.invitations.find(
@@ -112,7 +145,11 @@ export default async function RfpDetailPage({
               </span>
             )}
             <span>Comprador: {rfp.buyerName}</span>
-            <span>Cierra: {formatDate(rfp.deadlineAt)}</span>
+            {rfp.publishedAt && <span>Abre: {formatDateTime(rfp.publishedAt)}</span>}
+            <span>Cierra: {formatDateTime(rfp.deadlineAt)}</span>
+            {rfp.status === "OPEN" && (
+              <CountdownTimer deadline={rfp.deadlineAt.toISOString()} />
+            )}
             {rfp.basedOnRfp && (
               <Link
                 href={`/rfps/${rfp.basedOnRfpId}`}
@@ -468,6 +505,37 @@ export default async function RfpDetailPage({
             </div>
           )}
         </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Histórico"
+        storageKey="rfp-detail-history"
+        className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        {rfp.status !== "CLOSED" && rfp.invitations.some((i) => i.response) && (
+          <p className="mb-3 text-xs text-slate-400">
+            Las fechas de respuesta de los proveedores se mostrarán una vez
+            que se cierre la RFP.
+          </p>
+        )}
+        <ul className="space-y-2">
+          {history.map((h, i) => (
+            <li
+              key={i}
+              className="flex items-baseline justify-between gap-4 border-b border-slate-100 pb-2 text-sm last:border-0"
+            >
+              <span className="text-slate-700">
+                {h.label}
+                {h.detail && (
+                  <span className="ml-1.5 text-slate-400">— {h.detail}</span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs text-slate-500">
+                {formatDateTime(h.date)}
+              </span>
+            </li>
+          ))}
+        </ul>
       </CollapsibleSection>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   rejectAward,
   revokeAward,
   scoreAnswer,
+  sendApprovalReminder,
   type AwardCriteria,
 } from "./actions";
 
@@ -208,6 +209,12 @@ export function AwardPanel({
     });
   }
 
+  function handleSendReminder(approvalId: string) {
+    startTransition(async () => {
+      await sendApprovalReminder(rfpId, approvalId);
+    });
+  }
+
   const awardedSupplier = suppliers.find(
     (s) => s.invitationId === awardedId,
   );
@@ -247,6 +254,7 @@ export function AwardPanel({
           pending={pending}
           onApprove={handleApproveAward}
           onReject={handleRejectAward}
+          onSendReminder={handleSendReminder}
         />
       )}
 

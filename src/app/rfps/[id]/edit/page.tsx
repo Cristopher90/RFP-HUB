@@ -51,6 +51,12 @@ export default async function EditRfpPage({
     return date.toISOString().slice(0, 10);
   }
 
+  function toDatetimeLocalInput(date: Date | null) {
+    if (!date) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   const items: NewItemInput[] = rfp.items.map((i) => ({
     id: i.id,
     section: i.section,
@@ -114,7 +120,7 @@ export default async function EditRfpPage({
     title: rfp.title,
     description: rfp.description,
     buyerName: rfp.buyerName,
-    deadlineAt: toDateInput(rfp.deadlineAt),
+    deadlineAt: toDatetimeLocalInput(rfp.deadlineAt),
     commodity: rfp.commodity ?? "",
     region: rfp.region ?? "",
     startDate: toDateInput(rfp.startDate),

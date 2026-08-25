@@ -131,10 +131,16 @@ function smallInputClass() {
   return "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
 
+function toDatetimeLocalValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function defaultDeadline() {
   const d = new Date();
   d.setDate(d.getDate() + 14);
-  return d.toISOString().slice(0, 10);
+  d.setHours(18, 0, 0, 0);
+  return toDatetimeLocalValue(d);
 }
 
 const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
@@ -911,7 +917,7 @@ export function RfpForm({
             </label>
             <input
               id={`${idBase}-deadline`}
-              type="date"
+              type="datetime-local"
               className={inputClass()}
               value={deadlineAt}
               onChange={(e) => setDeadlineAt(e.target.value)}

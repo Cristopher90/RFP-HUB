@@ -58,6 +58,7 @@ export type SaveTemplateInput = {
   matchCommodity: string;
   matchRegion: string;
   active: boolean;
+  hideResponsesUntilClosed: boolean;
   items: TemplateItemInput[];
   questions: TemplateQuestionInput[];
 };
@@ -121,6 +122,7 @@ export async function saveTemplate(
     matchCommodity: input.matchCommodity.trim() || null,
     matchRegion: input.matchRegion.trim() || null,
     active: input.active,
+    hideResponsesUntilClosed: input.hideResponsesUntilClosed,
   };
 
   const template = templateId
