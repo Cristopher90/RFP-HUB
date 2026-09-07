@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 enum RfpStatus {
@@ -281,7 +281,7 @@ model TemplateQuestion {
 
 model Rfp {
   id          String    @id @default(cuid())
-  number      Int       @unique // ID visible: "RFP-{number}"; asignado en código (SQLite no soporta autoincrement en campos no-id)
+  number      Int       @unique // ID visible: "RFP-{number}"; asignado en código vía nextRfpNumber() en lugar de autoincrement()
   title       String
   description String
   buyerName   String

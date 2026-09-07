@@ -1,6 +1,0 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN "client" TEXT;
-ALTER TABLE "User" ADD COLUMN "companyCode" TEXT;
-ALTER TABLE "User" ADD COLUMN "costCenter" TEXT;
-ALTER TABLE "User" ADD COLUMN "lastName" TEXT;
-ALTER TABLE "User" ADD COLUMN "plant" TEXT;

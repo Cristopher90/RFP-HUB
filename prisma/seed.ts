@@ -1,10 +1,11 @@
+import "dotenv/config";
 import { mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { randomBytes, scryptSync } from "crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const adapter = new PrismaBetterSqlite3({ url: "file:./dev.db" });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
 function hashPassword(password: string) {
