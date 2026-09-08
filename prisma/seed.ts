@@ -5,7 +5,15 @@ import { randomBytes, scryptSync } from "crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// Hosted Postgres (Render, etc.) requires SSL; a plain local instance
+// typically doesn't support it, so only enable it for non-local hosts.
+const connectionString = process.env.DATABASE_URL ?? "";
+const adapter = new PrismaPg({
+  connectionString,
+  ssl: /localhost|127\.0\.0\.1/.test(connectionString)
+    ? undefined
+    : { rejectUnauthorized: false },
+});
 const prisma = new PrismaClient({ adapter });
 
 function hashPassword(password: string) {
