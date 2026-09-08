@@ -1,0 +1,206 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { makeClientKey } from "@/lib/clientKey";
+import { saveItemCatalog, type ItemCatalogItemInput } from "./actions";
+
+function emptyRow(): ItemCatalogItemInput {
+  return {
+    clientKey: makeClientKey(),
+    code: "",
+    name: "",
+    description: "",
+    unit: "unidad",
+    lastPrice: "",
+  };
+}
+
+function inputClass() {
+  return "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+}
+
+function smallInputClass() {
+  return "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+}
+
+export function ItemCatalogForm({
+  initial,
+}: {
+  initial: ItemCatalogItemInput[];
+}) {
+  const [rows, setRows] = useState<ItemCatalogItemInput[]>(
+    initial.length > 0 ? initial : [emptyRow()],
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [filterQuery, setFilterQuery] = useState("");
+
+  function updateRow(clientKey: string, patch: Partial<ItemCatalogItemInput>) {
+    setSuccess(false);
+    setRows((prev) =>
+      prev.map((r) => (r.clientKey === clientKey ? { ...r, ...patch } : r)),
+    );
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+    startTransition(async () => {
+      const result = await saveItemCatalog(rows);
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        setSuccess(true);
+      }
+    });
+  }
+
+  const q = filterQuery.trim().toLowerCase();
+  const filteredRows = rows.filter((r) => {
+    if (!q) return true;
+    return (
+      r.code.toLowerCase().includes(q) ||
+      r.name.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.unit.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Cambios guardados.
+        </div>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              Catálogo de artículos
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Se actualiza solo con el precio adjudicado cada vez que se
+              adjudica una RFP. También puedes agregar o corregir entradas a
+              mano.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRows((prev) => [...prev, emptyRow()])}
+            className="text-sm font-medium text-violet-600 hover:text-violet-700"
+          >
+            + Agregar
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <input
+            className={inputClass()}
+            placeholder="Buscar por código, artículo, descripción o unidad..."
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[900px] border-separate border-spacing-y-2 text-sm">
+            <thead>
+              <tr className="text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="px-3 pb-1">Código</th>
+                <th className="px-3 pb-1">Artículo</th>
+                <th className="px-3 pb-1">Descripción</th>
+                <th className="px-3 pb-1">Unidad</th>
+                <th className="px-3 pb-1">Último precio</th>
+                <th className="w-16 px-3 pb-1" />
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
+                  <td className="px-3 py-2 first:rounded-l-lg">
+                    <input
+                      className={smallInputClass()}
+                      value={row.code}
+                      onChange={(e) => updateRow(row.clientKey, { code: e.target.value })}
+                      placeholder="Código"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      className={smallInputClass()}
+                      value={row.name}
+                      onChange={(e) => updateRow(row.clientKey, { name: e.target.value })}
+                      placeholder="Nombre del artículo"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      className={smallInputClass()}
+                      value={row.description}
+                      onChange={(e) =>
+                        updateRow(row.clientKey, { description: e.target.value })
+                      }
+                      placeholder="Descripción"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      className={smallInputClass()}
+                      value={row.unit}
+                      onChange={(e) => updateRow(row.clientKey, { unit: e.target.value })}
+                      placeholder="unidad"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      className={smallInputClass()}
+                      value={row.lastPrice}
+                      onChange={(e) =>
+                        updateRow(row.clientKey, { lastPrice: e.target.value })
+                      }
+                      placeholder="Sin dato"
+                    />
+                  </td>
+                  <td className="rounded-r-lg px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRows((prev) => prev.filter((r) => r.clientKey !== row.clientKey))
+                      }
+                      disabled={rows.length === 1}
+                      className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
+                    >
+                      Quitar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
+        >
+          {pending ? "Guardando..." : "Guardar cambios"}
+        </button>
+      </div>
+    </form>
+  );
+}

@@ -5,6 +5,7 @@ import { GearButton } from "@/components/GearButton";
 import { TreeCascadeSelect } from "@/components/TreeCascadeSelect";
 import { TreeSingleSelect } from "@/components/TreeSingleSelect";
 import { SupplierSearchPicker } from "@/components/SupplierSearchPicker";
+import { ItemCatalogPicker, type ItemCatalogEntry } from "@/components/ItemCatalogPicker";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { buildItemsFromSourceRfp } from "../rfpActions";
@@ -188,6 +189,7 @@ export function RfpForm({
   regions,
   origins,
   supplierDirectory,
+  itemCatalog,
   creators,
   mode = "create",
   rfpId,
@@ -209,6 +211,7 @@ export function RfpForm({
     email: string;
     phone: string;
   }[];
+  itemCatalog: ItemCatalogEntry[];
   creators: { id: string; name: string }[];
   mode?: "create" | "edit";
   rfpId?: string;
@@ -1154,6 +1157,23 @@ export function RfpForm({
             >
               + Agregar artículo
             </button>
+            <ItemCatalogPicker
+              items={itemCatalog}
+              onPick={(entry) =>
+                setItems((prev) => [
+                  ...prev,
+                  {
+                    ...emptyItem(),
+                    section: prev[prev.length - 1]?.section ?? null,
+                    code: entry.code,
+                    name: entry.name,
+                    description: entry.description ?? "",
+                    unit: entry.unit,
+                    historicalPrice: entry.lastPrice,
+                  },
+                ])
+              }
+            />
           </div>
         }
       >

@@ -12,24 +12,32 @@ export default async function NewRfpPage({
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
   const copyMode = sp.mode === "based_on" ? "based_on" : "blank";
 
-  const [templates, commodities, regions, origins, supplierDirectory, creators] =
-    await Promise.all([
-      prisma.rfpTemplate.findMany({
-        where: { active: true },
-        include: {
-          items: { orderBy: { order: "asc" } },
-          questions: { orderBy: { order: "asc" } },
-        },
-      }),
-      prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-      prisma.region.findMany({ orderBy: { description: "asc" } }),
-      prisma.origin.findMany({ orderBy: { description: "asc" } }),
-      prisma.supplierDirectory.findMany({
-        where: { status: "ACTIVE" },
-        orderBy: { companyName: "asc" },
-      }),
-      prisma.user.findMany({ orderBy: { name: "asc" } }),
-    ]);
+  const [
+    templates,
+    commodities,
+    regions,
+    origins,
+    supplierDirectory,
+    itemCatalog,
+    creators,
+  ] = await Promise.all([
+    prisma.rfpTemplate.findMany({
+      where: { active: true },
+      include: {
+        items: { orderBy: { order: "asc" } },
+        questions: { orderBy: { order: "asc" } },
+      },
+    }),
+    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
+    prisma.region.findMany({ orderBy: { description: "asc" } }),
+    prisma.origin.findMany({ orderBy: { description: "asc" } }),
+    prisma.supplierDirectory.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { companyName: "asc" },
+    }),
+    prisma.itemCatalog.findMany({ orderBy: { code: "asc" } }),
+    prisma.user.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   let initial: RfpInitialData | undefined;
   if (copyFrom) {
@@ -75,6 +83,7 @@ export default async function NewRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={supplierDirectory}
+          itemCatalog={itemCatalog}
           creators={creators}
           initial={initial}
           templates={templates.map((t) => ({

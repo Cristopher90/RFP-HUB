@@ -15,33 +15,42 @@ export default async function EditRfpPage({
   const { id } = await params;
   const user = await requireUser();
 
-  const [rfp, templates, commodities, regions, origins, supplierDirectory, creators] =
-    await Promise.all([
-      prisma.rfp.findUnique({
-        where: { id },
-        include: {
-          items: { orderBy: { order: "asc" } },
-          questions: { orderBy: { order: "asc" } },
-          invitations: { include: { supplier: true } },
-          basedOnRfp: { select: { number: true, title: true } },
-        },
-      }),
-      prisma.rfpTemplate.findMany({
-        where: { active: true },
-        include: {
-          items: { orderBy: { order: "asc" } },
-          questions: { orderBy: { order: "asc" } },
-        },
-      }),
-      prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-      prisma.region.findMany({ orderBy: { description: "asc" } }),
-      prisma.origin.findMany({ orderBy: { description: "asc" } }),
-      prisma.supplierDirectory.findMany({
-        where: { status: "ACTIVE" },
-        orderBy: { companyName: "asc" },
-      }),
-      prisma.user.findMany({ orderBy: { name: "asc" } }),
-    ]);
+  const [
+    rfp,
+    templates,
+    commodities,
+    regions,
+    origins,
+    supplierDirectory,
+    itemCatalog,
+    creators,
+  ] = await Promise.all([
+    prisma.rfp.findUnique({
+      where: { id },
+      include: {
+        items: { orderBy: { order: "asc" } },
+        questions: { orderBy: { order: "asc" } },
+        invitations: { include: { supplier: true } },
+        basedOnRfp: { select: { number: true, title: true } },
+      },
+    }),
+    prisma.rfpTemplate.findMany({
+      where: { active: true },
+      include: {
+        items: { orderBy: { order: "asc" } },
+        questions: { orderBy: { order: "asc" } },
+      },
+    }),
+    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
+    prisma.region.findMany({ orderBy: { description: "asc" } }),
+    prisma.origin.findMany({ orderBy: { description: "asc" } }),
+    prisma.supplierDirectory.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { companyName: "asc" },
+    }),
+    prisma.itemCatalog.findMany({ orderBy: { code: "asc" } }),
+    prisma.user.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   if (!rfp) notFound();
   if (rfp.status !== "DRAFT") redirect(`/rfps/${rfp.id}`);
@@ -157,6 +166,7 @@ export default async function EditRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={supplierDirectory}
+          itemCatalog={itemCatalog}
           creators={creators}
           templates={templates.map((t) => ({
             id: t.id,

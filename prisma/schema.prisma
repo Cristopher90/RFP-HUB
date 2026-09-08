@@ -175,6 +175,23 @@ model SupplierDirectory {
   createdAt        DateTime                @default(now())
 }
 
+// Catálogo de artículos: se actualiza solo cada vez que se adjudica una RFP
+// (el código, nombre, descripción y unidad del artículo adjudicado, y el
+// precio unitario adjudicado como "último precio"), y también se puede
+// cargar o corregir a mano desde Datos maestros. Sirve para seleccionar un
+// artículo ya conocido al armar una RFP nueva, trayendo su último precio
+// como histórico.
+model ItemCatalog {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  unit        String
+  lastPrice   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 // Plantilla base: el administrador define artículos/preguntas por defecto
 // que se aplican automáticamente a una nueva RFP cuando coincide con las
 // condiciones (commodity/región). Cada artículo/pregunta puede bloquearse

@@ -68,6 +68,12 @@ export default async function AdminPage() {
           >
             Grupos de aprobación
           </Link>
+          <Link
+            href="/admin/master-data/items"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Catálogo de artículos
+          </Link>
         </div>
       </CollapsibleSection>
 

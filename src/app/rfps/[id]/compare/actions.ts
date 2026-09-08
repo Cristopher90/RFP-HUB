@@ -11,6 +11,7 @@ import {
   recordDecision,
   sendReminder,
 } from "@/lib/approvalEngine";
+import { upsertCatalogFromAward } from "@/lib/itemCatalog";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -98,6 +99,7 @@ export async function awardInvitation(
         awardedAt: new Date(),
       },
     });
+    await upsertCatalogFromAward(rfpId, invitationId);
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
@@ -126,6 +128,7 @@ export async function approveAward(rfpId: string) {
         awardedAt: new Date(),
       },
     });
+    await upsertCatalogFromAward(rfpId, rfp.pendingAwardInvitationId);
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
