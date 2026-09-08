@@ -50,6 +50,22 @@ export function CopyRfpButton({ rfpId }: { rfpId: string }) {
                 histórico y enlaza esta RFP como antecesora.
               </span>
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                router.push(`/rfps/new?copyFrom=${rfpId}&mode=next_round`)
+              }
+              className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50"
+            >
+              <span className="block font-medium text-slate-800">
+                Crear como siguiente ronda
+              </span>
+              <span className="block text-xs text-slate-400">
+                Misma negociación, misma información — queda numerada como
+                la próxima ronda y podrás comparar las respuestas entre
+                rondas.
+              </span>
+            </button>
           </div>
         </>
       )}

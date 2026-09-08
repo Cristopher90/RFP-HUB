@@ -11,7 +11,7 @@ import {
   recordDecision,
   sendReminder,
 } from "@/lib/approvalEngine";
-import { upsertCatalogFromAward } from "@/lib/itemCatalog";
+import { addAwardedItemsToCatalog } from "@/lib/itemCatalog";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -99,7 +99,6 @@ export async function awardInvitation(
         awardedAt: new Date(),
       },
     });
-    await upsertCatalogFromAward(rfpId, invitationId);
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
@@ -119,19 +118,23 @@ export async function approveAward(rfpId: string) {
     decision: "APPROVED",
   });
   if (!result.ok) return { error: result.error };
+  const awardedInvitationId = rfp.pendingAwardInvitationId;
   if (result.stageCompleted) {
     await prisma.rfp.update({
       where: { id: rfpId },
       data: {
-        awardedInvitationId: rfp.pendingAwardInvitationId,
+        awardedInvitationId,
         pendingAwardInvitationId: null,
         awardedAt: new Date(),
       },
     });
-    await upsertCatalogFromAward(rfpId, rfp.pendingAwardInvitationId);
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
+  return {
+    completed: result.stageCompleted,
+    invitationId: awardedInvitationId,
+  } as const;
 }
 
 export async function rejectAward(rfpId: string, reason: string) {
@@ -172,4 +175,16 @@ export async function sendApprovalReminder(rfpId: string, approvalId: string) {
   if (!result.ok) return { error: result.error };
   revalidatePath(`/rfps/${rfpId}/compare`);
   return { error: null };
+}
+
+export async function confirmAddToCatalog(
+  rfpId: string,
+  invitationId: string,
+  catalogName: string,
+) {
+  await requireUser();
+  const result = await addAwardedItemsToCatalog(rfpId, invitationId, catalogName);
+  if ("error" in result) return result;
+  revalidatePath("/rfps/new");
+  return result;
 }

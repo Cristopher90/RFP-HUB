@@ -39,6 +39,7 @@ export default async function EditUserPage({
             plant: user.plant ?? "",
             costCenter: user.costCenter ?? "",
             role: user.role,
+            allowFreeTextItems: user.allowFreeTextItems,
             approvalGroups: user.approvalGroups.map((g) => ({
               approvalGroupId: g.approvalGroupId,
               limit: String(g.limit),

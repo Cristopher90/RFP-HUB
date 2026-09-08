@@ -178,13 +178,8 @@ export default async function Home({
                         <span className="mt-0.5 inline-flex shrink-0 items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
                           {formatRfpNumber(rfp.number)}
                         </span>
-                        <span>
-                          <span className="block font-medium text-slate-900 group-hover:text-violet-600">
-                            {rfp.title}
-                          </span>
-                          <span className="block text-xs text-slate-500">
-                            {rfp.buyerName}
-                          </span>
+                        <span className="font-medium text-slate-900 group-hover:text-violet-600">
+                          {rfp.title}
                         </span>
                       </Link>
                     </td>

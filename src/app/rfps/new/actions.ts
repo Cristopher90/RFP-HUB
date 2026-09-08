@@ -25,6 +25,7 @@ export type NewItemInput = {
   sourceTemplateItemId?: string | null;
   sourceTemplateId?: string | null;
   locked?: boolean;
+  sourceItemCatalogEntryId?: string | null;
 };
 
 export type QuestionType =
@@ -81,6 +82,7 @@ export type CreateRfpInput = {
   origin: string;
   predecessorDocument: string;
   basedOnRfpId: string | null;
+  isNextRound?: boolean;
   scoringEnabled: boolean;
   saveAsDraft: boolean;
   items: NewItemInput[];
@@ -133,6 +135,7 @@ function shapeItems(items: NewItemInput[]) {
       ),
       sourceTemplateItemId: item.sourceTemplateItemId || null,
       locked: Boolean(item.locked),
+      sourceItemCatalogEntryId: item.sourceItemCatalogEntryId || null,
     }))
     .filter((item) => item.name.length > 0);
 }
@@ -268,6 +271,19 @@ export async function createRfp(
       ? "OPEN"
       : "PENDING_PUBLISH_APPROVAL";
 
+  let roundNumber = 1;
+  let seriesRootId: string | null = null;
+  if (input.isNextRound && input.basedOnRfpId) {
+    const source = await prisma.rfp.findUnique({
+      where: { id: input.basedOnRfpId },
+      select: { id: true, roundNumber: true, seriesRootId: true },
+    });
+    if (source) {
+      roundNumber = source.roundNumber + 1;
+      seriesRootId = source.seriesRootId ?? source.id;
+    }
+  }
+
   const rfp = await prisma.rfp.create({
     data: {
       number: await nextRfpNumber(),
@@ -284,6 +300,8 @@ export async function createRfp(
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
       basedOnRfpId: input.basedOnRfpId || null,
+      roundNumber,
+      seriesRootId,
       scoringEnabled: input.scoringEnabled,
       approvalWorkflowId: workflow?.id ?? null,
       hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),

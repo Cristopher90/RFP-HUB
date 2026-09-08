@@ -16,6 +16,7 @@ export type UserFormInput = {
   costCenter: string;
   role: UserRole;
   password: string;
+  allowFreeTextItems: boolean;
   approvalGroups: { approvalGroupId: string; limit: string }[];
 };
 
@@ -64,6 +65,7 @@ export async function createUser(
       plant: input.plant.trim() || null,
       costCenter: input.costCenter.trim() || null,
       role: input.role,
+      allowFreeTextItems: input.allowFreeTextItems,
       passwordHash: hashPassword(input.password),
       approvalGroups: { create: approvalGroups },
     },
@@ -105,6 +107,7 @@ export async function updateUser(
       plant: input.plant.trim() || null,
       costCenter: input.costCenter.trim() || null,
       role: input.role,
+      allowFreeTextItems: input.allowFreeTextItems,
       approvalGroups: { create: approvalGroups },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },

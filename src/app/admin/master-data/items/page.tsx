@@ -6,8 +6,9 @@ import { ItemCatalogForm } from "./ItemCatalogForm";
 export default async function ItemCatalogPage() {
   await requireRole("ADMIN");
 
-  const items = await prisma.itemCatalog.findMany({
-    orderBy: { code: "asc" },
+  const items = await prisma.itemCatalogEntry.findMany({
+    include: { catalogList: true },
+    orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
   });
 
   return (
@@ -29,10 +30,12 @@ export default async function ItemCatalogPage() {
         <ItemCatalogForm
           initial={items.map((i) => ({
             clientKey: i.id,
+            catalogName: i.catalogList.name,
             code: i.code,
             name: i.name,
             description: i.description ?? "",
             unit: i.unit,
+            commodity: i.commodity ?? "",
             lastPrice: i.lastPrice !== null ? String(i.lastPrice) : "",
           }))}
         />

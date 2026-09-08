@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { formatCurrency, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime, formatRfpNumber } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { ApprovalFlowBanner } from "../ApprovalFlowBanner";
@@ -13,6 +13,7 @@ import {
   revokeAward,
   scoreAnswer,
   sendApprovalReminder,
+  confirmAddToCatalog,
   type AwardCriteria,
 } from "./actions";
 
@@ -44,6 +45,7 @@ const CRITERIA_LABEL: Record<AwardCriteria, string> = {
 
 export function AwardPanel({
   rfpId,
+  rfpNumber,
   scoringEnabled,
   items,
   questions,
@@ -57,6 +59,7 @@ export function AwardPanel({
   canDecideAward,
 }: {
   rfpId: string;
+  rfpNumber: number;
   scoringEnabled: boolean;
   items: Item[];
   questions: Question[];
@@ -84,6 +87,11 @@ export function AwardPanel({
   const [awardedId, setAwardedId] = useState(initialAwardedId);
   const [pendingId, setPendingId] = useState(initialPendingInvitationId);
   const [pending, startTransition] = useTransition();
+  const [catalogPrompt, setCatalogPrompt] = useState<{ invitationId: string } | null>(
+    null,
+  );
+  const [catalogName, setCatalogName] = useState(formatRfpNumber(rfpNumber));
+  const [catalogSaved, setCatalogSaved] = useState(false);
 
   const totalQuestionWeight = questions.reduce((sum, q) => sum + q.weight, 0);
   const totalItemWeight = items.reduce((sum, i) => sum + i.weight, 0);
@@ -181,6 +189,7 @@ export function AwardPanel({
       if (result?.status === "AWARDED") {
         setAwardedId(invitationId);
         setPendingId(null);
+        setCatalogPrompt({ invitationId });
       } else if (result?.status === "PENDING") {
         setPendingId(invitationId);
       }
@@ -196,9 +205,22 @@ export function AwardPanel({
 
   function handleApproveAward() {
     startTransition(async () => {
-      await approveAward(rfpId);
-      if (pendingId) setAwardedId(pendingId);
+      const result = await approveAward(rfpId);
+      if (result && "completed" in result && result.completed && result.invitationId) {
+        setAwardedId(result.invitationId);
+        setCatalogPrompt({ invitationId: result.invitationId });
+      }
       setPendingId(null);
+    });
+  }
+
+  function handleConfirmAddToCatalog() {
+    if (!catalogPrompt) return;
+    const invitationId = catalogPrompt.invitationId;
+    startTransition(async () => {
+      const result = await confirmAddToCatalog(rfpId, invitationId, catalogName);
+      if (!("error" in result)) setCatalogSaved(true);
+      setCatalogPrompt(null);
     });
   }
 
@@ -222,6 +244,54 @@ export function AwardPanel({
 
   return (
     <div className="space-y-8">
+      {catalogPrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={() => setCatalogPrompt(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-slate-800">
+              ¿Agregar los artículos adjudicados al catálogo?
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Se crearán o actualizarán en el catálogo con nombre:
+            </p>
+            <input
+              autoFocus
+              value={catalogName}
+              onChange={(e) => setCatalogName(e.target.value)}
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCatalogPrompt(null)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Omitir
+              </button>
+              <button
+                type="button"
+                disabled={pending || !catalogName.trim()}
+                onClick={handleConfirmAddToCatalog}
+                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+              >
+                Agregar al catálogo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {catalogSaved && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          Artículos agregados al catálogo.
+        </div>
+      )}
+
       {awardedSupplier && (
         <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
           <div>

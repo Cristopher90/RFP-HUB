@@ -144,7 +144,12 @@ export default async function RfpDetailPage({
                 Adjudicada a {awardedInvitation.supplier.name}
               </span>
             )}
-            <span>Comprador: {rfp.buyerName}</span>
+            <Link
+              href={`/rfps/${rfp.id}/rounds`}
+              className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
+            >
+              Ronda {rfp.roundNumber}
+            </Link>
             {rfp.publishedAt && <span>Abre: {formatDateTime(rfp.publishedAt)}</span>}
             <span>Cierra: {formatDateTime(rfp.deadlineAt)}</span>
             {rfp.status === "OPEN" && (

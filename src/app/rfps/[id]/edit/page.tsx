@@ -48,7 +48,10 @@ export default async function EditRfpPage({
       where: { status: "ACTIVE" },
       orderBy: { companyName: "asc" },
     }),
-    prisma.itemCatalog.findMany({ orderBy: { code: "asc" } }),
+    prisma.itemCatalogEntry.findMany({
+      include: { catalogList: true },
+      orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
+    }),
     prisma.user.findMany({ orderBy: { name: "asc" } }),
   ]);
 
@@ -83,6 +86,7 @@ export default async function EditRfpPage({
       : [],
     sourceTemplateItemId: i.sourceTemplateItemId,
     locked: i.locked,
+    sourceItemCatalogEntryId: i.sourceItemCatalogEntryId,
   }));
 
   function mapQuestions(
@@ -166,7 +170,17 @@ export default async function EditRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={supplierDirectory}
-          itemCatalog={itemCatalog}
+          itemCatalog={itemCatalog.map((i) => ({
+            id: i.id,
+            catalogName: i.catalogList.name,
+            code: i.code,
+            name: i.name,
+            description: i.description,
+            unit: i.unit,
+            commodity: i.commodity,
+            lastPrice: i.lastPrice,
+          }))}
+          allowFreeTextItems={user.allowFreeTextItems}
           creators={creators}
           templates={templates.map((t) => ({
             id: t.id,

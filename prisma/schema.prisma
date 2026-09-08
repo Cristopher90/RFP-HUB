@@ -78,6 +78,7 @@ model User {
   passwordHash String
   role         UserRole @default(BUYER)
   createdAt    DateTime @default(now())
+  allowFreeTextItems Boolean @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
 
   approvalGroups UserApprovalGroup[]
 
@@ -175,21 +176,36 @@ model SupplierDirectory {
   createdAt        DateTime                @default(now())
 }
 
-// Catálogo de artículos: se actualiza solo cada vez que se adjudica una RFP
-// (el código, nombre, descripción y unidad del artículo adjudicado, y el
-// precio unitario adjudicado como "último precio"), y también se puede
-// cargar o corregir a mano desde Datos maestros. Sirve para seleccionar un
-// artículo ya conocido al armar una RFP nueva, trayendo su último precio
-// como histórico.
-model ItemCatalog {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  name        String
-  description String?
-  unit        String
-  lastPrice   Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa
+// artículos conocidos. Se ofrece crear/usar uno al adjudicar una RFP
+// (nombre por defecto = número de RFP, editable), y también se puede
+// crear y mantener a mano desde Datos maestros.
+model ItemCatalogList {
+  id        String             @id @default(cuid())
+  name      String             @unique
+  createdAt DateTime           @default(now())
+  entries   ItemCatalogEntry[]
+}
+
+// Un artículo dentro de un catálogo, con su último precio conocido. La
+// llave es (catálogo, código) — el mismo código puede repetirse en
+// catálogos distintos. Sirve para seleccionar un artículo ya conocido al
+// armar una RFP nueva, trayendo su último precio como histórico; una vez
+// elegido, sus datos quedan fijos (no editables) en esa RFP.
+model ItemCatalogEntry {
+  id            String          @id @default(cuid())
+  catalogListId String
+  code          String
+  name          String
+  description   String?
+  unit          String
+  commodity     String?
+  lastPrice     Float?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  catalogList   ItemCatalogList @relation(fields: [catalogListId], references: [id], onDelete: Cascade)
+
+  @@unique([catalogListId, code])
 }
 
 // Plantilla base: el administrador define artículos/preguntas por defecto
@@ -323,6 +339,11 @@ model Rfp {
   basedOnRfp   Rfp?    @relation("RfpLineage", fields: [basedOnRfpId], references: [id], onDelete: SetNull)
   copies       Rfp[]   @relation("RfpLineage")
 
+  roundNumber  Int     @default(1) // 1 = primera ronda; N+1 al "crear como siguiente ronda"
+  seriesRootId String? // apunta a la ronda 1 de la serie (null si esta RFP es la ronda 1)
+  seriesRoot   Rfp?    @relation("RfpSeries", fields: [seriesRootId], references: [id], onDelete: SetNull)
+  seriesRounds Rfp[]   @relation("RfpSeries")
+
   scoringEnabled Boolean @default(true) // si se activó ponderación de artículos o preguntas al crearla
 
   awardCriteria       String?
@@ -403,6 +424,7 @@ model RfpItem {
   section     String? // nombre de la sección a la que pertenece (agrupa y numera)
   sourceTemplateItemId String? // de qué TemplateItem vino (si aplica)
   locked      Boolean @default(false) // si venía bloqueado por la plantilla
+  sourceItemCatalogEntryId String? // de qué ItemCatalogEntry vino (si aplica) — sus datos quedan fijos, sin excepción de rol
 
   rfp         Rfp @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   itemPrices  ItemPrice[]

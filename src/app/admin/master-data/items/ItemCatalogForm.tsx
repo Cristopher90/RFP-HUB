@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import { saveItemCatalog, type ItemCatalogItemInput } from "./actions";
+import { parseItemCatalogExcelFile } from "./itemCatalogImport";
+import { downloadItemCatalogExcel } from "./itemCatalogExport";
 
 function emptyRow(): ItemCatalogItemInput {
   return {
     clientKey: makeClientKey(),
+    catalogName: "",
     code: "",
     name: "",
     description: "",
     unit: "unidad",
+    commodity: "",
     lastPrice: "",
   };
 }
@@ -35,6 +39,35 @@ export function ItemCatalogForm({
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
   const [filterQuery, setFilterQuery] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setImporting(true);
+    try {
+      const imported = await parseItemCatalogExcelFile(file);
+      if (imported.length === 0) {
+        setImportError("No se encontraron filas con las columnas esperadas.");
+        return;
+      }
+      setSuccess(false);
+      setRows((prev) => {
+        const kept = prev.filter(
+          (r) => r.catalogName.trim().length > 0 || r.code.trim().length > 0,
+        );
+        return [...kept, ...imported];
+      });
+    } catch {
+      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
 
   function updateRow(clientKey: string, patch: Partial<ItemCatalogItemInput>) {
     setSuccess(false);
@@ -61,10 +94,12 @@ export function ItemCatalogForm({
   const filteredRows = rows.filter((r) => {
     if (!q) return true;
     return (
+      r.catalogName.toLowerCase().includes(q) ||
       r.code.toLowerCase().includes(q) ||
       r.name.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
-      r.unit.toLowerCase().includes(q)
+      r.unit.toLowerCase().includes(q) ||
+      r.commodity.toLowerCase().includes(q)
     );
   });
 
@@ -80,6 +115,45 @@ export function ItemCatalogForm({
           Cambios guardados.
         </div>
       )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
+        <div>
+          <p className="text-sm font-medium text-slate-700">
+            Cargar catálogo desde Excel
+          </p>
+          <p className="text-xs text-slate-400">
+            Columnas: Catalogo, Codigo, Articulo, Descripcion, Unidad,
+            Commodity, UltimoPrecio. Se agrega a lo que ya tengas.
+          </p>
+          {importError && (
+            <p className="mt-1 text-xs text-red-600">{importError}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => downloadItemCatalogExcel("Catalogo-articulos.xlsx", rows)}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            Exportar Excel
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={handleImportExcel}
+          />
+          <button
+            type="button"
+            disabled={importing}
+            onClick={() => importInputRef.current?.click()}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+          >
+            {importing ? "Importando..." : "Importar Excel"}
+          </button>
+        </div>
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,20 +179,22 @@ export function ItemCatalogForm({
         <div className="mt-4">
           <input
             className={inputClass()}
-            placeholder="Buscar por código, artículo, descripción o unidad..."
+            placeholder="Buscar por catálogo, código, artículo, descripción, unidad o commodity..."
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
           />
         </div>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[900px] border-separate border-spacing-y-2 text-sm">
+          <table className="w-full min-w-[1200px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="px-3 pb-1">Catálogo</th>
                 <th className="px-3 pb-1">Código</th>
                 <th className="px-3 pb-1">Artículo</th>
                 <th className="px-3 pb-1">Descripción</th>
                 <th className="px-3 pb-1">Unidad</th>
+                <th className="px-3 pb-1">Commodity</th>
                 <th className="px-3 pb-1">Último precio</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
@@ -127,6 +203,16 @@ export function ItemCatalogForm({
               {filteredRows.map((row) => (
                 <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
                   <td className="px-3 py-2 first:rounded-l-lg">
+                    <input
+                      className={smallInputClass()}
+                      value={row.catalogName}
+                      onChange={(e) =>
+                        updateRow(row.clientKey, { catalogName: e.target.value })
+                      }
+                      placeholder="Nombre del catálogo"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
                     <input
                       className={smallInputClass()}
                       value={row.code}
@@ -158,6 +244,16 @@ export function ItemCatalogForm({
                       value={row.unit}
                       onChange={(e) => updateRow(row.clientKey, { unit: e.target.value })}
                       placeholder="unidad"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      className={smallInputClass()}
+                      value={row.commodity}
+                      onChange={(e) =>
+                        updateRow(row.clientKey, { commodity: e.target.value })
+                      }
+                      placeholder="Commodity"
                     />
                   </td>
                   <td className="px-3 py-2">

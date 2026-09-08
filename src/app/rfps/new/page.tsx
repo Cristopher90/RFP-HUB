@@ -10,7 +10,8 @@ export default async function NewRfpPage({
   const user = await requireUser();
   const sp = await searchParams;
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
-  const copyMode = sp.mode === "based_on" ? "based_on" : "blank";
+  const copyMode =
+    sp.mode === "based_on" || sp.mode === "next_round" ? sp.mode : "blank";
 
   const [
     templates,
@@ -35,16 +36,30 @@ export default async function NewRfpPage({
       where: { status: "ACTIVE" },
       orderBy: { companyName: "asc" },
     }),
-    prisma.itemCatalog.findMany({ orderBy: { code: "asc" } }),
+    prisma.itemCatalogEntry.findMany({
+      include: { catalogList: true },
+      orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
+    }),
     prisma.user.findMany({ orderBy: { name: "asc" } }),
   ]);
 
+  const isNextRound = copyMode === "next_round";
+  const carriesHistory = copyMode === "based_on" || isNextRound;
+
   let initial: RfpInitialData | undefined;
   if (copyFrom) {
-    const result = await buildItemsFromSourceRfp(copyFrom, copyMode);
+    // "Siguiente ronda" copies exactly like "basar en RFP anterior" (mismos
+    // artículos/proveedores, precio histórico) — solo se marca isNextRound
+    // para que createRfp numere y encadene la ronda.
+    const result = await buildItemsFromSourceRfp(
+      copyFrom,
+      carriesHistory ? "based_on" : "blank",
+    );
     if (!("error" in result)) {
       initial = {
-        title: `Copia de ${result.sourceTitle}`,
+        title: isNextRound
+          ? result.sourceTitle
+          : `Copia de ${result.sourceTitle}`,
         description: "",
         buyerName: user.name,
         deadlineAt: "",
@@ -54,11 +69,11 @@ export default async function NewRfpPage({
         estimatedPrice: "",
         origin: "",
         predecessorDocument: "",
-        basedOnRfpId: copyMode === "based_on" ? copyFrom : null,
-        basedOnRfpLabel:
-          copyMode === "based_on"
-            ? `${formatRfpNumber(result.sourceNumber)} — ${result.sourceTitle}`
-            : null,
+        basedOnRfpId: carriesHistory ? copyFrom : null,
+        basedOnRfpLabel: carriesHistory
+          ? `${formatRfpNumber(result.sourceNumber)} — ${result.sourceTitle}`
+          : null,
+        isNextRound,
         scoringEnabled: false,
         items: result.items,
         questions: result.questions,
@@ -83,7 +98,17 @@ export default async function NewRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={supplierDirectory}
-          itemCatalog={itemCatalog}
+          itemCatalog={itemCatalog.map((i) => ({
+            id: i.id,
+            catalogName: i.catalogList.name,
+            code: i.code,
+            name: i.name,
+            description: i.description,
+            unit: i.unit,
+            commodity: i.commodity,
+            lastPrice: i.lastPrice,
+          }))}
+          allowFreeTextItems={user.allowFreeTextItems}
           creators={creators}
           initial={initial}
           templates={templates.map((t) => ({

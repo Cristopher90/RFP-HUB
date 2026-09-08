@@ -33,6 +33,7 @@ export function UserForm({
     costCenter: initial?.costCenter ?? "",
     role: initial?.role ?? "BUYER",
     password: "",
+    allowFreeTextItems: initial?.allowFreeTextItems ?? true,
   });
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
@@ -179,6 +180,17 @@ export function UserForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={form.allowFreeTextItems}
+                onChange={(e) => update({ allowFreeTextItems: e.target.checked })}
+              />
+              Puede agregar artículos escribiendo la descripción libremente
+              (si no, solo puede elegirlos desde el catálogo)
+            </label>
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">

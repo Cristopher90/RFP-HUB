@@ -400,6 +400,7 @@ export default async function ComparePage({
             </h2>
             <AwardPanel
               rfpId={rfp.id}
+              rfpNumber={rfp.number}
               scoringEnabled={rfp.scoringEnabled}
               items={rfp.items.map((i) => ({
                 id: i.id,

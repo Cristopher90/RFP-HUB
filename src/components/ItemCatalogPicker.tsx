@@ -5,16 +5,20 @@ import { formatCurrency } from "@/lib/format";
 
 export type ItemCatalogEntry = {
   id: string;
+  catalogName: string;
   code: string;
   name: string;
   description: string | null;
   unit: string;
+  commodity: string | null;
   lastPrice: number | null;
 };
 
 // Search-popup picker for the item catalog: unlike SupplierSearchPicker,
 // this isn't bound to a single persistent value — picking a row appends a
 // new RFP item and closes, it's a one-shot "add" action, not a field.
+// Supports both filtering down to one catalog and searching across all of
+// them at once.
 export function ItemCatalogPicker({
   items,
   onPick,
@@ -24,17 +28,25 @@ export function ItemCatalogPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [catalogFilter, setCatalogFilter] = useState("");
+
+  const catalogNames = useMemo(
+    () => [...new Set(items.map((i) => i.catalogName))].sort(),
+    [items],
+  );
 
   const results = useMemo(() => {
+    let list = items;
+    if (catalogFilter) list = list.filter((i) => i.catalogName === catalogFilter);
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) =>
-      [i.code, i.name, i.description ?? "", i.unit]
+    if (!q) return list;
+    return list.filter((i) =>
+      [i.catalogName, i.code, i.name, i.description ?? "", i.unit, i.commodity ?? ""]
         .join(" ")
         .toLowerCase()
         .includes(q),
     );
-  }, [items, query]);
+  }, [items, query, catalogFilter]);
 
   return (
     <>
@@ -52,14 +64,26 @@ export function ItemCatalogPicker({
           onClick={() => setOpen(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-xl bg-white shadow-xl"
+            className="w-full max-w-3xl rounded-xl bg-white shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-slate-200 p-4">
+            <div className="flex flex-col gap-2 border-b border-slate-200 p-4 sm:flex-row">
+              <select
+                value={catalogFilter}
+                onChange={(e) => setCatalogFilter(e.target.value)}
+                className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:w-56"
+              >
+                <option value="">Todos los catálogos</option>
+                {catalogNames.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
               <input
                 autoFocus
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                placeholder="Buscar por código, artículo, descripción o unidad..."
+                className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                placeholder="Buscar por código, artículo, descripción, unidad o commodity..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -75,6 +99,7 @@ export function ItemCatalogPicker({
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     <tr>
+                      <th className="px-4 py-2">Catálogo</th>
                       <th className="px-4 py-2">Código</th>
                       <th className="px-4 py-2">Artículo</th>
                       <th className="px-4 py-2">Descripción</th>
@@ -93,6 +118,7 @@ export function ItemCatalogPicker({
                         }}
                         className="cursor-pointer hover:bg-violet-50"
                       >
+                        <td className="px-4 py-2 text-slate-500">{i.catalogName}</td>
                         <td className="px-4 py-2 text-slate-500">{i.code}</td>
                         <td className="px-4 py-2 font-medium text-slate-800">
                           {i.name}
