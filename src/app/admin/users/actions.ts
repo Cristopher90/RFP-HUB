@@ -3,13 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole, hashPassword } from "@/lib/auth";
+import { hashPassword } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type UserFormInput = {
   name: string;
   lastName: string;
-  client: string;
+  clientId: string | null;
   email: string;
   companyCode: string;
   plant: string;
@@ -36,10 +37,42 @@ function shapeApprovalGroups(rows: { approvalGroupId: string; limit: string }[])
   }));
 }
 
+// A CLIENT_ADMIN acts only within their own client and can never mint or
+// edit a cross-client ADMIN; only ADMIN itself can do either. Returns the
+// clientId to persist, or an error string.
+function resolveTargetClientAndRole(
+  scope: Awaited<ReturnType<typeof requireClientScope>>,
+  input: UserFormInput,
+): { clientId: string | null } | { error: string } {
+  if (scope.isSuperAdmin) {
+    if (input.role === "ADMIN") {
+      if (input.clientId) {
+        return { error: "Un Super Administrador no pertenece a un cliente." };
+      }
+      return { clientId: null };
+    }
+    if (!input.clientId) {
+      return { error: "Selecciona el cliente de este usuario." };
+    }
+    return { clientId: input.clientId };
+  }
+  // CLIENT_ADMIN actor: fixed to their own client, can't grant ADMIN.
+  if (input.role === "ADMIN") {
+    return { error: "Solo un Super Administrador puede crear otro." };
+  }
+  if (!scope.user.clientId) {
+    return { error: "Tu usuario no tiene un cliente asignado." };
+  }
+  return { clientId: scope.user.clientId };
+}
+
 export async function createUser(
   input: UserFormInput,
 ): Promise<{ error: string } | never> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -49,17 +82,25 @@ export async function createUser(
     return { error: "La contraseña debe tener al menos 6 caracteres." };
   }
 
+  const targetClient = resolveTargetClientAndRole(scope, input);
+  if ("error" in targetClient) return targetClient;
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return { error: `Ya existe un usuario con el correo "${email}".` };
   }
 
-  const approvalGroups = shapeApprovalGroups(input.approvalGroups);
+  const approvalGroups = targetClient.clientId
+    ? shapeApprovalGroups(input.approvalGroups).map((g) => ({
+        ...g,
+        clientId: targetClient.clientId as string,
+      }))
+    : [];
   await prisma.user.create({
     data: {
       name,
       lastName: input.lastName.trim() || null,
-      client: input.client.trim() || null,
+      clientId: targetClient.clientId,
       email,
       companyCode: input.companyCode.trim() || null,
       plant: input.plant.trim() || null,
@@ -79,7 +120,16 @@ export async function updateUser(
   userId: string,
   input: UserFormInput,
 ): Promise<{ error: string } | never> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { error: "Usuario no encontrado." };
+  if (!scope.isSuperAdmin && target.clientId !== scope.user.clientId) {
+    return { error: "No podés editar un usuario de otro cliente." };
+  }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -89,19 +139,27 @@ export async function updateUser(
     return { error: "La contraseña debe tener al menos 6 caracteres." };
   }
 
+  const targetClient = resolveTargetClientAndRole(scope, input);
+  if ("error" in targetClient) return targetClient;
+
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing && existing.id !== userId) {
     return { error: `Ya existe un usuario con el correo "${email}".` };
   }
 
-  const approvalGroups = shapeApprovalGroups(input.approvalGroups);
+  const approvalGroups = targetClient.clientId
+    ? shapeApprovalGroups(input.approvalGroups).map((g) => ({
+        ...g,
+        clientId: targetClient.clientId as string,
+      }))
+    : [];
   await prisma.userApprovalGroup.deleteMany({ where: { userId } });
   await prisma.user.update({
     where: { id: userId },
     data: {
       name,
       lastName: input.lastName.trim() || null,
-      client: input.client.trim() || null,
+      clientId: targetClient.clientId,
       email,
       companyCode: input.companyCode.trim() || null,
       plant: input.plant.trim() || null,

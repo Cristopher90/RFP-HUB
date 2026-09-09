@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import {
   ITEM_SHEET_NAME,
   QUESTION_SHEET_NAME,
@@ -17,7 +17,7 @@ export async function GET(
   _request: Request,
   { params }: RouteContext<"/rfps/[id]/export">,
 ) {
-  await requireUser();
+  const scope = await requireClientScope();
   const { id } = await params;
 
   const rfp = await prisma.rfp.findUnique({
@@ -28,7 +28,7 @@ export async function GET(
     },
   });
 
-  if (!rfp) {
+  if (!rfp || (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId)) {
     return NextResponse.json({ error: "RFP no encontrada" }, { status: 404 });
   }
 

@@ -28,11 +28,15 @@ export async function inviteSupplier(
     return { error: "Nombre y correo son obligatorios." };
   }
 
+  const rfp = await prisma.rfp.findUniqueOrThrow({
+    where: { id: rfpId },
+    select: { clientId: true },
+  });
   const supplier = await prisma.supplier.create({
-    data: { name, email, company },
+    data: { name, email, company, clientId: rfp.clientId },
   });
   await prisma.invitation.create({
-    data: { rfpId, supplierId: supplier.id },
+    data: { rfpId, supplierId: supplier.id, clientId: rfp.clientId },
   });
 
   revalidatePath(`/rfps/${rfpId}`);
@@ -182,7 +186,8 @@ export async function updateRfp(
   if (!buyerName) return { error: "El nombre del comprador es obligatorio." };
   if (!input.deadlineAt) return { error: "La fecha de cierre es obligatoria." };
 
-  const shaped = await validateAndShapeRfp(input, user);
+  const clientId = existing.clientId;
+  const shaped = await validateAndShapeRfp(input, user, clientId);
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
 
@@ -235,7 +240,7 @@ export async function updateRfp(
     if (id && existingItemIds.has(id)) {
       await prisma.rfpItem.update({ where: { id }, data: { ...item, order } });
     } else {
-      await prisma.rfpItem.create({ data: { ...item, order, rfpId } });
+      await prisma.rfpItem.create({ data: { ...item, order, rfpId, clientId } });
     }
   }
 
@@ -273,7 +278,9 @@ export async function updateRfp(
       await prisma.rfpQuestion.update({ where: { id: q.id }, data });
       realIdByClientKey.set(q.clientKey, q.id);
     } else {
-      const created = await prisma.rfpQuestion.create({ data: { ...data, rfpId } });
+      const created = await prisma.rfpQuestion.create({
+        data: { ...data, rfpId, clientId },
+      });
       realIdByClientKey.set(q.clientKey, created.id);
     }
   }
@@ -313,9 +320,11 @@ export async function updateRfp(
         });
       }
     } else {
-      const createdSupplier = await prisma.supplier.create({ data: supplier });
+      const createdSupplier = await prisma.supplier.create({
+        data: { ...supplier, clientId },
+      });
       await prisma.invitation.create({
-        data: { rfpId, supplierId: createdSupplier.id },
+        data: { rfpId, supplierId: createdSupplier.id, clientId },
       });
     }
   }

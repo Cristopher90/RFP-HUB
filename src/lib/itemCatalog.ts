@@ -23,8 +23,8 @@ export async function addAwardedItemsToCatalog(
   if (!rfp || !invitation?.response) return { error: "RFP o invitación no encontrada." };
 
   const catalogList = await prisma.itemCatalogList.upsert({
-    where: { name },
-    create: { name },
+    where: { clientId_name: { clientId: rfp.clientId, name } },
+    create: { clientId: rfp.clientId, name },
     update: {},
   });
 
@@ -36,8 +36,15 @@ export async function addAwardedItemsToCatalog(
     if (!price) continue;
 
     await prisma.itemCatalogEntry.upsert({
-      where: { catalogListId_code: { catalogListId: catalogList.id, code } },
+      where: {
+        clientId_catalogListId_code: {
+          clientId: rfp.clientId,
+          catalogListId: catalogList.id,
+          code,
+        },
+      },
       create: {
+        clientId: rfp.clientId,
         catalogListId: catalogList.id,
         code,
         name: item.name,

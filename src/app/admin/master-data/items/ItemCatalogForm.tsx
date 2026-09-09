@@ -31,8 +31,10 @@ function smallInputClass() {
 export function ItemCatalogForm({
   initial,
   commodities,
+  targetClientId,
 }: {
   initial: ItemCatalogItemInput[];
+  targetClientId?: string;
   commodities: {
     id: string;
     parentId: string | null;
@@ -89,7 +91,7 @@ export function ItemCatalogForm({
     setError(null);
     setSuccess(false);
     startTransition(async () => {
-      const result = await saveItemCatalog(rows);
+      const result = await saveItemCatalog(rows, targetClientId);
       if ("error" in result) {
         setError(result.error);
       } else {

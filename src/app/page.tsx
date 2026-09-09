@@ -1,7 +1,7 @@
 import Link from "next/link";
 import packageJson from "../../package.json";
-import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RfpFilters } from "@/components/RfpFilters";
@@ -12,12 +12,15 @@ import type { RfpStatus } from "@/generated/prisma/enums";
 export default async function Home({
   searchParams,
 }: PageProps<"/">) {
-  const user = await requireUser();
+  const scope = await requireClientScope();
+  const { user } = scope;
   const sp = await searchParams;
 
-  const isAdmin = user.role === "ADMIN";
+  // ADMIN sees every client's RFPs on "Todas"; CLIENT_ADMIN sees every RFP
+  // within their own client; everyone else only ever sees "Mis RFPs".
+  const canSeeAll = user.role === "ADMIN" || user.role === "CLIENT_ADMIN";
   const requestedTab = sp.tab === "all" ? "all" : "mine";
-  const tab = requestedTab === "all" && isAdmin ? "all" : "mine";
+  const tab = requestedTab === "all" && canSeeAll ? "all" : "mine";
 
   const statusFilter = typeof sp.status === "string" ? sp.status : "";
   const commodityFilter = typeof sp.commodity === "string" ? sp.commodity : "";
@@ -30,7 +33,7 @@ export default async function Home({
     status: statusFilter
       ? (statusFilter as RfpStatus)
       : { not: "DELETED" as RfpStatus },
-    ...(tab === "mine" ? { createdByUserId: user.id } : {}),
+    ...(tab === "mine" ? { createdByUserId: user.id } : scope.where),
     ...(commodityFilter ? { commodity: commodityFilter } : {}),
     ...(regionFilter ? { region: regionFilter } : {}),
     ...(tab === "all" && creatorFilter
@@ -49,9 +52,11 @@ export default async function Home({
           createdBy: true,
         },
       }),
-      prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-      prisma.region.findMany({ orderBy: { description: "asc" } }),
-      isAdmin ? prisma.user.findMany({ orderBy: { name: "asc" } }) : null,
+      prisma.commodity.findMany({ where: scope.where, orderBy: { description: "asc" } }),
+      prisma.region.findMany({ where: scope.where, orderBy: { description: "asc" } }),
+      canSeeAll
+        ? prisma.user.findMany({ where: scope.where, orderBy: { name: "asc" } })
+        : null,
       findPendingApprovalsForUser(user.id),
     ]);
 
@@ -111,7 +116,7 @@ export default async function Home({
           >
             Mis RFPs
           </Link>
-          {isAdmin && (
+          {canSeeAll && (
             <Link
               href={tabHref("all")}
               className={`border-b-2 px-1 pb-3 text-sm font-medium ${

@@ -1,16 +1,32 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireMasterDataScope } from "@/lib/masterDataScope";
+import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
 
-export default async function NewApprovalWorkflowPage() {
-  await requireRole("ADMIN");
+export default async function NewApprovalWorkflowPage({
+  searchParams,
+}: PageProps<"/admin/approvals/new">) {
+  const sp = await searchParams;
+  const { scope, clients, effectiveClientId } =
+    await requireMasterDataScope(sp);
 
-  const [templates, users, groups] = await Promise.all([
-    prisma.rfpTemplate.findMany({ orderBy: { name: "asc" } }),
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
-    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
-  ]);
+  const [templates, users, groups] = effectiveClientId
+    ? await Promise.all([
+        prisma.rfpTemplate.findMany({
+          where: { clientId: effectiveClientId },
+          orderBy: { name: "asc" },
+        }),
+        prisma.user.findMany({
+          where: { clientId: effectiveClientId },
+          orderBy: { name: "asc" },
+        }),
+        prisma.approvalGroup.findMany({
+          where: { clientId: effectiveClientId },
+          orderBy: { description: "asc" },
+        }),
+      ])
+    : [[], [], []];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -23,13 +39,25 @@ export default async function NewApprovalWorkflowPage() {
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
         Nuevo proceso de aprobación
       </h1>
-      <div className="mt-8">
-        <ApprovalWorkflowForm
-          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
-          users={users.map((u) => ({ id: u.id, name: u.name }))}
-          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
-        />
-      </div>
+      {scope.isSuperAdmin && (
+        <div className="mt-6">
+          <AdminClientSwitcher clients={clients} />
+        </div>
+      )}
+      {effectiveClientId ? (
+        <div className="mt-8">
+          <ApprovalWorkflowForm
+            targetClientId={effectiveClientId}
+            templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            users={users.map((u) => ({ id: u.id, name: u.name }))}
+            groups={groups.map((g) => ({ id: g.id, description: g.description }))}
+          />
+        </div>
+      ) : (
+        <p className="mt-8 text-sm text-slate-500">
+          Selecciona un cliente para crear el proceso.
+        </p>
+      )}
     </div>
   );
 }

@@ -60,25 +60,67 @@ enum QuestionVisibility {
   EXTERNAL // visible para ambos; se usa en comparación y puntaje (default)
 }
 
+// BUYER < SENIOR_BUYER < CLIENT_ADMIN < ADMIN (ver ROLE_LEVEL en
+// src/lib/roleLabels.ts). ADMIN es el único rol sin Cliente asignado (ve y
+// administra todos los clientes); CLIENT_ADMIN administra datos maestros,
+// plantillas y usuarios, pero solo dentro de su propio Cliente.
 enum UserRole {
   BUYER
   SENIOR_BUYER
+  CLIENT_ADMIN
   ADMIN
 }
 
+// Un cliente de la plataforma (empresa que usa esta instancia para sus
+// propios procesos de compra). Es la raíz de todo el aislamiento
+// multi-tenant: cada dato maestro, plantilla y RFP pertenece a exactamente
+// un Cliente, y un usuario (salvo ADMIN) solo ve los datos de su Cliente.
+model Client {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+
+  users                User[]
+  commodities          Commodity[]
+  regions              Region[]
+  origins              Origin[]
+  approvalGroups       ApprovalGroup[]
+  supplierDirectories  SupplierDirectory[]
+  itemCatalogLists     ItemCatalogList[]
+  itemCatalogEntries   ItemCatalogEntry[]
+  templates            RfpTemplate[]
+  approvalWorkflows    ApprovalWorkflow[]
+  approvalLevels       ApprovalLevel[]
+  templateItems        TemplateItem[]
+  templateQuestions    TemplateQuestion[]
+  rfps                 Rfp[]
+  rfpApprovals         RfpApproval[]
+  rfpApprovalDecisions RfpApprovalDecision[]
+  rfpItems             RfpItem[]
+  rfpQuestions         RfpQuestion[]
+  suppliers            Supplier[]
+  invitations          Invitation[]
+  responses            Response[]
+  answers              Answer[]
+  itemPrices           ItemPrice[]
+  userApprovalGroups   UserApprovalGroup[]
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String // Nombre
-  lastName     String? // Apellido
-  client       String? // Cliente
-  email        String   @unique // Correo
-  companyCode  String? // Sociedad
-  plant        String? // Centro
-  costCenter   String? // Centro de coste
-  passwordHash String
-  role         UserRole @default(BUYER)
-  createdAt    DateTime @default(now())
-  allowFreeTextItems Boolean @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
+  id                 String   @id @default(cuid())
+  name               String // Nombre
+  lastName           String? // Apellido
+  clientId           String? // null solo para ADMIN (ve todos los clientes)
+  client             Client?  @relation(fields: [clientId], references: [id])
+  email              String   @unique // Correo
+  companyCode        String? // Sociedad
+  plant              String? // Centro
+  costCenter         String? // Centro de coste
+  passwordHash       String
+  role               UserRole @default(BUYER)
+  createdAt          DateTime @default(now())
+  allowFreeTextItems Boolean  @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
 
   approvalGroups UserApprovalGroup[]
 
@@ -91,7 +133,9 @@ model User {
 // "Aprobador Compras" hasta 999999). El límite es específico al par
 // usuario+grupo, no un valor único por usuario.
 model UserApprovalGroup {
-  id              String        @id @default(cuid())
+  id              String @id @default(cuid())
+  clientId        String
+  client          Client @relation(fields: [clientId], references: [id])
   userId          String
   approvalGroupId String
   limit           Float
@@ -104,26 +148,35 @@ model UserApprovalGroup {
 
 // Datos maestros: los valores permitidos para los desplegables de Commodity
 // y Región en las RFPs y plantillas. code es un identificador único de
-// negocio (no el cuid interno); description es la etiqueta visible.
-// parentId permite organizarlos en árbol (categoría > subcategoría).
+// negocio dentro de su Cliente (no el cuid interno); description es la
+// etiqueta visible. parentId permite organizarlos en árbol (categoría >
+// subcategoría), siempre dentro del mismo Cliente.
 model Commodity {
   id          String      @id @default(cuid())
-  code        String      @unique
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id])
+  code        String
   description String
   parentId    String?
   parent      Commodity?  @relation("CommodityTree", fields: [parentId], references: [id])
   children    Commodity[] @relation("CommodityTree")
   createdAt   DateTime    @default(now())
+
+  @@unique([clientId, code])
 }
 
 model Region {
   id          String   @id @default(cuid())
-  code        String   @unique
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  code        String
   description String
   parentId    String?
   parent      Region?  @relation("RegionTree", fields: [parentId], references: [id])
   children    Region[] @relation("RegionTree")
   createdAt   DateTime @default(now())
+
+  @@unique([clientId, code])
 }
 
 // Lista de opciones para el campo "Origen" de la cabecera de RFP (no
@@ -131,12 +184,16 @@ model Region {
 // reutilizar el editor de datos maestros.
 model Origin {
   id          String   @id @default(cuid())
-  code        String   @unique
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  code        String
   description String
   parentId    String?
   parent      Origin?  @relation("OriginTree", fields: [parentId], references: [id])
   children    Origin[] @relation("OriginTree")
   createdAt   DateTime @default(now())
+
+  @@unique([clientId, code])
 }
 
 // Grupo de aprobación (ej. "Aprobador IT"): datos maestros, mismo shape que
@@ -145,7 +202,9 @@ model Origin {
 // UserApprovalGroup.
 model ApprovalGroup {
   id          String          @id @default(cuid())
-  code        String          @unique
+  clientId    String
+  client      Client          @relation(fields: [clientId], references: [id])
+  code        String
   description String
   parentId    String?
   parent      ApprovalGroup?  @relation("ApprovalGroupTree", fields: [parentId], references: [id])
@@ -154,6 +213,8 @@ model ApprovalGroup {
 
   members UserApprovalGroup[]
   levels  ApprovalLevel[]
+
+  @@unique([clientId, code])
 }
 
 enum SupplierDirectoryStatus {
@@ -162,10 +223,13 @@ enum SupplierDirectoryStatus {
 }
 
 // Directorio maestro de proveedores (distinto del Supplier ad-hoc que se
-// crea al invitar a alguien a una RFP puntual).
+// crea al invitar a alguien a una RFP puntual). Cada Cliente mantiene su
+// propio directorio.
 model SupplierDirectory {
   id               String                  @id @default(cuid())
-  code             String                  @unique // Código Proveedor
+  clientId         String
+  client           Client                  @relation(fields: [clientId], references: [id])
+  code             String // Código Proveedor
   taxId            String // CIF
   companyName      String // nombre de la empresa
   contactFirstName String
@@ -174,6 +238,8 @@ model SupplierDirectory {
   phone            String
   status           SupplierDirectoryStatus @default(ACTIVE)
   createdAt        DateTime                @default(now())
+
+  @@unique([clientId, code])
 }
 
 // Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa
@@ -182,9 +248,13 @@ model SupplierDirectory {
 // crear y mantener a mano desde Datos maestros.
 model ItemCatalogList {
   id        String             @id @default(cuid())
-  name      String             @unique
+  clientId  String
+  client    Client             @relation(fields: [clientId], references: [id])
+  name      String
   createdAt DateTime           @default(now())
   entries   ItemCatalogEntry[]
+
+  @@unique([clientId, name])
 }
 
 // Un artículo dentro de un catálogo, con su último precio conocido. La
@@ -194,6 +264,8 @@ model ItemCatalogList {
 // elegido, sus datos quedan fijos (no editables) en esa RFP.
 model ItemCatalogEntry {
   id            String          @id @default(cuid())
+  clientId      String
+  client        Client          @relation(fields: [clientId], references: [id])
   catalogListId String
   code          String
   name          String
@@ -205,15 +277,18 @@ model ItemCatalogEntry {
   updatedAt     DateTime        @updatedAt
   catalogList   ItemCatalogList @relation(fields: [catalogListId], references: [id], onDelete: Cascade)
 
-  @@unique([catalogListId, code])
+  @@unique([clientId, catalogListId, code])
 }
 
 // Plantilla base: el administrador define artículos/preguntas por defecto
 // que se aplican automáticamente a una nueva RFP cuando coincide con las
-// condiciones (commodity/región). Cada artículo/pregunta puede bloquearse
-// para que solo un rol igual o superior a lockMinRole pueda quitarlo.
+// condiciones (commodity/región), siempre dentro del mismo Cliente. Cada
+// artículo/pregunta puede bloquearse para que solo un rol igual o superior
+// a lockMinRole pueda quitarlo.
 model RfpTemplate {
   id             String   @id @default(cuid())
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id])
   name           String
   description    String?
   matchCommodity String?
@@ -225,7 +300,7 @@ model RfpTemplate {
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
 
   approvalWorkflowId String?
-  approvalWorkflow    ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
+  approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
 
   items     TemplateItem[]
   questions TemplateQuestion[]
@@ -237,6 +312,8 @@ model RfpTemplate {
 // queda activo cuando el nivel N está aprobado.
 model ApprovalWorkflow {
   id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
   name        String
   description String?
   active      Boolean  @default(true)
@@ -257,6 +334,8 @@ model ApprovalWorkflow {
 //   van sumando límites hasta cubrir el valor.
 model ApprovalLevel {
   id         String            @id @default(cuid())
+  clientId   String
+  client     Client            @relation(fields: [clientId], references: [id])
   workflowId String
   stage      ApprovalStageKind
   order      Int // secuencia dentro de la etapa, empezando en 0
@@ -273,6 +352,8 @@ model ApprovalLevel {
 
 model TemplateItem {
   id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
   templateId   String
   name         String
   description  String?
@@ -290,6 +371,8 @@ model TemplateItem {
 
 model TemplateQuestion {
   id             String             @id @default(cuid())
+  clientId       String
+  client         Client             @relation(fields: [clientId], references: [id])
   templateId     String
   text           String
   type           QuestionType       @default(TEXT)
@@ -303,7 +386,7 @@ model TemplateQuestion {
   numberMax      Float?
   section        String? // nombre de la sección a la que pertenece (agrupa y numera)
   order          Int                @default(0)
-  lockMinRole     UserRole @default(BUYER) // desde qué rol se puede quitar o editar
+  lockMinRole    UserRole           @default(BUYER) // desde qué rol se puede quitar o editar
 
   dependsOnQuestionId  String?
   dependsOnHeaderField String?
@@ -314,6 +397,8 @@ model TemplateQuestion {
 
 model Rfp {
   id          String    @id @default(cuid())
+  clientId    String
+  client      Client    @relation(fields: [clientId], references: [id])
   number      Int       @unique // ID visible: "RFP-{number}"; asignado en código vía nextRfpNumber() en lugar de autoincrement()
   title       String
   description String
@@ -328,12 +413,12 @@ model Rfp {
   startDate      DateTime?
   estimatedPrice Float?
 
-  origin               String? // opcional, no visible para el proveedor
-  predecessorDocument  String? // opcional, no visible para el proveedor (texto libre)
+  origin              String? // opcional, no visible para el proveedor
+  predecessorDocument String? // opcional, no visible para el proveedor (texto libre)
 
-  publishedAt DateTime? // cuándo pasó a OPEN por primera vez
-  closedAt    DateTime? // cuándo se cerró (null si se reabre)
-  hideResponsesUntilClosed Boolean @default(false) // snapshot: alguna plantilla aplicada lo pedía
+  publishedAt              DateTime? // cuándo pasó a OPEN por primera vez
+  closedAt                 DateTime? // cuándo se cerró (null si se reabre)
+  hideResponsesUntilClosed Boolean   @default(false) // snapshot: alguna plantilla aplicada lo pedía
 
   basedOnRfpId String? // referencia navegable a la RFP anterior de la que se copió
   basedOnRfp   Rfp?    @relation("RfpLineage", fields: [basedOnRfpId], references: [id], onDelete: SetNull)
@@ -346,14 +431,14 @@ model Rfp {
 
   scoringEnabled Boolean @default(true) // si se activó ponderación de artículos o preguntas al crearla
 
-  awardCriteria       String?
-  priceWeightPct       Int?
-  awardedInvitationId String?
-  awardedAt            DateTime?
+  awardCriteria            String?
+  priceWeightPct           Int?
+  awardedInvitationId      String?
+  awardedAt                DateTime?
   pendingAwardInvitationId String? // adjudicación propuesta, pendiente de aprobación
 
-  approvalWorkflowId  String?
-  approvalWorkflow    ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
+  approvalWorkflowId String?
+  approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
 
   appliedTemplates String? // JSON-encoded {id, name}[] snapshot de las plantillas aplicadas al crearla
 
@@ -372,10 +457,12 @@ model Rfp {
 // de la RFP evaluado en ese momento, para que editar el proceso más tarde
 // no cambie el requisito de una RFP en curso.
 model RfpApproval {
-  id     String            @id @default(cuid())
-  rfpId  String
-  stage  ApprovalStageKind
-  order  Int
+  id       String            @id @default(cuid())
+  clientId String
+  client   Client            @relation(fields: [clientId], references: [id])
+  rfpId    String
+  stage    ApprovalStageKind
+  order    Int
 
   mode            ApproverMode
   userIds         String? // JSON string[]
@@ -389,7 +476,7 @@ model RfpApproval {
   activatedAt    DateTime? // cuándo este nivel específico pasó a ser el activo (null si aún no le toca)
   lastReminderAt DateTime? // último "enviar recordatorio" registrado
 
-  rfp       Rfp                    @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  rfp       Rfp                   @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   decisions RfpApprovalDecision[]
 
   @@unique([rfpId, stage, order])
@@ -397,6 +484,8 @@ model RfpApproval {
 
 model RfpApprovalDecision {
   id         String   @id @default(cuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id])
   approvalId String
   userId     String
   decision   String // APPROVED | REJECTED
@@ -408,30 +497,34 @@ model RfpApprovalDecision {
 }
 
 model RfpItem {
-  id          String  @id @default(cuid())
-  rfpId       String
-  code        String? // código de artículo (visible para el proveedor)
-  name        String
-  description String?
-  quantity    Float
-  unit        String
-  order       Int     @default(0)
-  weight      Int     @default(1) // importancia relativa al puntuar (1-10)
-  decimals    Int     @default(2) // precisión decimal para el precio unitario
-  historicalPrice Float? // precio histórico de referencia (no visible para el proveedor)
-  commodity   String? // commodity específico de esta línea (no visible para el proveedor)
-  customFields String? // JSON-encoded {label, value}[]
-  section     String? // nombre de la sección a la que pertenece (agrupa y numera)
-  sourceTemplateItemId String? // de qué TemplateItem vino (si aplica)
-  locked      Boolean @default(false) // si venía bloqueado por la plantilla
+  id                       String  @id @default(cuid())
+  clientId                 String
+  client                   Client  @relation(fields: [clientId], references: [id])
+  rfpId                    String
+  code                     String? // código de artículo (visible para el proveedor)
+  name                     String
+  description              String?
+  quantity                 Float
+  unit                     String
+  order                    Int     @default(0)
+  weight                   Int     @default(1) // importancia relativa al puntuar (1-10)
+  decimals                 Int     @default(2) // precisión decimal para el precio unitario
+  historicalPrice          Float? // precio histórico de referencia (no visible para el proveedor)
+  commodity                String? // commodity específico de esta línea (no visible para el proveedor)
+  customFields             String? // JSON-encoded {label, value}[]
+  section                  String? // nombre de la sección a la que pertenece (agrupa y numera)
+  sourceTemplateItemId     String? // de qué TemplateItem vino (si aplica)
+  locked                   Boolean @default(false) // si venía bloqueado por la plantilla
   sourceItemCatalogEntryId String? // de qué ItemCatalogEntry vino (si aplica) — sus datos quedan fijos, sin excepción de rol
 
-  rfp         Rfp @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  itemPrices  ItemPrice[]
+  rfp        Rfp         @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  itemPrices ItemPrice[]
 }
 
 model RfpQuestion {
   id       String       @id @default(cuid())
+  clientId String
+  client   Client       @relation(fields: [clientId], references: [id])
   rfpId    String
   text     String
   type     QuestionType @default(TEXT)
@@ -440,14 +533,14 @@ model RfpQuestion {
   weight   Int          @default(1) // importancia relativa al puntuar (1-10)
   order    Int          @default(0)
 
-  isPrerequisite Boolean @default(false) // el proveedor debe aceptarla para participar
-  visibility QuestionVisibility @default(EXTERNAL)
-  respondedBy QuestionResponder @default(SUPPLIER)
+  isPrerequisite   Boolean            @default(false) // el proveedor debe aceptarla para participar
+  visibility       QuestionVisibility @default(EXTERNAL)
+  respondedBy      QuestionResponder  @default(SUPPLIER)
   buyerAnswerValue String? // respuesta del propio comprador cuando respondedBy = BUYER
-  numberMin Float?
-  numberMax Float?
+  numberMin        Float?
+  numberMax        Float?
 
-  dependsOnQuestionId String? // condicionada a la respuesta de otra pregunta
+  dependsOnQuestionId  String? // condicionada a la respuesta de otra pregunta
   dependsOnHeaderField String? // o condicionada a un dato de cabecera (commodity, region)
   dependsOnValue       String? // valor requerido para mostrarla
 
@@ -456,26 +549,30 @@ model RfpQuestion {
   sourceTemplateQuestionId String? // de qué TemplateQuestion vino (si aplica)
   locked                   Boolean @default(false) // si venía bloqueada por la plantilla
 
-  rfp     Rfp @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  rfp     Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   answers Answer[]
 }
 
 model Supplier {
-  id      String @id @default(cuid())
-  name    String
-  email   String
-  company String
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+  name     String
+  email    String
+  company  String
 
   invitations Invitation[]
 }
 
 model Invitation {
-  id         String            @id @default(cuid())
+  id         String           @id @default(cuid())
+  clientId   String
+  client     Client           @relation(fields: [clientId], references: [id])
   rfpId      String
   supplierId String
-  token      String            @unique @default(cuid())
-  status     InvitationStatus  @default(INVITED)
-  invitedAt  DateTime          @default(now())
+  token      String           @unique @default(cuid())
+  status     InvitationStatus @default(INVITED)
+  invitedAt  DateTime         @default(now())
   viewedAt   DateTime?
 
   rfp      Rfp       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
@@ -487,6 +584,8 @@ model Invitation {
 
 model Response {
   id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
   invitationId String   @unique
   submittedAt  DateTime @default(now())
   notes        String?
@@ -498,6 +597,8 @@ model Response {
 
 model Answer {
   id         String @id @default(cuid())
+  clientId   String
+  client     Client @relation(fields: [clientId], references: [id])
   responseId String
   questionId String
   value      String
@@ -510,7 +611,9 @@ model Answer {
 }
 
 model ItemPrice {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
+  clientId   String
+  client     Client  @relation(fields: [clientId], references: [id])
   responseId String
   itemId     String
   unitPrice  Float

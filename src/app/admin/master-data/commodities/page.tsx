@@ -1,14 +1,22 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireMasterDataScope } from "@/lib/masterDataScope";
+import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
 
-export default async function CommoditiesPage() {
-  await requireRole("ADMIN");
+export default async function CommoditiesPage({
+  searchParams,
+}: PageProps<"/admin/master-data/commodities">) {
+  const sp = await searchParams;
+  const { scope, clients, effectiveClientId } =
+    await requireMasterDataScope(sp);
 
-  const commodities = await prisma.commodity.findMany({
-    orderBy: { code: "asc" },
-  });
+  const commodities = effectiveClientId
+    ? await prisma.commodity.findMany({
+        where: { clientId: effectiveClientId },
+        orderBy: { code: "asc" },
+      })
+    : [];
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -25,18 +33,30 @@ export default async function CommoditiesPage() {
         Estos valores alimentan el desplegable de Commodity al crear una RFP
         o una plantilla.
       </p>
-      <div className="mt-8">
-        <MasterDataForm
-          kind="commodity"
-          label="Commodities"
-          initial={commodities.map((c) => ({
-            clientKey: c.id,
-            code: c.code,
-            description: c.description,
-            parentClientKey: c.parentId,
-          }))}
-        />
-      </div>
+      {scope.isSuperAdmin && (
+        <div className="mt-6">
+          <AdminClientSwitcher clients={clients} />
+        </div>
+      )}
+      {effectiveClientId ? (
+        <div className="mt-8">
+          <MasterDataForm
+            kind="commodity"
+            label="Commodities"
+            targetClientId={effectiveClientId}
+            initial={commodities.map((c) => ({
+              clientKey: c.id,
+              code: c.code,
+              description: c.description,
+              parentClientKey: c.parentId,
+            }))}
+          />
+        </div>
+      ) : (
+        <p className="mt-8 text-sm text-slate-500">
+          Selecciona un cliente para ver y editar sus commodities.
+        </p>
+      )}
     </div>
   );
 }

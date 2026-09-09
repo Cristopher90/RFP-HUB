@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 
 export default async function ApprovalsPage() {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
 
   const workflows = await prisma.approvalWorkflow.findMany({
+    where: scope.where,
     orderBy: { createdAt: "desc" },
     include: { templates: true, levels: true },
   });

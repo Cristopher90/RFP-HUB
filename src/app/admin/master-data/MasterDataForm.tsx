@@ -40,10 +40,12 @@ export function MasterDataForm({
   kind,
   label,
   initial,
+  targetClientId,
 }: {
   kind: MasterDataKind;
   label: string;
   initial: MasterDataItemInput[];
+  targetClientId?: string;
 }) {
   const [rows, setRows] = useState<MasterDataItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -142,7 +144,7 @@ export function MasterDataForm({
     setError(null);
     setSuccess(false);
     startTransition(async () => {
-      const result = await saveMasterDataList(kind, rows);
+      const result = await saveMasterDataList(kind, rows, targetClientId);
       if ("error" in result) {
         setError(result.error);
       } else {

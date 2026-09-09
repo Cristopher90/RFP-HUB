@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import type {
@@ -13,50 +13,46 @@ export default async function EditRfpPage({
   params,
 }: PageProps<"/rfps/[id]/edit">) {
   const { id } = await params;
-  const user = await requireUser();
+  const scope = await requireClientScope();
+  const { user } = scope;
 
-  const [
-    rfp,
-    templates,
-    commodities,
-    regions,
-    origins,
-    supplierDirectory,
-    itemCatalog,
-    creators,
-  ] = await Promise.all([
-    prisma.rfp.findUnique({
-      where: { id },
-      include: {
-        items: { orderBy: { order: "asc" } },
-        questions: { orderBy: { order: "asc" } },
-        invitations: { include: { supplier: true } },
-        basedOnRfp: { select: { number: true, title: true } },
-      },
-    }),
-    prisma.rfpTemplate.findMany({
-      where: { active: true },
-      include: {
-        items: { orderBy: { order: "asc" } },
-        questions: { orderBy: { order: "asc" } },
-      },
-    }),
-    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-    prisma.region.findMany({ orderBy: { description: "asc" } }),
-    prisma.origin.findMany({ orderBy: { description: "asc" } }),
-    prisma.supplierDirectory.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { companyName: "asc" },
-    }),
-    prisma.itemCatalogEntry.findMany({
-      include: { catalogList: true },
-      orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
-    }),
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
-  ]);
-
+  const rfp = await prisma.rfp.findUnique({
+    where: { id },
+    include: {
+      items: { orderBy: { order: "asc" } },
+      questions: { orderBy: { order: "asc" } },
+      invitations: { include: { supplier: true } },
+      basedOnRfp: { select: { number: true, title: true } },
+    },
+  });
   if (!rfp) notFound();
+  if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
   if (rfp.status !== "DRAFT") redirect(`/rfps/${rfp.id}`);
+
+  const rfpWhere = { clientId: rfp.clientId };
+  const [templates, commodities, regions, origins, supplierDirectory, itemCatalog, creators] =
+    await Promise.all([
+      prisma.rfpTemplate.findMany({
+        where: { active: true, ...rfpWhere },
+        include: {
+          items: { orderBy: { order: "asc" } },
+          questions: { orderBy: { order: "asc" } },
+        },
+      }),
+      prisma.commodity.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
+      prisma.region.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
+      prisma.origin.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
+      prisma.supplierDirectory.findMany({
+        where: { status: "ACTIVE", ...rfpWhere },
+        orderBy: { companyName: "asc" },
+      }),
+      prisma.itemCatalogEntry.findMany({
+        where: rfpWhere,
+        include: { catalogList: true },
+        orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
+      }),
+      prisma.user.findMany({ where: rfpWhere, orderBy: { name: "asc" } }),
+    ]);
 
   function toDateInput(date: Date | null) {
     if (!date) return "";

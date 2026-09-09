@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import {
   formatCurrency,
   formatDate,
@@ -41,7 +41,7 @@ export default async function RfpDetailPage({
 }: PageProps<"/rfps/[id]">) {
   const { id } = await params;
 
-  const [rfp, supplierDirectory, user] = await Promise.all([
+  const [rfp, scope] = await Promise.all([
     prisma.rfp.findUnique({
       where: { id },
       include: {
@@ -54,14 +54,17 @@ export default async function RfpDetailPage({
         basedOnRfp: { select: { number: true, title: true } },
       },
     }),
-    prisma.supplierDirectory.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { companyName: "asc" },
-    }),
-    requireUser(),
+    requireClientScope(),
   ]);
 
   if (!rfp) notFound();
+  if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
+  const user = scope.user;
+
+  const supplierDirectory = await prisma.supplierDirectory.findMany({
+    where: { status: "ACTIVE", clientId: rfp.clientId },
+    orderBy: { companyName: "asc" },
+  });
 
   const publishLevels =
     rfp.status === "PENDING_PUBLISH_APPROVAL"

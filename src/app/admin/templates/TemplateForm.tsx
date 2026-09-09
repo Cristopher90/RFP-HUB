@@ -105,8 +105,10 @@ export function TemplateForm({
   initial,
   commodities,
   regions,
+  targetClientId,
 }: {
   templateId?: string;
+  targetClientId?: string;
   commodities: {
     id: string;
     parentId: string | null;
@@ -418,7 +420,7 @@ export function TemplateForm({
       questions: [...questions, ...internalQuestions],
     };
     startTransition(async () => {
-      const result = await saveTemplate(templateId ?? null, payload);
+      const result = await saveTemplate(templateId ?? null, payload, targetClientId);
       if (result?.error) setError(result.error);
     });
   }

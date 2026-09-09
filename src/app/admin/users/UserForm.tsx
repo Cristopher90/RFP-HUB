@@ -3,10 +3,9 @@
 import { useState, useTransition } from "react";
 import { ROLE_LABEL } from "@/lib/roleLabels";
 import { makeClientKey } from "@/lib/clientKey";
+import { TreePickerField } from "@/components/TreePickerField";
 import type { UserRole } from "@/generated/prisma/enums";
 import { createUser, updateUser, type UserFormInput } from "./actions";
-
-const ROLES: UserRole[] = ["BUYER", "SENIOR_BUYER", "ADMIN"];
 
 function inputClass() {
   return "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -18,15 +17,22 @@ export function UserForm({
   userId,
   initial,
   groups = [],
+  clients,
+  actorIsSuperAdmin,
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
   groups?: { id: string; description: string }[];
+  clients: { id: string; code: string; description: string }[];
+  actorIsSuperAdmin: boolean;
 }) {
+  const ROLES: UserRole[] = actorIsSuperAdmin
+    ? ["BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
+    : ["BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
   const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",
-    client: initial?.client ?? "",
+    clientId: initial?.clientId ?? null,
     email: initial?.email ?? "",
     companyCode: initial?.companyCode ?? "",
     plant: initial?.plant ?? "",
@@ -113,16 +119,35 @@ export function UserForm({
               onChange={(e) => update({ lastName: e.target.value })}
             />
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Cliente
-            </label>
-            <input
-              className={inputClass()}
-              value={form.client}
-              onChange={(e) => update({ client: e.target.value })}
-            />
-          </div>
+          {actorIsSuperAdmin && form.role !== "ADMIN" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Cliente
+              </label>
+              <TreePickerField
+                nodes={clients.map((c) => ({
+                  id: c.id,
+                  parentId: null,
+                  label: c.description,
+                  code: c.code,
+                }))}
+                valueId={form.clientId}
+                onChangeId={(id) => update({ clientId: id })}
+                placeholder="Selecciona un cliente"
+                clearLabel="— Ninguno —"
+              />
+            </div>
+          )}
+          {actorIsSuperAdmin && form.role === "ADMIN" && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Cliente
+              </label>
+              <p className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500">
+                Un Super Administrador no pertenece a un cliente.
+              </p>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Correo
@@ -172,7 +197,10 @@ export function UserForm({
             <select
               className={inputClass()}
               value={form.role}
-              onChange={(e) => update({ role: e.target.value as UserRole })}
+              onChange={(e) => {
+                const role = e.target.value as UserRole;
+                update({ role, clientId: role === "ADMIN" ? null : form.clientId });
+              }}
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>

@@ -1,13 +1,23 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { UserForm } from "../UserForm";
 
 export default async function NewUserPage() {
-  await requireRole("ADMIN");
-  const groups = await prisma.approvalGroup.findMany({
-    orderBy: { description: "asc" },
-  });
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
+  const [groups, clients] = await Promise.all([
+    prisma.approvalGroup.findMany({
+      where: scope.where,
+      orderBy: { description: "asc" },
+    }),
+    scope.isSuperAdmin
+      ? prisma.client.findMany({ orderBy: { description: "asc" } })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -23,6 +33,8 @@ export default async function NewUserPage() {
       <div className="mt-8">
         <UserForm
           groups={groups.map((g) => ({ id: g.id, description: g.description }))}
+          clients={clients}
+          actorIsSuperAdmin={scope.isSuperAdmin}
         />
       </div>
     </div>

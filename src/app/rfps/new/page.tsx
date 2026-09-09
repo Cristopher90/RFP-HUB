@@ -1,5 +1,5 @@
-import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { RfpForm, type RfpInitialData } from "./RfpForm";
@@ -7,7 +7,8 @@ import { RfpForm, type RfpInitialData } from "./RfpForm";
 export default async function NewRfpPage({
   searchParams,
 }: PageProps<"/rfps/new">) {
-  const user = await requireUser();
+  const scope = await requireClientScope();
+  const { user } = scope;
   const sp = await searchParams;
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
   const copyMode =
@@ -23,24 +24,37 @@ export default async function NewRfpPage({
     creators,
   ] = await Promise.all([
     prisma.rfpTemplate.findMany({
-      where: { active: true },
+      where: { active: true, ...scope.where },
       include: {
         items: { orderBy: { order: "asc" } },
         questions: { orderBy: { order: "asc" } },
       },
     }),
-    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-    prisma.region.findMany({ orderBy: { description: "asc" } }),
-    prisma.origin.findMany({ orderBy: { description: "asc" } }),
+    prisma.commodity.findMany({
+      where: scope.where,
+      orderBy: { description: "asc" },
+    }),
+    prisma.region.findMany({
+      where: scope.where,
+      orderBy: { description: "asc" },
+    }),
+    prisma.origin.findMany({
+      where: scope.where,
+      orderBy: { description: "asc" },
+    }),
     prisma.supplierDirectory.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...scope.where },
       orderBy: { companyName: "asc" },
     }),
     prisma.itemCatalogEntry.findMany({
+      where: scope.where,
       include: { catalogList: true },
       orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
     }),
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.findMany({
+      where: scope.where,
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const isNextRound = copyMode === "next_round";

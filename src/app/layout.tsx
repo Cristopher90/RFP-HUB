@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
-  const brandName = user?.client ? user.client : null;
+  const brandName = user?.client ? user.client.description : null;
 
   return (
     <html

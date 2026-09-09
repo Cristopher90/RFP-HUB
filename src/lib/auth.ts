@@ -45,7 +45,10 @@ export const getCurrentUser = cache(async () => {
   const store = await cookies();
   const userId = store.get(SESSION_COOKIE)?.value;
   if (!userId) return null;
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { client: true },
+  });
   return user;
 });
 

@@ -114,13 +114,19 @@ export async function submitResponse(token: string, formData: FormData) {
 
   const notes = (formData.get("notes") as string | null)?.trim() || null;
 
+  const clientId = invitation.rfp.clientId;
   await prisma.$transaction(async (tx) => {
     const response = await tx.response.create({
       data: {
+        clientId,
         invitationId: invitation.id,
         notes,
-        itemPrices: { create: itemPrices },
-        answers: { create: answers },
+        itemPrices: {
+          create: itemPrices.map((p) => ({ ...p, clientId })),
+        },
+        answers: {
+          create: answers.map((a) => ({ ...a, clientId })),
+        },
       },
     });
     await tx.invitation.update({

@@ -1,24 +1,32 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { ROLE_LABEL } from "@/lib/roleLabels";
 import { UserListFilter } from "./UserListFilter";
 
 export default async function UsersPage({
   searchParams,
 }: PageProps<"/admin/users">) {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
   const sp = await searchParams;
   const q =
     (typeof sp.q === "string" ? sp.q : "").trim().toLowerCase();
 
-  const users = await prisma.user.findMany({ orderBy: { name: "asc" } });
+  const users = await prisma.user.findMany({
+    where: scope.where,
+    include: { client: true },
+    orderBy: { name: "asc" },
+  });
   const filtered = q
     ? users.filter((u) =>
         [
           u.name,
           u.lastName ?? "",
-          u.client ?? "",
+          u.client?.description ?? "",
           u.email,
           u.companyCode ?? "",
           u.plant ?? "",
@@ -74,7 +82,7 @@ export default async function UsersPage({
                   {u.name} {u.lastName}
                 </td>
                 <td className="px-5 py-4 text-slate-600">
-                  {u.client || "—"}
+                  {u.client?.description || "—"}
                 </td>
                 <td className="px-5 py-4 text-slate-600">{u.email}</td>
                 <td className="px-5 py-4 text-slate-600">

@@ -34,19 +34,29 @@ async function main() {
   await prisma.templateItem.deleteMany();
   await prisma.templateQuestion.deleteMany();
   await prisma.rfpTemplate.deleteMany();
+  await prisma.approvalLevel.deleteMany();
   await prisma.approvalWorkflow.deleteMany();
+  await prisma.userApprovalGroup.deleteMany();
   await prisma.user.deleteMany();
   await prisma.approvalGroup.deleteMany();
   await prisma.commodity.deleteMany();
   await prisma.region.deleteMany();
   await prisma.origin.deleteMany();
   await prisma.supplierDirectory.deleteMany();
+  await prisma.itemCatalogEntry.deleteMany();
+  await prisma.itemCatalogList.deleteMany();
+  await prisma.client.deleteMany();
+
+  const client = await prisma.client.create({
+    data: { code: "DEMO", description: "Cliente Demo" },
+  });
+  const clientId = client.id;
 
   const itApprovalGroup = await prisma.approvalGroup.create({
-    data: { code: "APR-IT", description: "Aprobador IT" },
+    data: { clientId, code: "APR-IT", description: "Aprobador IT" },
   });
   const comprasApprovalGroup = await prisma.approvalGroup.create({
-    data: { code: "APR-COMPRAS", description: "Aprobador Compras" },
+    data: { clientId, code: "APR-COMPRAS", description: "Aprobador Compras" },
   });
 
   await prisma.user.createMany({
@@ -54,7 +64,7 @@ async function main() {
       {
         name: "Ana",
         lastName: "Gómez",
-        client: "Cliente Demo",
+        clientId,
         email: "comprador@baseline.rfp",
         companyCode: "1000",
         plant: "MX01",
@@ -65,7 +75,7 @@ async function main() {
       {
         name: "Bruno",
         lastName: "Torres",
-        client: "Cliente Demo",
+        clientId,
         email: "senior@baseline.rfp",
         companyCode: "1000",
         plant: "MX01",
@@ -76,7 +86,7 @@ async function main() {
       {
         name: "Carla",
         lastName: "Ruiz",
-        client: "Cliente Demo",
+        clientId: null,
         email: "admin@baseline.rfp",
         companyCode: "1000",
         plant: "MX01",
@@ -86,64 +96,64 @@ async function main() {
       },
     ],
   });
-  const [buyerUser, seniorUser, adminUser] = await Promise.all([
+  const [buyerUser, seniorUser] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { email: "comprador@baseline.rfp" },
     }),
     prisma.user.findUniqueOrThrow({ where: { email: "senior@baseline.rfp" } }),
-    prisma.user.findUniqueOrThrow({ where: { email: "admin@baseline.rfp" } }),
   ]);
 
   // Cada par usuario+grupo tiene su propio límite: Ana y Bruno solo están
-  // en "Aprobador IT" (con límites distintos); Carla está en ambos grupos,
-  // por lo que una RFP de otro tipo (sin grupo asociado) no la auto-aprueba.
+  // en "Aprobador IT" (con límites distintos). Carla (ADMIN) no pertenece
+  // a un cliente, así que no puede tener membresías en grupos de
+  // aprobación de un cliente en particular.
   await prisma.userApprovalGroup.createMany({
     data: [
-      { userId: buyerUser.id, approvalGroupId: itApprovalGroup.id, limit: 500 },
-      { userId: seniorUser.id, approvalGroupId: itApprovalGroup.id, limit: 5000 },
-      { userId: adminUser.id, approvalGroupId: itApprovalGroup.id, limit: 100000 },
-      { userId: adminUser.id, approvalGroupId: comprasApprovalGroup.id, limit: 999999 },
+      { clientId, userId: buyerUser.id, approvalGroupId: itApprovalGroup.id, limit: 500 },
+      { clientId, userId: seniorUser.id, approvalGroupId: itApprovalGroup.id, limit: 5000 },
     ],
   });
 
   const hwCommodity = await prisma.commodity.create({
-    data: { code: "HW", description: "Hardware" },
+    data: { clientId, code: "HW", description: "Hardware" },
   });
   await prisma.commodity.createMany({
     data: [
-      { code: "HW-IT", description: "Hardware / IT", parentId: hwCommodity.id },
+      { clientId, code: "HW-IT", description: "Hardware / IT", parentId: hwCommodity.id },
       {
+        clientId,
         code: "HW-NET",
         description: "Hardware / Redes",
         parentId: hwCommodity.id,
       },
-      { code: "SVC-PRO", description: "Servicios profesionales" },
-      { code: "MKT", description: "Marketing" },
+      { clientId, code: "SVC-PRO", description: "Servicios profesionales" },
+      { clientId, code: "MKT", description: "Marketing" },
     ],
   });
 
   const latamRegion = await prisma.region.create({
-    data: { code: "LATAM", description: "LATAM" },
+    data: { clientId, code: "LATAM", description: "LATAM" },
   });
   await prisma.region.createMany({
     data: [
-      { code: "LATAM-N", description: "LATAM Norte", parentId: latamRegion.id },
-      { code: "LATAM-S", description: "LATAM Sur", parentId: latamRegion.id },
-      { code: "EMEA", description: "EMEA" },
+      { clientId, code: "LATAM-N", description: "LATAM Norte", parentId: latamRegion.id },
+      { clientId, code: "LATAM-S", description: "LATAM Sur", parentId: latamRegion.id },
+      { clientId, code: "EMEA", description: "EMEA" },
     ],
   });
 
   await prisma.origin.createMany({
     data: [
-      { code: "SOL", description: "Solicitud interna" },
-      { code: "RENOV", description: "Renovación de contrato" },
-      { code: "PROY", description: "Proyecto nuevo" },
+      { clientId, code: "SOL", description: "Solicitud interna" },
+      { clientId, code: "RENOV", description: "Renovación de contrato" },
+      { clientId, code: "PROY", description: "Proyecto nuevo" },
     ],
   });
 
   await prisma.supplierDirectory.createMany({
     data: [
       {
+        clientId,
         code: "PROV-001",
         taxId: "B12345678",
         companyName: "TechNova",
@@ -154,6 +164,7 @@ async function main() {
         status: "ACTIVE",
       },
       {
+        clientId,
         code: "PROV-002",
         taxId: "B87654321",
         companyName: "Computel",
@@ -164,6 +175,7 @@ async function main() {
         status: "ACTIVE",
       },
       {
+        clientId,
         code: "PROV-003",
         taxId: "B11223344",
         companyName: "DigitalPro",
@@ -178,6 +190,7 @@ async function main() {
 
   const hardwareApproval = await prisma.approvalWorkflow.create({
     data: {
+      clientId,
       name: "Aprobación estándar Hardware / IT",
       description:
         "Publicar requiere el grupo Aprobador IT (acumulativo, por valor); adjudicar requiere el grupo Aprobador Compras.",
@@ -185,6 +198,7 @@ async function main() {
       levels: {
         create: [
           {
+            clientId,
             stage: "PUBLISH",
             order: 0,
             mode: "GROUP",
@@ -192,6 +206,7 @@ async function main() {
             cumulative: true,
           },
           {
+            clientId,
             stage: "AWARD",
             order: 0,
             mode: "GROUP",
@@ -205,6 +220,7 @@ async function main() {
 
   const hardwareTemplate = await prisma.rfpTemplate.create({
     data: {
+      clientId,
       name: "Estándar Hardware / IT",
       description:
         "Cargos y preguntas de compliance obligatorias para compras de hardware/IT.",
@@ -214,6 +230,7 @@ async function main() {
       items: {
         create: [
           {
+            clientId,
             section: "Cargos adicionales",
             name: "Cargo de gestión logística",
             description: "Coordinación de importación y entrega en sitio",
@@ -230,6 +247,7 @@ async function main() {
   });
   await prisma.templateQuestion.create({
     data: {
+      clientId,
       templateId: hardwareTemplate.id,
       section: "Compliance",
       text: "Acepto la política de compliance corporativo para proveedores de hardware",
@@ -243,6 +261,7 @@ async function main() {
   });
   await prisma.templateQuestion.create({
     data: {
+      clientId,
       templateId: hardwareTemplate.id,
       section: "Compliance",
       text: "¿Cuentas con certificación ISO 27001?",
@@ -257,6 +276,7 @@ async function main() {
 
   const legalTemplate = await prisma.rfpTemplate.create({
     data: {
+      clientId,
       name: "Cláusula legal general",
       description: "Se aplica a cualquier RFP, sin importar commodity o región.",
       matchCommodity: null,
@@ -265,6 +285,7 @@ async function main() {
       questions: {
         create: [
           {
+            clientId,
             section: "Legal",
             text: "Acepto los términos generales de contratación de la empresa",
             type: "TEXT",
@@ -286,6 +307,7 @@ async function main() {
 
   const rfp = await prisma.rfp.create({
     data: {
+      clientId,
       number: 1,
       title: "Renovación de laptops para equipo de ventas",
       description:
@@ -305,6 +327,7 @@ async function main() {
       items: {
         create: [
           {
+            clientId,
             section: "Hardware",
             code: "LAP-14",
             name: "Laptop 14'' 16GB RAM",
@@ -321,6 +344,7 @@ async function main() {
             ]),
           },
           {
+            clientId,
             section: "Hardware",
             code: "MON-24",
             name: "Monitor 24'' Full HD",
@@ -335,6 +359,7 @@ async function main() {
             customFields: JSON.stringify([]),
           },
           {
+            clientId,
             section: "Servicios",
             code: "SVC-INST",
             name: "Servicio de instalación",
@@ -359,6 +384,7 @@ async function main() {
 
   const qPrereq = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Requisitos generales",
       text: "Acepto los términos y condiciones de participación en esta RFP",
@@ -371,6 +397,7 @@ async function main() {
   });
   const qDelivery = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Requisitos generales",
       text: "¿Cuál es tu tiempo de entrega estimado?",
@@ -382,6 +409,7 @@ async function main() {
   });
   const qWarranty = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Requisitos generales",
       text: "¿Cuántos años de garantía ofreces?",
@@ -395,6 +423,7 @@ async function main() {
   });
   const qIso = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Requisitos generales",
       text: "¿Tu empresa cuenta con certificación ISO 9001?",
@@ -407,6 +436,7 @@ async function main() {
   });
   const qIsoCert = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Requisitos generales",
       text: "Indica el número de tu certificado ISO 9001",
@@ -420,6 +450,7 @@ async function main() {
   });
   const qFreight = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Condiciones comerciales",
       text: "Costo estimado de flete adicional",
@@ -431,6 +462,7 @@ async function main() {
   });
   const qOnsiteSupport = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Condiciones comerciales",
       text: "¿Ofreces soporte técnico en sitio?",
@@ -445,6 +477,7 @@ async function main() {
   });
   const qAttachment = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Condiciones comerciales",
       text: "Adjunta tu certificado de garantía (PDF)",
@@ -456,6 +489,7 @@ async function main() {
   });
   const qNda = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Condiciones comerciales",
       text: "Confirmas haber firmado el NDA de confidencialidad enviado por correo",
@@ -469,6 +503,7 @@ async function main() {
   });
   const qExtendedWarranty = await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       section: "Condiciones comerciales",
       text: "¿Ofreces garantía extendida opcional?",
@@ -480,6 +515,7 @@ async function main() {
   });
   await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       text: "¿Presupuesto aprobado por finanzas?",
       type: "YES_NO",
@@ -493,6 +529,7 @@ async function main() {
   });
   await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       text: "Verificar antecedentes legales del proveedor antes de adjudicar",
       type: "TEXT",
@@ -505,6 +542,7 @@ async function main() {
   });
   await prisma.rfpQuestion.create({
     data: {
+      clientId,
       rfpId: rfp.id,
       text: "Nota: garantía menor a 3 años — negociar extensión antes de adjudicar",
       type: "TEXT",
@@ -526,9 +564,11 @@ async function main() {
 
   const invitations = [];
   for (const supplier of suppliers) {
-    const createdSupplier = await prisma.supplier.create({ data: supplier });
+    const createdSupplier = await prisma.supplier.create({
+      data: { ...supplier, clientId },
+    });
     const invitation = await prisma.invitation.create({
-      data: { rfpId: rfp.id, supplierId: createdSupplier.id },
+      data: { clientId, rfpId: rfp.id, supplierId: createdSupplier.id },
     });
     invitations.push(invitation);
   }
@@ -547,30 +587,32 @@ async function main() {
   });
   await prisma.response.create({
     data: {
+      clientId,
       invitationId: invitations[0].id,
       notes: "Precios incluyen envío nacional.",
       itemPrices: {
         create: [
-          { itemId: laptop.id, unitPrice: 950 },
-          { itemId: monitor.id, unitPrice: 180 },
-          { itemId: install.id, unitPrice: 500 },
+          { clientId, itemId: laptop.id, unitPrice: 950 },
+          { clientId, itemId: monitor.id, unitPrice: 180 },
+          { clientId, itemId: install.id, unitPrice: 500 },
         ],
       },
       answers: {
         create: [
-          { questionId: qPrereq.id, value: "Aceptado" },
-          { questionId: qDelivery.id, value: "10 días hábiles", score: 8 },
-          { questionId: qWarranty.id, value: "3", score: 7 },
-          { questionId: qIso.id, value: "Sí", score: 10 },
-          { questionId: qIsoCert.id, value: "ISO-2024-8871", score: 9 },
-          { questionId: qFreight.id, value: "150", score: 6 },
-          { questionId: qOnsiteSupport.id, value: "Sí", score: 9 },
+          { clientId, questionId: qPrereq.id, value: "Aceptado" },
+          { clientId, questionId: qDelivery.id, value: "10 días hábiles", score: 8 },
+          { clientId, questionId: qWarranty.id, value: "3", score: 7 },
+          { clientId, questionId: qIso.id, value: "Sí", score: 10 },
+          { clientId, questionId: qIsoCert.id, value: "ISO-2024-8871", score: 9 },
+          { clientId, questionId: qFreight.id, value: "150", score: 6 },
+          { clientId, questionId: qOnsiteSupport.id, value: "Sí", score: 9 },
           {
+            clientId,
             questionId: qAttachment.id,
             value: `/uploads/${demoFileName}|garantia-technova.pdf`,
           },
-          { questionId: qNda.id, value: "Sí" },
-          { questionId: qExtendedWarranty.id, value: "Sí", score: 8 },
+          { clientId, questionId: qNda.id, value: "Sí" },
+          { clientId, questionId: qExtendedWarranty.id, value: "Sí", score: 8 },
         ],
       },
     },
@@ -582,26 +624,27 @@ async function main() {
   });
   await prisma.response.create({
     data: {
+      clientId,
       invitationId: invitations[1].id,
       itemPrices: {
         create: [
-          { itemId: laptop.id, unitPrice: 890 },
-          { itemId: monitor.id, unitPrice: 210 },
-          { itemId: install.id, unitPrice: 350 },
+          { clientId, itemId: laptop.id, unitPrice: 890 },
+          { clientId, itemId: monitor.id, unitPrice: 210 },
+          { clientId, itemId: install.id, unitPrice: 350 },
         ],
       },
       answers: {
         create: [
-          { questionId: qPrereq.id, value: "Aceptado" },
-          { questionId: qDelivery.id, value: "15 días hábiles", score: 5 },
-          { questionId: qWarranty.id, value: "2", score: 5 },
-          { questionId: qIso.id, value: "En proceso", score: 4 },
+          { clientId, questionId: qPrereq.id, value: "Aceptado" },
+          { clientId, questionId: qDelivery.id, value: "15 días hábiles", score: 5 },
+          { clientId, questionId: qWarranty.id, value: "2", score: 5 },
+          { clientId, questionId: qIso.id, value: "En proceso", score: 4 },
           // qIsoCert omitted: Carlos's ISO answer isn't "Sí", so this
           // conditional question stays hidden for him.
-          { questionId: qFreight.id, value: "300", score: 3 },
-          { questionId: qOnsiteSupport.id, value: "No", score: 3 },
-          { questionId: qNda.id, value: "Sí" },
-          { questionId: qExtendedWarranty.id, value: "No", score: 4 },
+          { clientId, questionId: qFreight.id, value: "300", score: 3 },
+          { clientId, questionId: qOnsiteSupport.id, value: "No", score: 3 },
+          { clientId, questionId: qNda.id, value: "Sí" },
+          { clientId, questionId: qExtendedWarranty.id, value: "No", score: 4 },
         ],
       },
     },
@@ -618,6 +661,7 @@ async function main() {
   secondDeadline.setDate(secondDeadline.getDate() + 20);
   const secondRfp = await prisma.rfp.create({
     data: {
+      clientId,
       number: 2,
       title: "Servicio de consultoría de procesos",
       description:
@@ -631,6 +675,7 @@ async function main() {
       items: {
         create: [
           {
+            clientId,
             name: "Diagnóstico inicial",
             description: "Levantamiento de procesos actuales",
             quantity: 1,
@@ -647,6 +692,7 @@ async function main() {
   // del Monitor.
   const historicalRfp = await prisma.rfp.create({
     data: {
+      clientId,
       number: 3,
       title: "Compra de laptops Q1 (histórica)",
       description: "Renovación de equipo para el área administrativa.",
@@ -659,6 +705,7 @@ async function main() {
       items: {
         create: [
           {
+            clientId,
             code: "LAP-14",
             name: "Laptop 14'' 16GB RAM",
             description: "Procesador serie i7 o equivalente, 512GB SSD",
@@ -673,6 +720,7 @@ async function main() {
   });
   const historicalSupplier = await prisma.supplier.create({
     data: {
+      clientId,
       name: "Carlos Ibarra",
       email: "carlos@computel.mx",
       company: "Computel",
@@ -680,6 +728,7 @@ async function main() {
   });
   const historicalInvitation = await prisma.invitation.create({
     data: {
+      clientId,
       rfpId: historicalRfp.id,
       supplierId: historicalSupplier.id,
       status: "RESPONDED",
@@ -687,9 +736,10 @@ async function main() {
   });
   await prisma.response.create({
     data: {
+      clientId,
       invitationId: historicalInvitation.id,
       itemPrices: {
-        create: [{ itemId: historicalRfp.items[0].id, unitPrice: 870 }],
+        create: [{ clientId, itemId: historicalRfp.items[0].id, unitPrice: 870 }],
       },
     },
   });

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 
 export type SupplierDirectoryStatus = "ACTIVE" | "INACTIVE";
 
@@ -20,8 +20,16 @@ export type SupplierDirectoryItemInput = {
 
 export async function saveSupplierDirectory(
   items: SupplierDirectoryItemInput[],
+  targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    return { error: "No tenés permiso para editar el directorio de proveedores." };
+  }
+  const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+  if (!clientId) {
+    return { error: "Selecciona el cliente cuyos proveedores vas a editar." };
+  }
 
   const cleaned = items
     .map((i) => ({
@@ -45,9 +53,11 @@ export async function saveSupplierDirectory(
     seen.add(key);
   }
 
-  await prisma.supplierDirectory.deleteMany({});
+  await prisma.supplierDirectory.deleteMany({ where: { clientId } });
   if (cleaned.length > 0) {
-    await prisma.supplierDirectory.createMany({ data: cleaned });
+    await prisma.supplierDirectory.createMany({
+      data: cleaned.map((i) => ({ ...i, clientId })),
+    });
   }
 
   revalidatePath("/admin/master-data/suppliers");

@@ -1,20 +1,30 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { UserForm } from "../UserForm";
 
 export default async function EditUserPage({
   params,
 }: PageProps<"/admin/users/[id]">) {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
   const { id } = await params;
 
-  const [user, groups] = await Promise.all([
+  const [user, groups, clients] = await Promise.all([
     prisma.user.findUnique({ where: { id }, include: { approvalGroups: true } }),
-    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
+    prisma.approvalGroup.findMany({
+      where: scope.where,
+      orderBy: { description: "asc" },
+    }),
+    scope.isSuperAdmin
+      ? prisma.client.findMany({ orderBy: { description: "asc" } })
+      : Promise.resolve([]),
   ]);
   if (!user) notFound();
+  if (!scope.isSuperAdmin && user.clientId !== scope.user.clientId) notFound();
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -33,7 +43,7 @@ export default async function EditUserPage({
           initial={{
             name: user.name,
             lastName: user.lastName ?? "",
-            client: user.client ?? "",
+            clientId: user.clientId,
             email: user.email,
             companyCode: user.companyCode ?? "",
             plant: user.plant ?? "",
@@ -46,6 +56,8 @@ export default async function EditUserPage({
             })),
           }}
           groups={groups.map((g) => ({ id: g.id, description: g.description }))}
+          clients={clients}
+          actorIsSuperAdmin={scope.isSuperAdmin}
         />
       </div>
     </div>

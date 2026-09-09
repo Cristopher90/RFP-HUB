@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { makeClientKey } from "@/lib/clientKey";
 import { TemplateForm } from "../TemplateForm";
 import { deleteTemplate } from "../actions";
@@ -9,22 +9,34 @@ import { deleteTemplate } from "../actions";
 export default async function EditTemplatePage({
   params,
 }: PageProps<"/admin/templates/[id]">) {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
   const { id } = await params;
 
-  const [template, commodities, regions] = await Promise.all([
-    prisma.rfpTemplate.findUnique({
-      where: { id },
-      include: {
-        items: { orderBy: { order: "asc" } },
-        questions: { orderBy: { order: "asc" } },
-      },
-    }),
-    prisma.commodity.findMany({ orderBy: { description: "asc" } }),
-    prisma.region.findMany({ orderBy: { description: "asc" } }),
-  ]);
-
+  const template = await prisma.rfpTemplate.findUnique({
+    where: { id },
+    include: {
+      items: { orderBy: { order: "asc" } },
+      questions: { orderBy: { order: "asc" } },
+    },
+  });
   if (!template) notFound();
+  if (!scope.isSuperAdmin && template.clientId !== scope.user.clientId) {
+    notFound();
+  }
+
+  const [commodities, regions] = await Promise.all([
+    prisma.commodity.findMany({
+      where: { clientId: template.clientId },
+      orderBy: { description: "asc" },
+    }),
+    prisma.region.findMany({
+      where: { clientId: template.clientId },
+      orderBy: { description: "asc" },
+    }),
+  ]);
 
   const questionClientKeyById = new Map(
     template.questions.map((q) => [q.id, makeClientKey()]),

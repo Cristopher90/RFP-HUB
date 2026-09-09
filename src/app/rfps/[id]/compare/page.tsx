@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import { formatCurrency } from "@/lib/format";
 import { colorForIndex } from "@/lib/chartColors";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
@@ -16,7 +16,8 @@ export default async function ComparePage({
   params,
 }: PageProps<"/rfps/[id]/compare">) {
   const { id } = await params;
-  const user = await requireUser();
+  const scope = await requireClientScope();
+  const user = scope.user;
 
   const rfp = await prisma.rfp.findUnique({
     where: { id },
@@ -34,6 +35,7 @@ export default async function ComparePage({
   });
 
   if (!rfp) notFound();
+  if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
 
   const responded = rfp.invitations.filter((inv) => inv.response);
 

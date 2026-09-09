@@ -1,12 +1,17 @@
 import Link from "next/link";
-import { requireRole } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 
 export default async function AdminPage() {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
 
   const templates = await prisma.rfpTemplate.findMany({
+    where: scope.where,
     orderBy: { createdAt: "desc" },
     include: { items: true, questions: true },
   });
@@ -74,6 +79,14 @@ export default async function AdminPage() {
           >
             Catálogo de artículos
           </Link>
+          {scope.isSuperAdmin && (
+            <Link
+              href="/admin/master-data/clients"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              Clientes
+            </Link>
+          )}
         </div>
       </CollapsibleSection>
 

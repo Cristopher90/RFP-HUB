@@ -1,21 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import { formatCurrency, formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default async function RfpRoundsPage({
   params,
 }: PageProps<"/rfps/[id]/rounds">) {
-  await requireUser();
+  const scope = await requireClientScope();
   const { id } = await params;
 
   const rfp = await prisma.rfp.findUnique({
     where: { id },
-    select: { id: true, seriesRootId: true },
+    select: { id: true, seriesRootId: true, clientId: true },
   });
   if (!rfp) notFound();
+  if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
 
   const seriesRootId = rfp.seriesRootId ?? rfp.id;
 

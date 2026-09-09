@@ -60,8 +60,10 @@ function smallInputClass() {
 
 export function SupplierDirectoryForm({
   initial,
+  targetClientId,
 }: {
   initial: SupplierDirectoryItemInput[];
+  targetClientId?: string;
 }) {
   const [rows, setRows] = useState<SupplierDirectoryItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -130,7 +132,7 @@ export function SupplierDirectoryForm({
     setError(null);
     setSuccess(false);
     startTransition(async () => {
-      const result = await saveSupplierDirectory(rows);
+      const result = await saveSupplierDirectory(rows, targetClientId);
       if ("error" in result) {
         setError(result.error);
       } else {

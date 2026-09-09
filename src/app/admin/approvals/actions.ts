@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 
 export type ApproverMode = "USERS" | "GROUP";
 export type ApprovalStageKind = "PUBLISH" | "AWARD";
@@ -24,7 +24,11 @@ export type ApprovalWorkflowInput = {
   templateIds: string[];
 };
 
-function shapeLevels(levels: ApprovalLevelInput[], workflowId: string) {
+function shapeLevels(
+  levels: ApprovalLevelInput[],
+  workflowId: string,
+  clientId: string,
+) {
   const byStage: Record<ApprovalStageKind, ApprovalLevelInput[]> = {
     PUBLISH: [],
     AWARD: [],
@@ -33,6 +37,7 @@ function shapeLevels(levels: ApprovalLevelInput[], workflowId: string) {
 
   return (Object.keys(byStage) as ApprovalStageKind[]).flatMap((stage) =>
     byStage[stage].map((l, order) => ({
+      clientId,
       workflowId,
       stage,
       order,
@@ -44,24 +49,36 @@ function shapeLevels(levels: ApprovalLevelInput[], workflowId: string) {
   );
 }
 
+async function requireApprovalsScope() {
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
+  return scope;
+}
+
 export async function createApprovalWorkflow(
   input: ApprovalWorkflowInput,
+  targetClientId?: string,
 ): Promise<{ error: string } | never> {
-  await requireRole("ADMIN");
+  const scope = await requireApprovalsScope();
   if (!input.name.trim()) return { error: "El nombre es obligatorio." };
+  const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+  if (!clientId) return { error: "Selecciona el cliente de este proceso." };
 
   const workflow = await prisma.approvalWorkflow.create({
     data: {
+      clientId,
       name: input.name.trim(),
       description: input.description.trim() || null,
       active: input.active,
     },
   });
   await prisma.approvalLevel.createMany({
-    data: shapeLevels(input.levels, workflow.id),
+    data: shapeLevels(input.levels, workflow.id, clientId),
   });
   await prisma.rfpTemplate.updateMany({
-    where: { id: { in: input.templateIds } },
+    where: { id: { in: input.templateIds }, clientId },
     data: { approvalWorkflowId: workflow.id },
   });
   revalidatePath("/admin/approvals");
@@ -72,8 +89,15 @@ export async function updateApprovalWorkflow(
   id: string,
   input: ApprovalWorkflowInput,
 ): Promise<{ error: string } | { success: true }> {
-  await requireRole("ADMIN");
+  const scope = await requireApprovalsScope();
   if (!input.name.trim()) return { error: "El nombre es obligatorio." };
+
+  const existing = await prisma.approvalWorkflow.findUnique({ where: { id } });
+  if (!existing) return { error: "Proceso no encontrado." };
+  if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
+    return { error: "No podés editar un proceso de otro cliente." };
+  }
+  const clientId = existing.clientId;
 
   await prisma.approvalWorkflow.update({
     where: { id },
@@ -85,14 +109,16 @@ export async function updateApprovalWorkflow(
   });
   // Niveles: reemplazo total (mismo patrón que artículos/preguntas de plantilla).
   await prisma.approvalLevel.deleteMany({ where: { workflowId: id } });
-  await prisma.approvalLevel.createMany({ data: shapeLevels(input.levels, id) });
+  await prisma.approvalLevel.createMany({
+    data: shapeLevels(input.levels, id, clientId),
+  });
   // Reasignar plantillas: las que ya no están seleccionadas se sueltan.
   await prisma.rfpTemplate.updateMany({
     where: { approvalWorkflowId: id },
     data: { approvalWorkflowId: null },
   });
   await prisma.rfpTemplate.updateMany({
-    where: { id: { in: input.templateIds } },
+    where: { id: { in: input.templateIds }, clientId },
     data: { approvalWorkflowId: id },
   });
   revalidatePath("/admin/approvals");
@@ -101,7 +127,12 @@ export async function updateApprovalWorkflow(
 }
 
 export async function deleteApprovalWorkflow(id: string) {
-  await requireRole("ADMIN");
+  const scope = await requireApprovalsScope();
+  const existing = await prisma.approvalWorkflow.findUnique({ where: { id } });
+  if (!existing) redirect("/admin/approvals");
+  if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
+    redirect("/admin/approvals");
+  }
   await prisma.rfpTemplate.updateMany({
     where: { approvalWorkflowId: id },
     data: { approvalWorkflowId: null },

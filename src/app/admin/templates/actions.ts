@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type TemplateItemInput = {
@@ -66,11 +66,31 @@ export type SaveTemplateInput = {
 export async function saveTemplate(
   templateId: string | null,
   input: SaveTemplateInput,
+  targetClientId?: string,
 ): Promise<{ error: string } | never> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
 
   const name = input.name.trim();
   if (!name) return { error: "El nombre de la plantilla es obligatorio." };
+
+  let clientId: string;
+  if (templateId) {
+    const existing = await prisma.rfpTemplate.findUnique({
+      where: { id: templateId },
+    });
+    if (!existing) return { error: "Plantilla no encontrada." };
+    if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
+      return { error: "No podés editar una plantilla de otro cliente." };
+    }
+    clientId = existing.clientId;
+  } else {
+    const resolved = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+    if (!resolved) return { error: "Selecciona el cliente de esta plantilla." };
+    clientId = resolved;
+  }
 
   const items = input.items
     .map((item) => ({
@@ -127,7 +147,7 @@ export async function saveTemplate(
 
   const template = templateId
     ? await prisma.rfpTemplate.update({ where: { id: templateId }, data })
-    : await prisma.rfpTemplate.create({ data });
+    : await prisma.rfpTemplate.create({ data: { ...data, clientId } });
 
   // Replace items/questions wholesale — simplest consistent model for a
   // form-based full-save editor.
@@ -139,6 +159,7 @@ export async function saveTemplate(
   await prisma.templateItem.createMany({
     data: items.map((item, order) => ({
       ...item,
+      clientId,
       templateId: template.id,
       order,
     })),
@@ -148,6 +169,7 @@ export async function saveTemplate(
   for (const [order, q] of questions.entries()) {
     const created = await prisma.templateQuestion.create({
       data: {
+        clientId,
         templateId: template.id,
         section: q.section,
         text: q.text,
@@ -184,8 +206,16 @@ export async function saveTemplate(
 }
 
 export async function deleteTemplate(templateId: string) {
-  await requireRole("ADMIN");
-  await prisma.rfpTemplate.delete({ where: { id: templateId } });
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
+  const existing = await prisma.rfpTemplate.findUnique({
+    where: { id: templateId },
+  });
+  if (existing && (scope.isSuperAdmin || existing.clientId === scope.user.clientId)) {
+    await prisma.rfpTemplate.delete({ where: { id: templateId } });
+  }
   revalidatePath("/admin");
   redirect("/admin");
 }

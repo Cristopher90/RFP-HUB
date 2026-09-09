@@ -200,12 +200,14 @@ export function ApprovalWorkflowForm({
   templates,
   users,
   groups,
+  targetClientId,
 }: {
   workflowId?: string;
   initial?: ApprovalWorkflowInput;
   templates: { id: string; name: string }[];
   users: { id: string; name: string }[];
   groups: { id: string; description: string }[];
+  targetClientId?: string;
 }) {
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
@@ -255,7 +257,7 @@ export function ApprovalWorkflowForm({
     startTransition(async () => {
       const result = workflowId
         ? await updateApprovalWorkflow(workflowId, payload)
-        : await createApprovalWorkflow(payload);
+        : await createApprovalWorkflow(payload, targetClientId);
       if (result && "error" in result) setError(result.error);
       else setSuccess(true);
     });

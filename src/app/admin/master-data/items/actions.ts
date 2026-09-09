@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 
 export type ItemCatalogItemInput = {
   clientKey: string;
@@ -17,8 +17,16 @@ export type ItemCatalogItemInput = {
 
 export async function saveItemCatalog(
   items: ItemCatalogItemInput[],
+  targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    return { error: "No tenés permiso para editar el catálogo de artículos." };
+  }
+  const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+  if (!clientId) {
+    return { error: "Selecciona el cliente cuyo catálogo vas a editar." };
+  }
 
   const cleaned = items
     .map((i) => ({
@@ -46,14 +54,14 @@ export async function saveItemCatalog(
   // Reemplazo total de entradas — mismo patrón que el resto de datos
   // maestros. Los catálogos (nombres) se conservan/crean por upsert, así
   // que uno que se quede sin entradas simplemente queda vacío.
-  await prisma.itemCatalogEntry.deleteMany({});
+  await prisma.itemCatalogEntry.deleteMany({ where: { clientId } });
 
   const catalogNames = [...new Set(cleaned.map((i) => i.catalogName))];
   const idByName = new Map<string, string>();
   for (const name of catalogNames) {
     const list = await prisma.itemCatalogList.upsert({
-      where: { name },
-      create: { name },
+      where: { clientId_name: { clientId, name } },
+      create: { clientId, name },
       update: {},
     });
     idByName.set(name, list.id);
@@ -62,6 +70,7 @@ export async function saveItemCatalog(
   if (cleaned.length > 0) {
     await prisma.itemCatalogEntry.createMany({
       data: cleaned.map((i) => ({
+        clientId,
         catalogListId: idByName.get(i.catalogName)!,
         code: i.code,
         name: i.name,

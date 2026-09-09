@@ -1,30 +1,43 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { requireRole } from "@/lib/auth";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireClientScope } from "@/lib/clientScope";
 import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
 import type { ApprovalWorkflowInput, ApprovalLevelInput } from "../actions";
 
 export default async function EditApprovalWorkflowPage({
   params,
 }: PageProps<"/admin/approvals/[id]">) {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    redirect("/");
+  }
   const { id } = await params;
 
-  const [workflow, templates, users, groups] = await Promise.all([
-    prisma.approvalWorkflow.findUnique({
-      where: { id },
-      include: { levels: { orderBy: { order: "asc" } } },
-    }),
+  const workflow = await prisma.approvalWorkflow.findUnique({
+    where: { id },
+    include: { levels: { orderBy: { order: "asc" } } },
+  });
+  if (!workflow) notFound();
+  if (!scope.isSuperAdmin && workflow.clientId !== scope.user.clientId) {
+    notFound();
+  }
+
+  const [templates, users, groups] = await Promise.all([
     prisma.rfpTemplate.findMany({
+      where: { clientId: workflow.clientId },
       orderBy: { name: "asc" },
       select: { id: true, name: true, approvalWorkflowId: true },
     }),
-    prisma.user.findMany({ orderBy: { name: "asc" } }),
-    prisma.approvalGroup.findMany({ orderBy: { description: "asc" } }),
+    prisma.user.findMany({
+      where: { clientId: workflow.clientId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.approvalGroup.findMany({
+      where: { clientId: workflow.clientId },
+      orderBy: { description: "asc" },
+    }),
   ]);
-
-  if (!workflow) notFound();
 
   const initial: ApprovalWorkflowInput = {
     name: workflow.name,

@@ -82,6 +82,7 @@ export type CreateRfpInput = {
   origin: string;
   predecessorDocument: string;
   basedOnRfpId: string | null;
+  clientId?: string; // solo lo usa un Super Administrador (ADMIN); ignorado para cualquier otro rol
   isNextRound?: boolean;
   scoringEnabled: boolean;
   saveAsDraft: boolean;
@@ -98,10 +99,14 @@ export type ShapedRfpInput = {
   estimatedPrice: number | null;
 };
 
-async function findMatchingTemplates(commodity: string, region: string) {
+async function findMatchingTemplates(
+  commodity: string,
+  region: string,
+  clientId: string,
+) {
   return (
     await prisma.rfpTemplate.findMany({
-      where: { active: true },
+      where: { active: true, clientId },
       include: {
         items: true,
         questions: true,
@@ -198,10 +203,12 @@ function shapeSuppliers(suppliers: NewSupplierInput[]) {
 export async function validateAndShapeRfp(
   input: CreateRfpInput,
   user: { role: import("@/generated/prisma/enums").UserRole },
+  clientId: string,
 ): Promise<{ error: string } | ShapedRfpInput> {
   const matchingTemplates = await findMatchingTemplates(
     input.commodity,
     input.region,
+    clientId,
   );
 
   const submittedItemSourceIds = new Set(
@@ -256,7 +263,17 @@ export async function createRfp(
   if (!buyerName) return { error: "El nombre del comprador es obligatorio." };
   if (!input.deadlineAt) return { error: "La fecha de cierre es obligatoria." };
 
-  const shaped = await validateAndShapeRfp(input, user);
+  const clientId = user.role === "ADMIN" ? input.clientId : user.clientId;
+  if (!clientId) {
+    return {
+      error:
+        user.role === "ADMIN"
+          ? "Selecciona el cliente de esta RFP."
+          : "Tu usuario no tiene un cliente asignado.",
+    };
+  }
+
+  const shaped = await validateAndShapeRfp(input, user, clientId);
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
 
@@ -286,6 +303,7 @@ export async function createRfp(
 
   const rfp = await prisma.rfp.create({
     data: {
+      clientId,
       number: await nextRfpNumber(),
       title,
       description: input.description.trim(),
@@ -316,6 +334,7 @@ export async function createRfp(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         create: items.map(({ id: _id, ...item }, order) => ({
           ...item,
+          clientId,
           order,
         })),
       },
@@ -329,6 +348,7 @@ export async function createRfp(
   for (const [order, q] of questions.entries()) {
     const created = await prisma.rfpQuestion.create({
       data: {
+        clientId,
         rfpId: rfp.id,
         section: q.section,
         text: q.text,
@@ -364,9 +384,12 @@ export async function createRfp(
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   for (const { invitationId: _invitationId, ...supplier } of suppliers) {
-    const createdSupplier = await prisma.supplier.create({ data: supplier });
+    const createdSupplier = await prisma.supplier.create({
+      data: { ...supplier, clientId },
+    });
     await prisma.invitation.create({
       data: {
+        clientId,
         rfpId: rfp.id,
         supplierId: createdSupplier.id,
       },

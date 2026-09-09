@@ -160,9 +160,15 @@ export async function startStage(params: {
   const { rfpId, stage, levels, requiredValue, requesterId } = params;
   if (levels.length === 0) return { completed: true };
 
+  const rfp = await prisma.rfp.findUniqueOrThrow({
+    where: { id: rfpId },
+    select: { clientId: true },
+  });
+
   const now = new Date();
   await prisma.rfpApproval.createMany({
     data: levels.map((lvl, order) => ({
+      clientId: rfp.clientId,
       rfpId,
       stage,
       order,
@@ -218,7 +224,13 @@ export async function recordDecision(input: {
       return { ok: false, error: "Debes indicar un motivo de rechazo." };
     }
     await prisma.rfpApprovalDecision.create({
-      data: { approvalId: active.id, userId, decision: "REJECTED", reason: reason.trim() },
+      data: {
+        clientId: active.clientId,
+        approvalId: active.id,
+        userId,
+        decision: "REJECTED",
+        reason: reason.trim(),
+      },
     });
     await prisma.rfpApproval.update({
       where: { id: active.id },
@@ -228,7 +240,7 @@ export async function recordDecision(input: {
   }
 
   await prisma.rfpApprovalDecision.create({
-    data: { approvalId: active.id, userId, decision: "APPROVED" },
+    data: { clientId: active.clientId, approvalId: active.id, userId, decision: "APPROVED" },
   });
 
   let levelDone = true;

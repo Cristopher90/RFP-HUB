@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 
 export type MasterDataItemInput = {
@@ -12,18 +12,91 @@ export type MasterDataItemInput = {
   parentClientKey: string | null;
 };
 
-function pathFor(kind: MasterDataKind) {
+function pathFor(kind: Exclude<MasterDataKind, "client">) {
   if (kind === "commodity") return "/admin/master-data/commodities";
   if (kind === "region") return "/admin/master-data/regions";
   if (kind === "approvalGroup") return "/admin/master-data/approval-groups";
   return "/admin/master-data/origins";
 }
 
-export async function saveMasterDataList(
-  kind: MasterDataKind,
+// `kind: "client"` manages the Client list itself — ADMIN-only, flat (no
+// parent/tree, no clientId scoping since it IS the tenant boundary).
+export async function saveClientList(
   items: MasterDataItemInput[],
 ): Promise<{ error: string } | { success: true }> {
-  await requireRole("ADMIN");
+  const scope = await requireClientScope();
+  if (!scope.isSuperAdmin) {
+    return { error: "Solo un Super Administrador puede editar los clientes." };
+  }
+
+  const cleaned = items
+    .map((i) => ({
+      clientKey: i.clientKey,
+      code: i.code.trim(),
+      description: i.description.trim(),
+    }))
+    .filter((i) => i.code.length > 0 && i.description.length > 0);
+
+  const seen = new Set<string>();
+  for (const i of cleaned) {
+    const key = i.code.toLowerCase();
+    if (seen.has(key)) return { error: `El ID "${i.code}" está repetido.` };
+    seen.add(key);
+  }
+
+  // Every other table has a hard (RESTRICT) foreign key straight to
+  // Client, unlike the flat/tree datos maestros (Commodity, Región, ...)
+  // which nothing else references by id — so this can't be a wholesale
+  // delete+recreate like those. Existing rows (clientKey = their real id)
+  // are updated in place; new rows are created; rows dropped from the
+  // list are deleted only if nothing depends on them yet.
+  const existing = await prisma.client.findMany();
+  const existingIds = new Set(existing.map((c) => c.id));
+  const submittedIds = new Set(
+    cleaned.filter((i) => existingIds.has(i.clientKey)).map((i) => i.clientKey),
+  );
+
+  for (const client of existing) {
+    if (!submittedIds.has(client.id)) {
+      try {
+        await prisma.client.delete({ where: { id: client.id } });
+      } catch {
+        return {
+          error: `No se puede eliminar el cliente "${client.description}" porque ya tiene datos asociados.`,
+        };
+      }
+    }
+  }
+  for (const i of cleaned) {
+    if (existingIds.has(i.clientKey)) {
+      await prisma.client.update({
+        where: { id: i.clientKey },
+        data: { code: i.code, description: i.description },
+      });
+    } else {
+      await prisma.client.create({
+        data: { code: i.code, description: i.description },
+      });
+    }
+  }
+
+  revalidatePath("/admin/master-data/clients");
+  return { success: true };
+}
+
+export async function saveMasterDataList(
+  kind: Exclude<MasterDataKind, "client">,
+  items: MasterDataItemInput[],
+  targetClientId?: string,
+): Promise<{ error: string } | { success: true }> {
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    return { error: "No tenés permiso para editar datos maestros." };
+  }
+  const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+  if (!clientId) {
+    return { error: "Selecciona el cliente cuyos datos vas a editar." };
+  }
 
   const cleaned = items
     .map((i) => ({
@@ -65,9 +138,9 @@ export async function saveMasterDataList(
   }
 
   type TreeDelegate = {
-    deleteMany(args: Record<string, never>): Promise<unknown>;
+    deleteMany(args: { where: { clientId: string } }): Promise<unknown>;
     create(args: {
-      data: { code: string; description: string };
+      data: { clientId: string; code: string; description: string };
     }): Promise<{ id: string }>;
     update(args: {
       where: { id: string };
@@ -84,11 +157,11 @@ export async function saveMasterDataList(
           ? prisma.approvalGroup
           : prisma.origin;
 
-  await model.deleteMany({});
+  await model.deleteMany({ where: { clientId } });
   const idByKey = new Map<string, string>();
   for (const i of cleaned) {
     const row = await model.create({
-      data: { code: i.code, description: i.description },
+      data: { clientId, code: i.code, description: i.description },
     });
     idByKey.set(i.clientKey, row.id);
   }
