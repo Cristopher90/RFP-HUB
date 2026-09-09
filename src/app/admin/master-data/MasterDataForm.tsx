@@ -13,6 +13,7 @@ import {
   ColumnSettingsMenu,
   ResizableTh,
 } from "@/components/ColumnSettingsMenu";
+import { PaginationBar, usePagination } from "@/components/Pagination";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 
 type ColumnKey = "code" | "description" | "parent";
@@ -184,6 +185,20 @@ export function MasterDataForm({
     return parent ? parent.description || parent.code || "(sin nombre)" : "—";
   }
 
+  const filteredTree = treeOrder.filter(({ item }) => {
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      item.row.code.toLowerCase().includes(q) ||
+      item.row.description.toLowerCase().includes(q)
+    );
+  });
+  const pagination = usePagination(filteredTree.length);
+  const pagedTree = filteredTree.slice(
+    (pagination.page - 1) * pagination.pageSize,
+    pagination.page * pagination.pageSize,
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
@@ -289,16 +304,7 @@ export function MasterDataForm({
               </tr>
             </thead>
             <tbody>
-              {treeOrder
-                .filter(({ item }) => {
-                  const q = filterQuery.trim().toLowerCase();
-                  if (!q) return true;
-                  return (
-                    item.row.code.toLowerCase().includes(q) ||
-                    item.row.description.toLowerCase().includes(q)
-                  );
-                })
-                .map(({ item, depth }) => {
+              {pagedTree.map(({ item, depth }) => {
                   const row = item.row;
                   const isEditing = editingKeys.has(row.clientKey);
                   return (
@@ -417,6 +423,14 @@ export function MasterDataForm({
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          pageSize={pagination.pageSize}
+          totalItems={filteredTree.length}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       </CollapsibleSection>
 
       <div className="flex justify-end">

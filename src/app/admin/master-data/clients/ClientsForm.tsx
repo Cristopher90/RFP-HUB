@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import { saveClientList } from "../actions";
 import type { MasterDataItemInput } from "../actions";
+import { PaginationBar, usePagination } from "@/components/Pagination";
 
 type ClientRow = {
   clientKey: string;
@@ -30,6 +31,11 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
+  const pagination = usePagination(rows.length);
+  const pagedRows = rows.slice(
+    (pagination.page - 1) * pagination.pageSize,
+    pagination.page * pagination.pageSize,
+  );
 
   function updateRow(clientKey: string, patch: Partial<ClientRow>) {
     setSuccess(false);
@@ -93,7 +99,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {pagedRows.map((row) => (
                 <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
                   <td className="px-3 py-2 first:rounded-l-lg">
                     <input
@@ -137,6 +143,14 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          pageSize={pagination.pageSize}
+          totalItems={rows.length}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       </div>
 
       <div className="flex justify-end">

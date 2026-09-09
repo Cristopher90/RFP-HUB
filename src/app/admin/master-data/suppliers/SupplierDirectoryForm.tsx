@@ -16,6 +16,7 @@ import {
   ColumnSettingsMenu,
   ResizableTh,
 } from "@/components/ColumnSettingsMenu";
+import { PaginationBar, usePagination } from "@/components/Pagination";
 
 type ColumnKey =
   | "code"
@@ -166,6 +167,11 @@ export function SupplierDirectoryForm({
       (r.status === "ACTIVE" ? "activo" : "inactivo").includes(q)
     );
   });
+  const pagination = usePagination(filteredRows.length);
+  const pagedRows = filteredRows.slice(
+    (pagination.page - 1) * pagination.pageSize,
+    pagination.page * pagination.pageSize,
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -273,7 +279,7 @@ export function SupplierDirectoryForm({
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => {
+              {pagedRows.map((row) => {
                 const isEditing = editingKeys.has(row.clientKey);
                 return (
                   <tr
@@ -360,6 +366,14 @@ export function SupplierDirectoryForm({
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          pageSize={pagination.pageSize}
+          totalItems={filteredRows.length}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       </CollapsibleSection>
 
       <CollapsibleSection

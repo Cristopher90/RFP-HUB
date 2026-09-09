@@ -6,6 +6,7 @@ import { TreePickerField } from "@/components/TreePickerField";
 import { saveItemCatalog, type ItemCatalogItemInput } from "./actions";
 import { parseItemCatalogExcelFile } from "./itemCatalogImport";
 import { downloadItemCatalogExcel } from "./itemCatalogExport";
+import { PaginationBar, usePagination } from "@/components/Pagination";
 
 function emptyRow(): ItemCatalogItemInput {
   return {
@@ -69,7 +70,20 @@ export function ItemCatalogForm({
         const kept = prev.filter(
           (r) => r.catalogName.trim().length > 0 || r.code.trim().length > 0,
         );
-        return [...kept, ...imported];
+        // El Excel puede traer el código del commodity en vez del nombre
+        // completo — alcanza con que coincida con uno u otro, y se guarda
+        // siempre la descripción (así queda igual que si se hubiera
+        // elegido a mano con el selector).
+        const resolved = imported.map((r) => {
+          if (!r.commodity) return r;
+          const match = commodities.find(
+            (c) =>
+              c.code.toLowerCase() === r.commodity.toLowerCase() ||
+              c.description.toLowerCase() === r.commodity.toLowerCase(),
+          );
+          return match ? { ...r, commodity: match.description } : r;
+        });
+        return [...kept, ...resolved];
       });
     } catch {
       setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
@@ -112,6 +126,11 @@ export function ItemCatalogForm({
       r.commodity.toLowerCase().includes(q)
     );
   });
+  const pagination = usePagination(filteredRows.length);
+  const pagedRows = filteredRows.slice(
+    (pagination.page - 1) * pagination.pageSize,
+    pagination.page * pagination.pageSize,
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -210,7 +229,7 @@ export function ItemCatalogForm({
               </tr>
             </thead>
             <tbody>
-              {filteredRows.map((row) => (
+              {pagedRows.map((row) => (
                 <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
                   <td className="px-3 py-2 first:rounded-l-lg">
                     <input
@@ -309,6 +328,14 @@ export function ItemCatalogForm({
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={pagination.page}
+          pageCount={pagination.pageCount}
+          pageSize={pagination.pageSize}
+          totalItems={filteredRows.length}
+          onPageChange={pagination.setPage}
+          onPageSizeChange={pagination.setPageSize}
+        />
       </div>
 
       <div className="flex justify-end">
