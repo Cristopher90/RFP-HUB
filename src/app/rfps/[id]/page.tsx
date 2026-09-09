@@ -61,10 +61,19 @@ export default async function RfpDetailPage({
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
   const user = scope.user;
 
-  const supplierDirectory = await prisma.supplierDirectory.findMany({
+  const supplierDirectoryRaw = await prisma.supplierDirectory.findMany({
     where: { status: "ACTIVE", clientId: rfp.clientId },
+    include: { supplierUsers: { orderBy: { name: "asc" } } },
     orderBy: { companyName: "asc" },
   });
+  const supplierDirectory = supplierDirectoryRaw.map((s) => ({
+    ...s,
+    contacts: s.supplierUsers.map((u) => ({
+      id: u.id,
+      name: `${u.name} ${u.lastName}`.trim(),
+      email: u.email,
+    })),
+  }));
 
   const publishLevels =
     rfp.status === "PENDING_PUBLISH_APPROVAL"

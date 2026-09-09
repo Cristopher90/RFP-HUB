@@ -128,6 +128,7 @@ export default async function AdminPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
@@ -200,6 +201,7 @@ export default async function AdminPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

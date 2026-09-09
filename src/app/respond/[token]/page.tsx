@@ -89,6 +89,7 @@ export default async function RespondPage({
             {formatDateTime(response.submittedAt)}.
           </h2>
           <div className="mt-4 overflow-hidden rounded-lg border border-emerald-100 bg-white">
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                 <tr>
@@ -112,6 +113,7 @@ export default async function RespondPage({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
           {supplierQuestions.length > 0 && (
             <div className="mt-4 space-y-2 text-sm text-slate-700">

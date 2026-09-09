@@ -41,6 +41,7 @@ export default async function ApprovalGroupsPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <MasterDataForm
+            key={effectiveClientId}
             kind="approvalGroup"
             label="Grupos de aprobación"
             targetClientId={effectiveClientId}

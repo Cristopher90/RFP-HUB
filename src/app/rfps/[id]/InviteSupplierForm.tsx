@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   SupplierSearchPicker,
+  type PickedContact,
   type SupplierDirectoryEntry,
 } from "@/components/SupplierSearchPicker";
 import { inviteSupplier } from "./actions";
@@ -14,8 +15,11 @@ export function InviteSupplierForm({
   rfpId: string;
   supplierDirectory: SupplierDirectoryEntry[];
 }) {
-  const [selected, setSelected] = useState<SupplierDirectoryEntry | null>(
+  const [selectedDir, setSelectedDir] = useState<SupplierDirectoryEntry | null>(
     null,
+  );
+  const [selectedContacts, setSelectedContacts] = useState<PickedContact[]>(
+    [],
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -23,23 +27,26 @@ export function InviteSupplierForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const dir = selected;
-    if (!dir) {
-      setError("Selecciona un proveedor.");
+    const dir = selectedDir;
+    if (!dir || selectedContacts.length === 0) {
+      setError("Selecciona un proveedor y al menos un contacto.");
       return;
     }
     startTransition(async () => {
-      const result = await inviteSupplier(rfpId, {
-        name: `${dir.contactFirstName} ${dir.contactLastName}`.trim(),
-        email: dir.email,
-        company: dir.companyName,
-        supplierDirectoryId: dir.id,
-      });
-      if (result?.error) {
-        setError(result.error);
-        return;
+      for (const contact of selectedContacts) {
+        const result = await inviteSupplier(rfpId, {
+          name: contact.name,
+          email: contact.email,
+          company: dir.companyName,
+          supplierDirectoryId: dir.id,
+        });
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
       }
-      setSelected(null);
+      setSelectedDir(null);
+      setSelectedContacts([]);
     });
   }
 
@@ -51,8 +58,15 @@ export function InviteSupplierForm({
       <div className="w-full sm:w-80">
         <SupplierSearchPicker
           suppliers={supplierDirectory}
-          selected={selected}
-          onSelect={setSelected}
+          selectedLabel={
+            selectedDir
+              ? `${selectedDir.companyName} — ${selectedContacts.length} contacto${selectedContacts.length === 1 ? "" : "s"}`
+              : null
+          }
+          onConfirm={(dir, contacts) => {
+            setSelectedDir(dir);
+            setSelectedContacts(contacts);
+          }}
         />
       </div>
       <button

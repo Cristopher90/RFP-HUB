@@ -44,6 +44,7 @@ export default async function EditRfpPage({
       prisma.origin.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
       prisma.supplierDirectory.findMany({
         where: { status: "ACTIVE", ...rfpWhere },
+        include: { supplierUsers: { orderBy: { name: "asc" } } },
         orderBy: { companyName: "asc" },
       }),
       prisma.itemCatalogEntry.findMany({
@@ -166,7 +167,14 @@ export default async function EditRfpPage({
           commodities={commodities}
           regions={regions}
           origins={origins}
-          supplierDirectory={supplierDirectory}
+          supplierDirectory={supplierDirectory.map((s) => ({
+            ...s,
+            contacts: s.supplierUsers.map((u) => ({
+              id: u.id,
+              name: `${u.name} ${u.lastName}`.trim(),
+              email: u.email,
+            })),
+          }))}
           itemCatalog={itemCatalog.map((i) => ({
             id: i.id,
             catalogName: i.catalogList.name,

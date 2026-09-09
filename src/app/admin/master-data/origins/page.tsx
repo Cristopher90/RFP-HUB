@@ -41,6 +41,7 @@ export default async function OriginsPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <MasterDataForm
+            key={effectiveClientId}
             kind="origin"
             label="Orígenes"
             targetClientId={effectiveClientId}

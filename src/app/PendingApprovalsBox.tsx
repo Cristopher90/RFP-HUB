@@ -78,6 +78,7 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
           className="w-56 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
       </div>
+      <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-amber-100 text-sm">
         <thead className="text-left text-xs font-medium uppercase tracking-wide text-amber-800">
           <tr>
@@ -140,6 +141,7 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default async function SystemTablePage({
                       <td
                         key={c}
                         title={value}
-                        className="max-w-xs truncate px-3 py-2 text-slate-600"
+                        className="whitespace-nowrap px-3 py-2 text-slate-600"
                       >
                         {value}
                       </td>

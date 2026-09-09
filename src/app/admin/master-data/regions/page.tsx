@@ -41,6 +41,7 @@ export default async function RegionsPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <MasterDataForm
+            key={effectiveClientId}
             kind="region"
             label="Regiones"
             targetClientId={effectiveClientId}

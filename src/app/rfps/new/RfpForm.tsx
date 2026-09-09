@@ -226,6 +226,7 @@ export function RfpForm({
     contactLastName: string;
     email: string;
     phone: string;
+    contacts?: { id: string; name: string; email: string }[];
   }[];
   itemCatalog: ItemCatalogEntry[];
   allowFreeTextItems: boolean;
@@ -468,12 +469,6 @@ export function RfpForm({
   function updateItem(index: number, patch: Partial<NewItemInput>) {
     setItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-    );
-  }
-
-  function updateSupplier(index: number, patch: Partial<NewSupplierInput>) {
-    setSuppliers((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
     );
   }
 
@@ -2130,7 +2125,8 @@ export function RfpForm({
         <div className="space-y-3">
           {suppliers.map((s, index) => {
             const selectedDir =
-              supplierDirectory.find((d) => d.email === s.email) ?? null;
+              supplierDirectory.find((d) => d.id === s.supplierDirectoryId) ??
+              null;
             return (
               <div
                 key={index}
@@ -2139,13 +2135,25 @@ export function RfpForm({
                 <div className="sm:col-span-8">
                   <SupplierSearchPicker
                     suppliers={supplierDirectory}
-                    selected={selectedDir}
-                    onSelect={(dir) =>
-                      updateSupplier(index, {
-                        name: `${dir.contactFirstName} ${dir.contactLastName}`.trim(),
-                        email: dir.email,
-                        company: dir.companyName,
-                        supplierDirectoryId: dir.id,
+                    selectedLabel={
+                      selectedDir
+                        ? `${selectedDir.companyName} — ${s.name} (${s.email})`
+                        : null
+                    }
+                    onConfirm={(dir, contacts) =>
+                      setSuppliers((prev) => {
+                        const next = [...prev];
+                        next.splice(
+                          index,
+                          1,
+                          ...contacts.map((c) => ({
+                            name: c.name,
+                            email: c.email,
+                            company: dir.companyName,
+                            supplierDirectoryId: dir.id,
+                          })),
+                        );
+                        return next;
                       })
                     }
                   />

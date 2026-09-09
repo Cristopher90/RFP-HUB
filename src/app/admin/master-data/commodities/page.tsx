@@ -41,6 +41,7 @@ export default async function CommoditiesPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <MasterDataForm
+            key={effectiveClientId}
             kind="commodity"
             label="Commodities"
             targetClientId={effectiveClientId}

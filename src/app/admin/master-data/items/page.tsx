@@ -48,6 +48,7 @@ export default async function ItemCatalogPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <ItemCatalogForm
+            key={effectiveClientId}
             commodities={commodities}
             targetClientId={effectiveClientId}
             initial={items.map((i) => ({

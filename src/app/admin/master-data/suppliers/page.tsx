@@ -55,6 +55,7 @@ export default async function SuppliersPage({
       {effectiveClientId ? (
         <div className="mt-8">
           <SupplierDirectoryForm
+            key={effectiveClientId}
             targetClientId={effectiveClientId}
             supplierUsersByDirectoryId={supplierUsersByDirectoryId}
             initial={suppliers.map((s) => ({
