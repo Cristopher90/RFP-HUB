@@ -199,9 +199,24 @@ export function RfpForm({
   currentUserRole: UserRole;
   currentUserName: string;
   templates: TemplateData[];
-  commodities: { id: string; parentId: string | null; description: string }[];
-  regions: { id: string; parentId: string | null; description: string }[];
-  origins: { id: string; parentId: string | null; description: string }[];
+  commodities: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
+  regions: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
+  origins: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
   supplierDirectory: {
     id: string;
     code: string;
@@ -945,6 +960,7 @@ export function RfpForm({
                 id: c.id,
                 parentId: c.parentId,
                 label: c.description,
+                code: c.code,
               }))}
               valueId={
                 commodities.find((c) => c.description === commodity)?.id ??
@@ -967,6 +983,7 @@ export function RfpForm({
                 id: r.id,
                 parentId: r.parentId,
                 label: r.description,
+                code: r.code,
               }))}
               valueId={
                 regions.find((r) => r.description === region)?.id ?? null
@@ -1024,6 +1041,7 @@ export function RfpForm({
                 id: o.id,
                 parentId: o.parentId,
                 label: o.description,
+                code: o.code,
               }))}
               valueId={
                 origins.find((o) => o.description === origin)?.id ?? null
@@ -1034,7 +1052,6 @@ export function RfpForm({
               }}
               placeholder="Selecciona un origen"
               clearLabel="— Ninguno —"
-              allowSelectingBranches
             />
           </div>
           <div>
@@ -1393,6 +1410,7 @@ export function RfpForm({
                                 id: c.id,
                                 parentId: c.parentId,
                                 label: c.description,
+                                code: c.code,
                               }))}
                               valueId={
                                 commodities.find(

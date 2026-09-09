@@ -372,6 +372,7 @@ export function MasterDataForm({
                                     parentId: r.parentClientKey,
                                     label:
                                       r.description || r.code || "(sin nombre)",
+                                    code: r.code,
                                   }))}
                                 valueId={row.parentClientKey}
                                 onChangeId={(id) =>
@@ -381,7 +382,6 @@ export function MasterDataForm({
                                 }
                                 placeholder="— Sin padre (raíz) —"
                                 clearLabel="— Sin padre (raíz) —"
-                                allowSelectingBranches
                               />
                             ) : (
                               <span className="text-slate-500">

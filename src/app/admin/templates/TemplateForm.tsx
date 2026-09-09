@@ -107,8 +107,18 @@ export function TemplateForm({
   regions,
 }: {
   templateId?: string;
-  commodities: { id: string; parentId: string | null; description: string }[];
-  regions: { id: string; parentId: string | null; description: string }[];
+  commodities: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
+  regions: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
   initial?: {
     name: string;
     description: string;
@@ -466,6 +476,7 @@ export function TemplateForm({
                 id: c.id,
                 parentId: c.parentId,
                 label: c.description,
+                code: c.code,
               }))}
               valueId={
                 commodities.find((c) => c.description === matchCommodity)
@@ -488,6 +499,7 @@ export function TemplateForm({
                 id: r.id,
                 parentId: r.parentId,
                 label: r.description,
+                code: r.code,
               }))}
               valueId={
                 regions.find((r) => r.description === matchRegion)?.id ??
