@@ -45,6 +45,7 @@ export default async function CommoditiesPage({
             kind="commodity"
             label="Commodities"
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             initial={commodities.map((c) => ({
               clientKey: c.id,
               code: c.code,

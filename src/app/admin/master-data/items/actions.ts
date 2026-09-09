@@ -86,3 +86,23 @@ export async function saveItemCatalog(
   revalidatePath("/rfps/new");
   return { success: true };
 }
+
+// Wholesale delete — gated to Super Administrador regardless of who can
+// otherwise edit this catalog. Leaves the ItemCatalogList rows themselves
+// (they're just names, re-used on the next import/save) and only clears
+// their entries.
+export async function clearItemCatalog(
+  targetClientId?: string,
+): Promise<{ error: string } | { success: true }> {
+  const scope = await requireClientScope();
+  if (!scope.isSuperAdmin) {
+    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+  }
+  if (!targetClientId) {
+    return { error: "Selecciona el cliente cuyo catálogo vas a borrar." };
+  }
+  await prisma.itemCatalogEntry.deleteMany({ where: { clientId: targetClientId } });
+  revalidatePath("/admin/master-data/items");
+  revalidatePath("/rfps/new");
+  return { success: true };
+}

@@ -101,6 +101,25 @@ export async function saveSupplierDirectory(
   return { success: true };
 }
 
+// Wholesale delete — gated to Super Administrador regardless of who can
+// otherwise edit this directory. Cascades each row's SupplierUser portal
+// logins and nulls Supplier.supplierDirectoryId on past invitations
+// (same cascade behavior as removing one row at a time via saveSupplierDirectory).
+export async function clearSupplierDirectory(
+  targetClientId?: string,
+): Promise<{ error: string } | { success: true }> {
+  const scope = await requireClientScope();
+  if (!scope.isSuperAdmin) {
+    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+  }
+  if (!targetClientId) {
+    return { error: "Selecciona el cliente cuyos proveedores vas a borrar." };
+  }
+  await prisma.supplierDirectory.deleteMany({ where: { clientId: targetClientId } });
+  revalidatePath("/admin/master-data/suppliers");
+  return { success: true };
+}
+
 export type SupplierUserItemInput = {
   clientKey: string;
   name: string;

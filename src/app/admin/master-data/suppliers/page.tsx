@@ -57,6 +57,7 @@ export default async function SuppliersPage({
           <SupplierDirectoryForm
             key={effectiveClientId}
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             supplierUsersByDirectoryId={supplierUsersByDirectoryId}
             initial={suppliers.map((s) => ({
               clientKey: s.id,

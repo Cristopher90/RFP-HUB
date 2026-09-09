@@ -1,7 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { saveMasterDataList, type MasterDataItemInput } from "./actions";
+import {
+  saveMasterDataList,
+  clearMasterDataTable,
+  type MasterDataItemInput,
+} from "./actions";
 import { parseMasterDataExcelFile } from "./masterDataImport";
 import { downloadMasterDataExcel } from "./masterDataExport";
 import { buildTreeOrder } from "@/lib/masterDataTree";
@@ -14,6 +18,7 @@ import {
   ResizableTh,
 } from "@/components/ColumnSettingsMenu";
 import { PaginationBar, usePagination } from "@/components/Pagination";
+import { useClearTableAction } from "@/lib/useClearTableAction";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 
 type ColumnKey = "code" | "description" | "parent";
@@ -42,11 +47,13 @@ export function MasterDataForm({
   label,
   initial,
   targetClientId,
+  isSuperAdmin = false,
 }: {
   kind: MasterDataKind;
   label: string;
   initial: MasterDataItemInput[];
   targetClientId?: string;
+  isSuperAdmin?: boolean;
 }) {
   const [rows, setRows] = useState<MasterDataItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -57,8 +64,14 @@ export function MasterDataForm({
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const deleteImportInputRef = useRef<HTMLInputElement>(null);
+  const [deleteImporting, setDeleteImporting] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const clearTable = useClearTableAction(() =>
+    clearMasterDataTable(kind, targetClientId),
+  );
 
   const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, COLUMN_DEFS);
 
@@ -83,6 +96,46 @@ export function MasterDataForm({
     setEditingKeys((prev) => {
       const next = new Set(prev);
       next.delete(clientKey);
+      return next;
+    });
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(clientKey);
+      return next;
+    });
+  }
+
+  function removeRows(clientKeys: Set<string>) {
+    setSuccess(false);
+    setRows((prev) => {
+      const kept = prev
+        .filter((r) => !clientKeys.has(r.clientKey))
+        .map((r) =>
+          r.parentClientKey && clientKeys.has(r.parentClientKey)
+            ? { ...r, parentClientKey: null }
+            : r,
+        );
+      return kept.length > 0 ? kept : [emptyRow()];
+    });
+    setSelectedKeys(new Set());
+  }
+
+  function toggleSelected(clientKey: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    const pageKeys = pagedTree.map(({ item }) => item.row.clientKey);
+    const allSelected = pageKeys.every((k) => selectedKeys.has(k));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
       return next;
     });
   }
@@ -137,6 +190,43 @@ export function MasterDataForm({
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  // Segundo modo de importación: en vez de agregar/actualizar, borra (de
+  // la lista local, pendiente de "Guardar cambios") las filas cuyo código
+  // coincida con alguno del archivo — para dar de baja en lote sin tener
+  // que tildarlas una por una.
+  async function handleDeleteImportExcel(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setDeleteImporting(true);
+    try {
+      const imported = await parseMasterDataExcelFile(file);
+      if (imported.length === 0) {
+        setImportError(
+          "No se encontraron filas con columnas 'ID' y 'Descripcion'.",
+        );
+        return;
+      }
+      const codesToDelete = new Set(
+        imported.map((r) => r.code.toLowerCase()),
+      );
+      removeRows(
+        new Set(
+          rows
+            .filter((r) => codesToDelete.has(r.code.toLowerCase()))
+            .map((r) => r.clientKey),
+        ),
+      );
+    } catch {
+      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+    } finally {
+      setDeleteImporting(false);
+      if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
     }
   }
 
@@ -211,6 +301,11 @@ export function MasterDataForm({
           Cambios guardados.
         </div>
       )}
+      {clearTable.error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {clearTable.error}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
@@ -249,6 +344,21 @@ export function MasterDataForm({
           >
             {importing ? "Importando..." : "Importar Excel"}
           </button>
+          <input
+            ref={deleteImportInputRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={handleDeleteImportExcel}
+          />
+          <button
+            type="button"
+            disabled={deleteImporting}
+            onClick={() => deleteImportInputRef.current?.click()}
+            className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+          >
+            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+          </button>
         </div>
       </div>
 
@@ -256,7 +366,7 @@ export function MasterDataForm({
         title={label}
         storageKey={`masterdata-section-${kind}`}
         right={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ColumnSettingsMenu
               defs={COLUMN_DEFS}
               order={columnPrefs.order}
@@ -265,6 +375,34 @@ export function MasterDataForm({
               moveColumn={columnPrefs.moveColumn}
               resetPrefs={columnPrefs.resetPrefs}
             />
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={() => removeRows(selectedKeys)}
+                className="text-sm font-medium text-red-600 hover:text-red-700"
+              >
+                Borrar seleccionados ({selectedKeys.size})
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                disabled={clearTable.pending}
+                onClick={() =>
+                  clearTable.run(
+                    `Esto borra TODOS los registros de "${label}" de este cliente de forma permanente. ¿Continuar?`,
+                    () => {
+                      setRows([emptyRow()]);
+                      setSelectedKeys(new Set());
+                      setSuccess(false);
+                    },
+                  )
+                }
+                className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+              >
+                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -291,6 +429,18 @@ export function MasterDataForm({
           <table className="w-full min-w-[720px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="w-8 px-3 pb-1">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pagedTree.length > 0 &&
+                      pagedTree.every(({ item }) =>
+                        selectedKeys.has(item.row.clientKey),
+                      )
+                    }
+                    onChange={toggleSelectPage}
+                  />
+                </th>
                 {columnPrefs.visibleOrderedDefs.map((def) => (
                   <ResizableTh
                     key={def.key}
@@ -312,11 +462,18 @@ export function MasterDataForm({
                       key={row.clientKey}
                       className="rounded-lg bg-slate-50 align-middle"
                     >
+                      <td className="rounded-l-lg px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedKeys.has(row.clientKey)}
+                          onChange={() => toggleSelected(row.clientKey)}
+                        />
+                      </td>
                       {columnPrefs.visibleOrderedDefs.map((def) => (
                         <td
                           key={def.key}
                           style={{ width: columnPrefs.widths[def.key] }}
-                          className="px-3 py-2 first:rounded-l-lg"
+                          className="px-3 py-2"
                         >
                           {def.key === "code" &&
                             (isEditing ? (

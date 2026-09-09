@@ -45,6 +45,7 @@ export default async function ApprovalGroupsPage({
             kind="approvalGroup"
             label="Grupos de aprobación"
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             initial={groups.map((g) => ({
               clientKey: g.id,
               code: g.code,

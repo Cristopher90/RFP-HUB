@@ -51,6 +51,7 @@ export default async function ItemCatalogPage({
             key={effectiveClientId}
             commodities={commodities}
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             initial={items.map((i) => ({
               clientKey: i.id,
               catalogName: i.catalogList.name,

@@ -13,7 +13,7 @@ export default async function AdminPage() {
   const templates = await prisma.rfpTemplate.findMany({
     where: scope.where,
     orderBy: { createdAt: "desc" },
-    include: { items: true, questions: true },
+    include: { items: true, questions: true, client: true },
   });
 
   return (
@@ -133,6 +133,7 @@ export default async function AdminPage() {
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-5 py-3">Plantilla</th>
+                <th className="px-5 py-3">Cliente</th>
                 <th className="px-5 py-3">Condición</th>
                 <th className="px-5 py-3">Artículos</th>
                 <th className="px-5 py-3">Preguntas</th>
@@ -155,6 +156,10 @@ export default async function AdminPage() {
                         {t.description}
                       </p>
                     )}
+                  </td>
+                  <td className="px-5 py-4 text-slate-600">
+                    {t.client.icon ? `${t.client.icon} ` : ""}
+                    {t.client.description}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     {t.matchCommodity || t.matchRegion ? (

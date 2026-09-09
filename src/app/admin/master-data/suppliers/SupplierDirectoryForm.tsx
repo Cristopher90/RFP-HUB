@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import {
   saveSupplierDirectory,
+  clearSupplierDirectory,
   type SupplierDirectoryItemInput,
   type SupplierUserItemInput,
 } from "./actions";
@@ -17,6 +18,7 @@ import {
   ResizableTh,
 } from "@/components/ColumnSettingsMenu";
 import { PaginationBar, usePagination } from "@/components/Pagination";
+import { useClearTableAction } from "@/lib/useClearTableAction";
 
 type ColumnKey =
   | "code"
@@ -65,10 +67,12 @@ export function SupplierDirectoryForm({
   initial,
   targetClientId,
   supplierUsersByDirectoryId = {},
+  isSuperAdmin = false,
 }: {
   initial: SupplierDirectoryItemInput[];
   targetClientId?: string;
   supplierUsersByDirectoryId?: Record<string, SupplierUserItemInput[]>;
+  isSuperAdmin?: boolean;
 }) {
   const [rows, setRows] = useState<SupplierDirectoryItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -79,14 +83,20 @@ export function SupplierDirectoryForm({
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const deleteImportInputRef = useRef<HTMLInputElement>(null);
+  const [deleteImporting, setDeleteImporting] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   // Only rows that already exist in the DB (loaded from the server) have a
   // real id a SupplierUser can attach to — a freshly-added, unsaved row's
   // clientKey is just a local placeholder.
   const [savedKeys] = useState(() => new Set(initial.map((r) => r.clientKey)));
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(
     initial[0]?.clientKey ?? "",
+  );
+  const clearTable = useClearTableAction(() =>
+    clearSupplierDirectory(targetClientId),
   );
 
   const columnPrefs = useColumnPrefs("masterdata-columns-suppliers", COLUMN_DEFS);
@@ -99,6 +109,35 @@ export function SupplierDirectoryForm({
     setRows((prev) =>
       prev.map((r) => (r.clientKey === clientKey ? { ...r, ...patch } : r)),
     );
+  }
+
+  function removeRows(clientKeys: Set<string>) {
+    setSuccess(false);
+    setRows((prev) => {
+      const next = prev.filter((r) => !clientKeys.has(r.clientKey));
+      return next.length > 0 ? next : [emptyRow()];
+    });
+    setSelectedKeys(new Set());
+  }
+
+  function toggleSelected(clientKey: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    const pageKeys = pagedRows.map((r) => r.clientKey);
+    const allSelected = pageKeys.every((k) => selectedKeys.has(k));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
+      return next;
+    });
   }
 
   function toggleEditing(clientKey: string) {
@@ -136,6 +175,40 @@ export function SupplierDirectoryForm({
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  // Segundo modo de importación: borra (de la lista local, pendiente de
+  // "Guardar cambios") las filas cuyo código coincida con alguno del
+  // archivo, en vez de agregarlas.
+  async function handleDeleteImportExcel(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setDeleteImporting(true);
+    try {
+      const imported = await parseSupplierDirectoryExcelFile(file);
+      if (imported.length === 0) {
+        setImportError("No se encontraron filas con las columnas esperadas.");
+        return;
+      }
+      const codesToDelete = new Set(
+        imported.map((r) => r.code.toLowerCase()),
+      );
+      removeRows(
+        new Set(
+          rows
+            .filter((r) => codesToDelete.has(r.code.toLowerCase()))
+            .map((r) => r.clientKey),
+        ),
+      );
+    } catch {
+      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+    } finally {
+      setDeleteImporting(false);
+      if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
     }
   }
 
@@ -185,6 +258,11 @@ export function SupplierDirectoryForm({
           Cambios guardados.
         </div>
       )}
+      {clearTable.error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {clearTable.error}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
@@ -224,6 +302,21 @@ export function SupplierDirectoryForm({
           >
             {importing ? "Importando..." : "Importar Excel"}
           </button>
+          <input
+            ref={deleteImportInputRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={handleDeleteImportExcel}
+          />
+          <button
+            type="button"
+            disabled={deleteImporting}
+            onClick={() => deleteImportInputRef.current?.click()}
+            className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+          >
+            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+          </button>
         </div>
       </div>
 
@@ -231,7 +324,7 @@ export function SupplierDirectoryForm({
         title="Proveedores"
         storageKey="masterdata-section-suppliers"
         right={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ColumnSettingsMenu
               defs={COLUMN_DEFS}
               order={columnPrefs.order}
@@ -240,6 +333,34 @@ export function SupplierDirectoryForm({
               moveColumn={columnPrefs.moveColumn}
               resetPrefs={columnPrefs.resetPrefs}
             />
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={() => removeRows(selectedKeys)}
+                className="text-sm font-medium text-red-600 hover:text-red-700"
+              >
+                Borrar seleccionados ({selectedKeys.size})
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                disabled={clearTable.pending}
+                onClick={() =>
+                  clearTable.run(
+                    "Esto borra TODOS los proveedores de este cliente (y sus usuarios de portal) de forma permanente. ¿Continuar?",
+                    () => {
+                      setRows([emptyRow()]);
+                      setSelectedKeys(new Set());
+                      setSuccess(false);
+                    },
+                  )
+                }
+                className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+              >
+                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -266,6 +387,16 @@ export function SupplierDirectoryForm({
           <table className="w-full min-w-[1000px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="w-8 px-3 pb-1">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pagedRows.length > 0 &&
+                      pagedRows.every((r) => selectedKeys.has(r.clientKey))
+                    }
+                    onChange={toggleSelectPage}
+                  />
+                </th>
                 {columnPrefs.visibleOrderedDefs.map((def) => (
                   <ResizableTh
                     key={def.key}
@@ -286,11 +417,18 @@ export function SupplierDirectoryForm({
                     key={row.clientKey}
                     className="rounded-lg bg-slate-50 align-middle"
                   >
+                    <td className="rounded-l-lg px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedKeys.has(row.clientKey)}
+                        onChange={() => toggleSelected(row.clientKey)}
+                      />
+                    </td>
                     {columnPrefs.visibleOrderedDefs.map((def) => (
                       <td
                         key={def.key}
                         style={{ width: columnPrefs.widths[def.key] }}
-                        className="px-3 py-2 first:rounded-l-lg"
+                        className="px-3 py-2"
                       >
                         {def.key === "status" ? (
                           isEditing ? (
@@ -348,11 +486,7 @@ export function SupplierDirectoryForm({
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
-                            setRows((prev) =>
-                              prev.filter((r) => r.clientKey !== row.clientKey),
-                            )
-                          }
+                          onClick={() => removeRows(new Set([row.clientKey]))}
                           disabled={rows.length === 1}
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >

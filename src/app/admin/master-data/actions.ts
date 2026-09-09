@@ -86,6 +86,29 @@ export async function saveClientList(
   return { success: true };
 }
 
+// Wholesale delete — separate from (and stricter than) the normal save
+// flow's diffing, and gated to Super Administrador only regardless of who
+// can otherwise edit this list, since it's irreversible and has no "undo
+// on next save" like removing a row does.
+export async function clearClientList(): Promise<
+  { error: string } | { success: true }
+> {
+  const scope = await requireClientScope();
+  if (!scope.isSuperAdmin) {
+    return { error: "Solo un Super Administrador puede borrar la tabla de clientes." };
+  }
+  try {
+    await prisma.client.deleteMany({});
+  } catch {
+    return {
+      error:
+        "No se pueden borrar todos los clientes: alguno todavía tiene datos asociados.",
+    };
+  }
+  revalidatePath("/admin/master-data/clients");
+  return { success: true };
+}
+
 export async function saveMasterDataList(
   kind: Exclude<MasterDataKind, "client">,
   items: MasterDataItemInput[],
@@ -176,6 +199,41 @@ export async function saveMasterDataList(
       data: { parentId },
     });
   }
+
+  revalidatePath(pathFor(kind));
+  revalidatePath("/rfps/new");
+  return { success: true };
+}
+
+// Wholesale delete of one client's list for one datos maestros table —
+// gated to Super Administrador regardless of who can otherwise edit this
+// list (a CLIENT_ADMIN can already replace the whole list via a normal
+// save with an empty row set, but this skips that flow's per-row review).
+export async function clearMasterDataTable(
+  kind: Exclude<MasterDataKind, "client">,
+  targetClientId?: string,
+): Promise<{ error: string } | { success: true }> {
+  const scope = await requireClientScope();
+  if (!scope.isSuperAdmin) {
+    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+  }
+  if (!targetClientId) {
+    return { error: "Selecciona el cliente cuya tabla vas a borrar." };
+  }
+
+  type DeleteDelegate = {
+    deleteMany(args: { where: { clientId: string } }): Promise<unknown>;
+  };
+  const model: DeleteDelegate =
+    kind === "commodity"
+      ? prisma.commodity
+      : kind === "region"
+        ? prisma.region
+        : kind === "approvalGroup"
+          ? prisma.approvalGroup
+          : prisma.origin;
+
+  await model.deleteMany({ where: { clientId: targetClientId } });
 
   revalidatePath(pathFor(kind));
   revalidatePath("/rfps/new");

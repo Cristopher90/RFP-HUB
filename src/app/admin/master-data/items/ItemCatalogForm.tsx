@@ -3,10 +3,15 @@
 import { useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import { TreePickerField } from "@/components/TreePickerField";
-import { saveItemCatalog, type ItemCatalogItemInput } from "./actions";
+import {
+  saveItemCatalog,
+  clearItemCatalog,
+  type ItemCatalogItemInput,
+} from "./actions";
 import { parseItemCatalogExcelFile } from "./itemCatalogImport";
 import { downloadItemCatalogExcel } from "./itemCatalogExport";
 import { PaginationBar, usePagination } from "@/components/Pagination";
+import { useClearTableAction } from "@/lib/useClearTableAction";
 
 function emptyRow(): ItemCatalogItemInput {
   return {
@@ -33,9 +38,11 @@ export function ItemCatalogForm({
   initial,
   commodities,
   targetClientId,
+  isSuperAdmin = false,
 }: {
   initial: ItemCatalogItemInput[];
   targetClientId?: string;
+  isSuperAdmin?: boolean;
   commodities: {
     id: string;
     parentId: string | null;
@@ -53,6 +60,39 @@ export function ItemCatalogForm({
   const [importError, setImportError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const deleteImportInputRef = useRef<HTMLInputElement>(null);
+  const [deleteImporting, setDeleteImporting] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const clearTable = useClearTableAction(() => clearItemCatalog(targetClientId));
+
+  function removeRows(clientKeys: Set<string>) {
+    setSuccess(false);
+    setRows((prev) => {
+      const next = prev.filter((r) => !clientKeys.has(r.clientKey));
+      return next.length > 0 ? next : [emptyRow()];
+    });
+    setSelectedKeys(new Set());
+  }
+
+  function toggleSelected(clientKey: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    const pageKeys = pagedRows.map((r) => r.clientKey);
+    const allSelected = pageKeys.every((k) => selectedKeys.has(k));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
+      return next;
+    });
+  }
 
   async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,6 +130,47 @@ export function ItemCatalogForm({
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
+    }
+  }
+
+  // Segundo modo de importación: borra (de la lista local, pendiente de
+  // "Guardar cambios") las filas cuyo catálogo+código coincidan con
+  // alguno del archivo — misma clave que usa el guardado para detectar
+  // duplicados — en vez de agregarlas.
+  async function handleDeleteImportExcel(
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setDeleteImporting(true);
+    try {
+      const imported = await parseItemCatalogExcelFile(file);
+      if (imported.length === 0) {
+        setImportError("No se encontraron filas con las columnas esperadas.");
+        return;
+      }
+      const keysToDelete = new Set(
+        imported.map(
+          (r) => `${r.catalogName.toLowerCase()}::${r.code.toLowerCase()}`,
+        ),
+      );
+      removeRows(
+        new Set(
+          rows
+            .filter((r) =>
+              keysToDelete.has(
+                `${r.catalogName.toLowerCase()}::${r.code.toLowerCase()}`,
+              ),
+            )
+            .map((r) => r.clientKey),
+        ),
+      );
+    } catch {
+      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+    } finally {
+      setDeleteImporting(false);
+      if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
     }
   }
 
@@ -144,6 +225,11 @@ export function ItemCatalogForm({
           Cambios guardados.
         </div>
       )}
+      {clearTable.error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {clearTable.error}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
@@ -181,6 +267,21 @@ export function ItemCatalogForm({
           >
             {importing ? "Importando..." : "Importar Excel"}
           </button>
+          <input
+            ref={deleteImportInputRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={handleDeleteImportExcel}
+          />
+          <button
+            type="button"
+            disabled={deleteImporting}
+            onClick={() => deleteImportInputRef.current?.click()}
+            className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+          >
+            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+          </button>
         </div>
       </div>
 
@@ -196,13 +297,43 @@ export function ItemCatalogForm({
               mano.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setRows((prev) => [...prev, emptyRow()])}
-            className="text-sm font-medium text-violet-600 hover:text-violet-700"
-          >
-            + Agregar
-          </button>
+          <div className="flex items-center gap-3">
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={() => removeRows(selectedKeys)}
+                className="text-sm font-medium text-red-600 hover:text-red-700"
+              >
+                Borrar seleccionados ({selectedKeys.size})
+              </button>
+            )}
+            {isSuperAdmin && (
+              <button
+                type="button"
+                disabled={clearTable.pending}
+                onClick={() =>
+                  clearTable.run(
+                    "Esto borra TODO el catálogo de artículos de este cliente de forma permanente. ¿Continuar?",
+                    () => {
+                      setRows([emptyRow()]);
+                      setSelectedKeys(new Set());
+                      setSuccess(false);
+                    },
+                  )
+                }
+                className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+              >
+                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setRows((prev) => [...prev, emptyRow()])}
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar
+            </button>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -218,6 +349,16 @@ export function ItemCatalogForm({
           <table className="w-full min-w-[1200px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="w-8 px-3 pb-1">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pagedRows.length > 0 &&
+                      pagedRows.every((r) => selectedKeys.has(r.clientKey))
+                    }
+                    onChange={toggleSelectPage}
+                  />
+                </th>
                 <th className="px-3 pb-1">Catálogo</th>
                 <th className="px-3 pb-1">Código</th>
                 <th className="px-3 pb-1">Artículo</th>
@@ -231,7 +372,14 @@ export function ItemCatalogForm({
             <tbody>
               {pagedRows.map((row) => (
                 <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
-                  <td className="px-3 py-2 first:rounded-l-lg">
+                  <td className="rounded-l-lg px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.has(row.clientKey)}
+                      onChange={() => toggleSelected(row.clientKey)}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
                     <input
                       className={smallInputClass()}
                       value={row.catalogName}
@@ -314,9 +462,7 @@ export function ItemCatalogForm({
                   <td className="rounded-r-lg px-3 py-2 text-right">
                     <button
                       type="button"
-                      onClick={() =>
-                        setRows((prev) => prev.filter((r) => r.clientKey !== row.clientKey))
-                      }
+                      onClick={() => removeRows(new Set([row.clientKey]))}
                       disabled={rows.length === 1}
                       className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                     >

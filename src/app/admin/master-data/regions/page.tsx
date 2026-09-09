@@ -45,6 +45,7 @@ export default async function RegionsPage({
             kind="region"
             label="Regiones"
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             initial={regions.map((r) => ({
               clientKey: r.id,
               code: r.code,

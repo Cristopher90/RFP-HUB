@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
-import { saveClientList } from "../actions";
+import { saveClientList, clearClientList } from "../actions";
 import type { MasterDataItemInput } from "../actions";
 import { PaginationBar, usePagination } from "@/components/Pagination";
+import { useClearTableAction } from "@/lib/useClearTableAction";
 
 type ClientRow = {
   clientKey: string;
@@ -31,11 +32,13 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const pagination = usePagination(rows.length);
   const pagedRows = rows.slice(
     (pagination.page - 1) * pagination.pageSize,
     pagination.page * pagination.pageSize,
   );
+  const clearTable = useClearTableAction(clearClientList);
 
   function updateRow(clientKey: string, patch: Partial<ClientRow>) {
     setSuccess(false);
@@ -47,6 +50,40 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
   function removeRow(clientKey: string) {
     setSuccess(false);
     setRows((prev) => prev.filter((r) => r.clientKey !== clientKey));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      next.delete(clientKey);
+      return next;
+    });
+  }
+
+  function toggleSelected(clientKey: string) {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
+
+  function toggleSelectPage() {
+    const pageKeys = pagedRows.map((r) => r.clientKey);
+    const allSelected = pageKeys.every((k) => selectedKeys.has(k));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (allSelected) pageKeys.forEach((k) => next.delete(k));
+      else pageKeys.forEach((k) => next.add(k));
+      return next;
+    });
+  }
+
+  function removeSelected() {
+    setSuccess(false);
+    setRows((prev) => {
+      const next = prev.filter((r) => !selectedKeys.has(r.clientKey));
+      return next.length > 0 ? next : [emptyRow()];
+    });
+    setSelectedKeys(new Set());
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -76,22 +113,65 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
           Cambios guardados.
         </div>
       )}
+      {clearTable.error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {clearTable.error}
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-slate-900">Clientes</h2>
-          <button
-            type="button"
-            onClick={() => setRows((prev) => [...prev, emptyRow()])}
-            className="text-sm font-medium text-violet-600 hover:text-violet-700"
-          >
-            + Agregar
-          </button>
+          <div className="flex items-center gap-4">
+            {selectedKeys.size > 0 && (
+              <button
+                type="button"
+                onClick={removeSelected}
+                className="text-sm font-medium text-red-600 hover:text-red-700"
+              >
+                Borrar seleccionados ({selectedKeys.size})
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={clearTable.pending}
+              onClick={() =>
+                clearTable.run(
+                  "Esto borra TODOS los clientes de la organización de forma permanente. ¿Continuar?",
+                  () => {
+                    setRows([emptyRow()]);
+                    setSelectedKeys(new Set());
+                    setSuccess(false);
+                  },
+                )
+              }
+              className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+            >
+              {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRows((prev) => [...prev, emptyRow()])}
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar
+            </button>
+          </div>
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[480px] border-separate border-spacing-y-2 text-sm">
             <thead>
               <tr className="text-left text-xs font-medium uppercase tracking-wide text-slate-400">
+                <th className="w-8 px-3 pb-1">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pagedRows.length > 0 &&
+                      pagedRows.every((r) => selectedKeys.has(r.clientKey))
+                    }
+                    onChange={toggleSelectPage}
+                  />
+                </th>
                 <th className="px-3 pb-1">Código</th>
                 <th className="px-3 pb-1">Nombre</th>
                 <th className="px-3 pb-1">Ícono</th>
@@ -102,6 +182,13 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
               {pagedRows.map((row) => (
                 <tr key={row.clientKey} className="rounded-lg bg-slate-50 align-middle">
                   <td className="px-3 py-2 first:rounded-l-lg">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.has(row.clientKey)}
+                      onChange={() => toggleSelected(row.clientKey)}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
                     <input
                       className={inputClass()}
                       placeholder="Ej. BASELINE"

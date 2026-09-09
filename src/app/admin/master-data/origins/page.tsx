@@ -45,6 +45,7 @@ export default async function OriginsPage({
             kind="origin"
             label="Orígenes"
             targetClientId={effectiveClientId}
+            isSuperAdmin={scope.isSuperAdmin}
             initial={origins.map((o) => ({
               clientKey: o.id,
               code: o.code,
