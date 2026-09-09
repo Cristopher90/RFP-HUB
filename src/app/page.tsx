@@ -128,8 +128,8 @@ export default async function Home({
 
       <div className="mb-6">
         <RfpFilters
-          commodities={commodities.map((c) => c.description)}
-          regions={regions.map((r) => r.description)}
+          commodities={commodities}
+          regions={regions}
           creators={
             tab === "all" && creators
               ? creators.map((u) => ({ id: u.id, name: u.name }))

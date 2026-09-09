@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { TreePickerField } from "@/components/TreePickerField";
 
 function selectClass() {
   return "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -13,13 +14,20 @@ const STATUS_LABEL: Record<string, string> = {
   CLOSED: "Cerrada",
 };
 
+type CategoryOption = {
+  id: string;
+  parentId: string | null;
+  code: string;
+  description: string;
+};
+
 export function RfpFilters({
   commodities,
   regions,
   creators,
 }: {
-  commodities: string[];
-  regions: string[];
+  commodities: CategoryOption[];
+  regions: CategoryOption[];
   creators?: { id: string; name: string }[];
 }) {
   const router = useRouter();
@@ -39,32 +47,50 @@ export function RfpFilters({
     searchParams.get("status") ||
     searchParams.get("creator");
 
+  const commodityFilter = searchParams.get("commodity") ?? "";
+  const regionFilter = searchParams.get("region") ?? "";
+
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <select
-        className={selectClass()}
-        value={searchParams.get("commodity") ?? ""}
-        onChange={(e) => setParam("commodity", e.target.value)}
-      >
-        <option value="">Todos los commodities</option>
-        {commodities.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
-      <select
-        className={selectClass()}
-        value={searchParams.get("region") ?? ""}
-        onChange={(e) => setParam("region", e.target.value)}
-      >
-        <option value="">Todas las regiones</option>
-        {regions.map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
+      <div className="w-56">
+        <TreePickerField
+          nodes={commodities.map((c) => ({
+            id: c.id,
+            parentId: c.parentId,
+            label: c.description,
+            code: c.code,
+          }))}
+          valueId={
+            commodities.find((c) => c.description === commodityFilter)?.id ??
+            null
+          }
+          onChangeId={(id) => {
+            const node = commodities.find((c) => c.id === id);
+            setParam("commodity", node?.description ?? "");
+          }}
+          placeholder="Todos los commodities"
+          clearLabel="Todos los commodities"
+        />
+      </div>
+      <div className="w-56">
+        <TreePickerField
+          nodes={regions.map((r) => ({
+            id: r.id,
+            parentId: r.parentId,
+            label: r.description,
+            code: r.code,
+          }))}
+          valueId={
+            regions.find((r) => r.description === regionFilter)?.id ?? null
+          }
+          onChangeId={(id) => {
+            const node = regions.find((r) => r.id === id);
+            setParam("region", node?.description ?? "");
+          }}
+          placeholder="Todas las regiones"
+          clearLabel="Todas las regiones"
+        />
+      </div>
       <select
         className={selectClass()}
         value={searchParams.get("status") ?? ""}

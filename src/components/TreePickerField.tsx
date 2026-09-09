@@ -73,12 +73,14 @@ export function TreePickerField({
 }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
   function openPopup() {
     setExpanded(new Set(ancestorsOf(nodes, valueId).map((n) => n.id)));
+    setQuery("");
     setOpen(true);
   }
 
@@ -119,7 +121,18 @@ export function TreePickerField({
     setOpen(false);
   }
 
-  const rows = flattenVisible(nodes, expanded);
+  const trimmedQuery = query.trim().toLowerCase();
+  const searching = trimmedQuery.length > 0;
+  const rows: Row[] = searching
+    ? nodes
+        .filter(
+          (n) =>
+            n.label.toLowerCase().includes(trimmedQuery) ||
+            n.code?.toLowerCase().includes(trimmedQuery),
+        )
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map((node) => ({ node, depth: 0, hasChildren: false }))
+    : flattenVisible(nodes, expanded);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -152,6 +165,16 @@ export function TreePickerField({
               {clearLabel}
             </button>
           </div>
+          <div className="border-b border-slate-100 p-2">
+            <input
+              type="text"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por código o nombre..."
+              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
           <div className="max-h-72 overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-white text-left text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -164,7 +187,7 @@ export function TreePickerField({
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={2} className="px-3 py-3 text-slate-400">
-                      Sin opciones.
+                      {searching ? "Sin resultados." : "Sin opciones."}
                     </td>
                   </tr>
                 )}
