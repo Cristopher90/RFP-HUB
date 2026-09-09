@@ -178,7 +178,7 @@ export function ApprovalFlowBanner({
                 autoFocus
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Motivo del rechazo (obligatorio)"
+                placeholder="Motivo del rechazo"
                 className="w-64 rounded-md border border-slate-300 px-2.5 py-1.5 text-xs shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
               <button

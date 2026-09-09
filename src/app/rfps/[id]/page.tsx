@@ -415,6 +415,9 @@ export default async function RfpDetailPage({
                           {label}
                         </span>
                         {q.text}
+                        {q.required && !q.isPrerequisite && (
+                          <span className="text-red-500"> *</span>
+                        )}
                         {conditionLabel && (
                           <span className="ml-2 text-xs text-violet-500">
                             condicionada: {conditionLabel}
@@ -441,9 +444,6 @@ export default async function RfpDetailPage({
                           </span>
                         )}
                         peso {q.weight} &middot; {typeLabel}
-                        {q.required && !q.isPrerequisite
-                          ? " · obligatoria"
-                          : ""}
                       </span>
                     </li>
                   );

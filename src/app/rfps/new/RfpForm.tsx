@@ -878,7 +878,7 @@ export function RfpForm({
               htmlFor={`${idBase}-title`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Título
+              Título <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-title`}
@@ -910,7 +910,7 @@ export function RfpForm({
               htmlFor={`${idBase}-buyer`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Comprador / área
+              Comprador / área <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-buyer`}
@@ -926,7 +926,7 @@ export function RfpForm({
               htmlFor={`${idBase}-deadline`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Fecha límite de respuesta
+              Fecha límite de respuesta <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-deadline`}
@@ -1015,7 +1015,7 @@ export function RfpForm({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Origen{" "}
               <span className="font-normal text-slate-400">
-                (opcional, no visible para el proveedor)
+                (no visible para el proveedor)
               </span>
             </label>
             <TreeCascadeSelect
@@ -1041,7 +1041,7 @@ export function RfpForm({
             >
               Documento predecesor{" "}
               <span className="font-normal text-slate-400">
-                (opcional, no visible para el proveedor)
+                (no visible para el proveedor)
               </span>
             </label>
             <input
@@ -1056,8 +1056,8 @@ export function RfpForm({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Basar en una RFP anterior{" "}
               <span className="font-normal text-slate-400">
-                (opcional — trae el precio ganador de cada artículo como
-                precio histórico)
+                (trae el precio ganador de cada artículo como precio
+                histórico)
               </span>
             </label>
             {basedOnRfpId && basedOnRfpLabel ? (

@@ -307,7 +307,7 @@ export function ResponseForm({
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          Notas adicionales (opcional)
+          Notas adicionales
         </label>
         <textarea name="notes" rows={3} className={inputClass()} />
       </section>

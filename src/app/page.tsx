@@ -1,4 +1,5 @@
 import Link from "next/link";
+import packageJson from "../../package.json";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatRfpNumber } from "@/lib/format";
@@ -223,6 +224,10 @@ export default async function Home({
           </table>
         </div>
       )}
+
+      <p className="mt-8 text-center text-xs text-slate-300">
+        RFP.HUB v{packageJson.version}
+      </p>
     </div>
   );
 }
