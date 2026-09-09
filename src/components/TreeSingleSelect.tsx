@@ -83,8 +83,15 @@ export function TreeSingleSelect({
             onChangeId(null);
             return;
           }
-          onChangeId(id);
-          if (hasChildren(id)) setBrowseParentId(id);
+          if (hasChildren(id)) {
+            // Nodes with children are pure navigation: drill into them
+            // without committing them as the selected value, so picking a
+            // leaf several levels down never requires the field to first
+            // hold an intermediate, incomplete value.
+            setBrowseParentId(id);
+          } else {
+            onChangeId(id);
+          }
         }}
       >
         <option value="">
