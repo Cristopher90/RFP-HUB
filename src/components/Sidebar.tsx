@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { ROLE_LEVEL } from "@/lib/roleLabels";
 
 export async function Sidebar() {
   const user = await getCurrentUser();
@@ -15,12 +16,20 @@ export async function Sidebar() {
         >
           RFPs
         </Link>
-        {user.role === "ADMIN" && (
+        {ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN && (
           <Link
             href="/admin"
             className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
           >
             Configuración
+          </Link>
+        )}
+        {user.role === "ADMIN" && (
+          <Link
+            href="/admin/system-tables"
+            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
+          >
+            Tablas del sistema
           </Link>
         )}
       </nav>
