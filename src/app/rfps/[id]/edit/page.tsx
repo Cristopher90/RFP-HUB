@@ -123,6 +123,7 @@ export default async function EditRfpPage({
     name: inv.supplier.name,
     email: inv.supplier.email,
     company: inv.supplier.company,
+    supplierDirectoryId: inv.supplier.supplierDirectoryId,
   }));
 
   const initial: RfpInitialData = {

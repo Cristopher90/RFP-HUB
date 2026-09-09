@@ -10,7 +10,9 @@ export function proxy(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  const hasSession = request.cookies.has("session_user");
+  const hasSession =
+    request.cookies.has("session_user") ||
+    request.cookies.has("session_supplier_user");
 
   if (!isPublic && !hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -10,6 +10,7 @@ export type MasterDataItemInput = {
   code: string;
   description: string;
   parentClientKey: string | null;
+  icon?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
 };
 
 function pathFor(kind: Exclude<MasterDataKind, "client">) {
@@ -34,6 +35,7 @@ export async function saveClientList(
       clientKey: i.clientKey,
       code: i.code.trim(),
       description: i.description.trim(),
+      icon: i.icon?.trim() || null,
     }))
     .filter((i) => i.code.length > 0 && i.description.length > 0);
 
@@ -71,11 +73,11 @@ export async function saveClientList(
     if (existingIds.has(i.clientKey)) {
       await prisma.client.update({
         where: { id: i.clientKey },
-        data: { code: i.code, description: i.description },
+        data: { code: i.code, description: i.description, icon: i.icon },
       });
     } else {
       await prisma.client.create({
-        data: { code: i.code, description: i.description },
+        data: { code: i.code, description: i.description, icon: i.icon },
       });
     }
   }

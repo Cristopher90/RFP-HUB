@@ -5,10 +5,15 @@ import { makeClientKey } from "@/lib/clientKey";
 import { saveClientList } from "../actions";
 import type { MasterDataItemInput } from "../actions";
 
-type ClientRow = { clientKey: string; code: string; description: string };
+type ClientRow = {
+  clientKey: string;
+  code: string;
+  description: string;
+  icon: string;
+};
 
 function emptyRow(): ClientRow {
-  return { clientKey: makeClientKey(), code: "", description: "" };
+  return { clientKey: makeClientKey(), code: "", description: "", icon: "" };
 }
 
 function inputClass() {
@@ -83,6 +88,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
               <tr className="text-left text-xs font-medium uppercase tracking-wide text-slate-400">
                 <th className="px-3 pb-1">Código</th>
                 <th className="px-3 pb-1">Nombre</th>
+                <th className="px-3 pb-1">Ícono</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
             </thead>
@@ -105,6 +111,15 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                       onChange={(e) =>
                         updateRow(row.clientKey, { description: e.target.value })
                       }
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      className={`${inputClass()} w-20 text-center text-base`}
+                      placeholder="🏢"
+                      maxLength={4}
+                      value={row.icon}
+                      onChange={(e) => updateRow(row.clientKey, { icon: e.target.value })}
                     />
                   </td>
                   <td className="rounded-r-lg px-3 py-2 text-right">

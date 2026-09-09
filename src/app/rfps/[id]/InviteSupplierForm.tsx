@@ -33,6 +33,7 @@ export function InviteSupplierForm({
         name: `${dir.contactFirstName} ${dir.contactLastName}`.trim(),
         email: dir.email,
         company: dir.companyName,
+        supplierDirectoryId: dir.id,
       });
       if (result?.error) {
         setError(result.error);

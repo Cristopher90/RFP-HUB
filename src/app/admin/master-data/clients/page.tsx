@@ -33,6 +33,7 @@ export default async function ClientsPage() {
             clientKey: c.id,
             code: c.code,
             description: c.description,
+            icon: c.icon ?? "",
           }))}
         />
       </div>

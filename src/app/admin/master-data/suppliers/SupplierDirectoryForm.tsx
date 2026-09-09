@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { Fragment, useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import {
   saveSupplierDirectory,
   type SupplierDirectoryItemInput,
+  type SupplierUserItemInput,
 } from "./actions";
+import { SupplierUsersEditor } from "./SupplierUsersEditor";
 import { parseSupplierDirectoryExcelFile } from "./supplierDirectoryImport";
 import { downloadSupplierDirectoryExcel } from "./supplierDirectoryExport";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
@@ -61,9 +63,11 @@ function smallInputClass() {
 export function SupplierDirectoryForm({
   initial,
   targetClientId,
+  supplierUsersByDirectoryId = {},
 }: {
   initial: SupplierDirectoryItemInput[];
   targetClientId?: string;
+  supplierUsersByDirectoryId?: Record<string, SupplierUserItemInput[]>;
 }) {
   const [rows, setRows] = useState<SupplierDirectoryItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -76,6 +80,22 @@ export function SupplierDirectoryForm({
   const importInputRef = useRef<HTMLInputElement>(null);
   const [filterQuery, setFilterQuery] = useState("");
   const [editingKeys, setEditingKeys] = useState<Set<string>>(new Set());
+  const [usersExpandedKeys, setUsersExpandedKeys] = useState<Set<string>>(
+    new Set(),
+  );
+  // Only rows that already exist in the DB (loaded from the server) have a
+  // real id a SupplierUser can attach to — a freshly-added, unsaved row's
+  // clientKey is just a local placeholder.
+  const [savedKeys] = useState(() => new Set(initial.map((r) => r.clientKey)));
+
+  function toggleUsersExpanded(clientKey: string) {
+    setUsersExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
 
   const columnPrefs = useColumnPrefs("masterdata-columns-suppliers", COLUMN_DEFS);
 
@@ -265,8 +285,8 @@ export function SupplierDirectoryForm({
               {filteredRows.map((row) => {
                 const isEditing = editingKeys.has(row.clientKey);
                 return (
+                  <Fragment key={row.clientKey}>
                   <tr
-                    key={row.clientKey}
                     className="rounded-lg bg-slate-50 align-middle"
                   >
                     {columnPrefs.visibleOrderedDefs.map((def) => (
@@ -322,6 +342,17 @@ export function SupplierDirectoryForm({
                     ))}
                     <td className="rounded-r-lg px-3 py-2 text-right">
                       <div className="flex justify-end gap-3">
+                        {savedKeys.has(row.clientKey) && (
+                          <button
+                            type="button"
+                            onClick={() => toggleUsersExpanded(row.clientKey)}
+                            className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                          >
+                            {usersExpandedKeys.has(row.clientKey)
+                              ? "Ocultar usuarios"
+                              : "Usuarios"}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => toggleEditing(row.clientKey)}
@@ -344,6 +375,20 @@ export function SupplierDirectoryForm({
                       </div>
                     </td>
                   </tr>
+                  {usersExpandedKeys.has(row.clientKey) && (
+                    <tr>
+                      <td
+                        colSpan={columnPrefs.visibleOrderedDefs.length + 1}
+                        className="px-3 pb-2"
+                      >
+                        <SupplierUsersEditor
+                          supplierDirectoryId={row.clientKey}
+                          initial={supplierUsersByDirectoryId[row.clientKey] ?? []}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

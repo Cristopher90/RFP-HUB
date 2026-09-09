@@ -79,6 +79,7 @@ model Client {
   id          String   @id @default(cuid())
   code        String   @unique
   description String
+  icon        String? // emoji mostrado junto al nombre del cliente en la barra superior
   createdAt   DateTime @default(now())
 
   users                User[]
@@ -87,6 +88,7 @@ model Client {
   origins              Origin[]
   approvalGroups       ApprovalGroup[]
   supplierDirectories  SupplierDirectory[]
+  supplierUsers        SupplierUser[]
   itemCatalogLists     ItemCatalogList[]
   itemCatalogEntries   ItemCatalogEntry[]
   templates            RfpTemplate[]
@@ -239,7 +241,26 @@ model SupplierDirectory {
   status           SupplierDirectoryStatus @default(ACTIVE)
   createdAt        DateTime                @default(now())
 
+  supplierUsers SupplierUser[]
+  suppliers     Supplier[]
+
   @@unique([clientId, code])
+}
+
+// Un contacto de un proveedor del directorio con acceso propio (correo +
+// contraseña) al portal de proveedor: ve únicamente las RFP que le llegaron
+// como ese proveedor (vía Supplier.supplierDirectoryId) y su estado.
+model SupplierUser {
+  id                  String            @id @default(cuid())
+  clientId            String
+  client              Client            @relation(fields: [clientId], references: [id])
+  supplierDirectoryId String
+  supplierDirectory   SupplierDirectory @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  name                String
+  lastName            String
+  email               String            @unique
+  passwordHash        String
+  createdAt           DateTime          @default(now())
 }
 
 // Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa
@@ -554,12 +575,14 @@ model RfpQuestion {
 }
 
 model Supplier {
-  id       String @id @default(cuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id])
-  name     String
-  email    String
-  company  String
+  id                  String             @id @default(cuid())
+  clientId            String
+  client              Client             @relation(fields: [clientId], references: [id])
+  name                String
+  email               String
+  company             String
+  supplierDirectoryId String? // seteado cuando se invitó eligiendo desde el directorio (no texto libre)
+  supplierDirectory   SupplierDirectory? @relation(fields: [supplierDirectoryId], references: [id], onDelete: SetNull)
 
   invitations Invitation[]
 }

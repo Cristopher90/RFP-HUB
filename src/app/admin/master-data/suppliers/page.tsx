@@ -14,9 +14,24 @@ export default async function SuppliersPage({
   const suppliers = effectiveClientId
     ? await prisma.supplierDirectory.findMany({
         where: { clientId: effectiveClientId },
+        include: { supplierUsers: { orderBy: { name: "asc" } } },
         orderBy: { code: "asc" },
       })
     : [];
+
+  const supplierUsersByDirectoryId: Record<
+    string,
+    { clientKey: string; name: string; lastName: string; email: string; password: string }[]
+  > = {};
+  for (const s of suppliers) {
+    supplierUsersByDirectoryId[s.id] = s.supplierUsers.map((u) => ({
+      clientKey: u.id,
+      name: u.name,
+      lastName: u.lastName,
+      email: u.email,
+      password: "",
+    }));
+  }
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
@@ -41,6 +56,7 @@ export default async function SuppliersPage({
         <div className="mt-8">
           <SupplierDirectoryForm
             targetClientId={effectiveClientId}
+            supplierUsersByDirectoryId={supplierUsersByDirectoryId}
             initial={suppliers.map((s) => ({
               clientKey: s.id,
               code: s.code,

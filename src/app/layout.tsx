@@ -4,6 +4,7 @@ import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
+import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +24,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
-  const brandName = user?.client ? user.client.description : null;
+  const supplierUser = user ? null : await getCurrentSupplierUser();
+  const client = user?.client ?? supplierUser?.client ?? null;
+  const brandName = client?.description ?? null;
+  const brandIcon = client?.icon || "🔨";
 
   return (
     <html
@@ -39,7 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 text-sm shadow-sm shadow-violet-600/30">
-                🔨
+                {brandIcon}
               </span>
               <span className="text-lg font-semibold tracking-tight text-slate-900">
                 {brandName && <span>{brandName} </span>}

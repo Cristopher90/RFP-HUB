@@ -120,7 +120,7 @@ function emptyInternalQuestion(): NewQuestionInput {
 }
 
 function emptySupplier(): NewSupplierInput {
-  return { name: "", email: "", company: "" };
+  return { name: "", email: "", company: "", supplierDirectoryId: null };
 }
 
 function inputClass() {
@@ -2145,6 +2145,7 @@ export function RfpForm({
                         name: `${dir.contactFirstName} ${dir.contactLastName}`.trim(),
                         email: dir.email,
                         company: dir.companyName,
+                        supplierDirectoryId: dir.id,
                       })
                     }
                   />

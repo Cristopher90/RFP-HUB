@@ -1,12 +1,37 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { logout } from "@/lib/authActions";
+import { getCurrentSupplierUser } from "@/lib/supplierAuth";
+import { logout, logoutSupplier } from "@/lib/authActions";
 import { ROLE_LABEL } from "@/lib/roleLabels";
 
 export async function HeaderNav() {
   const user = await getCurrentUser();
 
   if (!user) {
+    const supplierUser = await getCurrentSupplierUser();
+    if (supplierUser) {
+      return (
+        <nav className="flex items-center gap-3 text-sm font-medium text-slate-600">
+          <div className="text-right leading-tight">
+            <p className="text-sm font-medium text-slate-800">
+              {supplierUser.name} {supplierUser.lastName}
+            </p>
+            <p className="text-xs text-slate-400">
+              {supplierUser.supplierDirectory.companyName}
+            </p>
+          </div>
+          <form action={logoutSupplier}>
+            <button
+              type="submit"
+              title="Cerrar sesión"
+              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+            >
+              Salir
+            </button>
+          </form>
+        </nav>
+      );
+    }
     return (
       <nav className="text-sm font-medium text-slate-600">
         <Link

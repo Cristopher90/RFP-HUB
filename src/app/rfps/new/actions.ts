@@ -68,6 +68,7 @@ export type NewSupplierInput = {
   name: string;
   email: string;
   company: string;
+  supplierDirectoryId?: string | null; // seteado cuando se eligió desde el directorio (no texto libre)
 };
 
 export type CreateRfpInput = {
@@ -192,6 +193,7 @@ function shapeSuppliers(suppliers: NewSupplierInput[]) {
       name: s.name.trim(),
       email: s.email.trim(),
       company: s.company.trim(),
+      supplierDirectoryId: s.supplierDirectoryId || null,
     }))
     .filter((s) => s.name.length > 0 && s.email.length > 0);
 }

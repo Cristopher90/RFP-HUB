@@ -19,7 +19,12 @@ import { matchesTemplate } from "@/lib/templateMatch";
 
 export async function inviteSupplier(
   rfpId: string,
-  input: { name: string; email: string; company: string },
+  input: {
+    name: string;
+    email: string;
+    company: string;
+    supplierDirectoryId?: string | null;
+  },
 ) {
   const name = input.name.trim();
   const email = input.email.trim();
@@ -33,7 +38,13 @@ export async function inviteSupplier(
     select: { clientId: true },
   });
   const supplier = await prisma.supplier.create({
-    data: { name, email, company, clientId: rfp.clientId },
+    data: {
+      name,
+      email,
+      company,
+      clientId: rfp.clientId,
+      supplierDirectoryId: input.supplierDirectoryId || null,
+    },
   });
   await prisma.invitation.create({
     data: { rfpId, supplierId: supplier.id, clientId: rfp.clientId },
