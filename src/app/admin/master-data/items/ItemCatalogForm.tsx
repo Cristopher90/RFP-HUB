@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
+import { TreePickerField } from "@/components/TreePickerField";
 import { saveItemCatalog, type ItemCatalogItemInput } from "./actions";
 import { parseItemCatalogExcelFile } from "./itemCatalogImport";
 import { downloadItemCatalogExcel } from "./itemCatalogExport";
@@ -29,8 +30,15 @@ function smallInputClass() {
 
 export function ItemCatalogForm({
   initial,
+  commodities,
 }: {
   initial: ItemCatalogItemInput[];
+  commodities: {
+    id: string;
+    parentId: string | null;
+    code: string;
+    description: string;
+  }[];
 }) {
   const [rows, setRows] = useState<ItemCatalogItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -247,13 +255,26 @@ export function ItemCatalogForm({
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <input
-                      className={smallInputClass()}
-                      value={row.commodity}
-                      onChange={(e) =>
-                        updateRow(row.clientKey, { commodity: e.target.value })
+                    <TreePickerField
+                      nodes={commodities.map((c) => ({
+                        id: c.id,
+                        parentId: c.parentId,
+                        label: c.description,
+                        code: c.code,
+                      }))}
+                      valueId={
+                        commodities.find(
+                          (c) => c.description === row.commodity,
+                        )?.id ?? null
                       }
+                      onChangeId={(id) => {
+                        const node = commodities.find((c) => c.id === id);
+                        updateRow(row.clientKey, {
+                          commodity: node?.description ?? "",
+                        });
+                      }}
                       placeholder="Commodity"
+                      clearLabel="Sin commodity"
                     />
                   </td>
                   <td className="px-3 py-2">

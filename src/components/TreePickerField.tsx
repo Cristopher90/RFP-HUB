@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export type TreePickerNode = {
   id: string;
@@ -53,11 +53,13 @@ function flattenVisible(
   return rows;
 }
 
-// A single field that opens a popup showing the whole tree (commodity,
-// región, origen, el "padre" de un dato maestro, ...) as an expandable
-// table with Nombre/ID columns — any node at any level can be selected
-// directly by clicking its row; the disclosure triangle only expands or
-// collapses its children.
+// A single field that opens a centered modal popup (not an anchored
+// dropdown, which gets clipped or misaligned inside scrollable tables and
+// narrow columns) to browse the whole tree (commodity, región, origen, el
+// "padre" de un dato maestro, ...) as an expandable table with Nombre/ID
+// columns — any node at any level can be selected directly by clicking
+// its row; the disclosure triangle only expands or collapses its
+// children; typing in the search box flattens and filters by code/name.
 export function TreePickerField({
   nodes,
   valueId,
@@ -74,7 +76,6 @@ export function TreePickerField({
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
@@ -86,23 +87,11 @@ export function TreePickerField({
 
   useEffect(() => {
     if (!open) return;
-    function handlePointerDown(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
     }
-    document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open]);
 
   const selectedNode = valueId ? (byId.get(valueId) ?? null) : null;
@@ -135,12 +124,12 @@ export function TreePickerField({
     : flattenVisible(nodes, expanded);
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div>
       <button
         type="button"
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => (open ? setOpen(false) : openPopup())}
+        onClick={openPopup}
         className="flex w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 text-left text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
       >
         <span className={selectedNode ? "text-slate-800" : "text-slate-400"}>
@@ -152,104 +141,118 @@ export function TreePickerField({
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 w-[420px] max-w-[90vw] rounded-lg border border-slate-200 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Selecciona un nivel
-            </span>
-            <button
-              type="button"
-              onClick={() => selectAndClose(null)}
-              className="text-xs font-medium text-violet-600 hover:text-violet-700"
-            >
-              {clearLabel}
-            </button>
-          </div>
-          <div className="border-b border-slate-100 p-2">
-            <input
-              type="text"
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por código o nombre..."
-              className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-            />
-          </div>
-          <div className="max-h-72 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white text-left text-xs font-medium uppercase tracking-wide text-slate-400">
-                <tr>
-                  <th className="px-3 py-1.5">Nombre</th>
-                  <th className="w-28 px-3 py-1.5">ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 px-4 py-16"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-4">
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar por código o nombre..."
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              />
+              <button
+                type="button"
+                onClick={() => selectAndClose(null)}
+                className="shrink-0 text-sm font-medium whitespace-nowrap text-violet-600 hover:text-violet-700"
+              >
+                {clearLabel}
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                   <tr>
-                    <td colSpan={2} className="px-3 py-3 text-slate-400">
-                      {searching ? "Sin resultados." : "Sin opciones."}
-                    </td>
+                    <th className="px-4 py-2">Nombre</th>
+                    <th className="w-28 px-4 py-2">ID</th>
                   </tr>
-                )}
-                {rows.map(({ node, depth, hasChildren }) => {
-                  const selected = valueId === node.id;
-                  return (
-                    <tr
-                      key={node.id}
-                      onClick={() => selectAndClose(node.id)}
-                      className={`cursor-pointer hover:bg-slate-50 ${
-                        selected ? "bg-violet-50" : ""
-                      }`}
-                    >
-                      <td className="px-3 py-1.5">
-                        <div
-                          className="flex items-center gap-1.5"
-                          style={{ paddingLeft: depth * 18 }}
-                        >
-                          {hasChildren ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpanded(node.id);
-                              }}
-                              aria-label={
-                                expanded.has(node.id) ? "Contraer" : "Expandir"
-                              }
-                              className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 hover:text-violet-600"
-                            >
-                              {expanded.has(node.id) ? "▾" : "▸"}
-                            </button>
-                          ) : (
-                            <span className="inline-block h-4 w-4 shrink-0" />
-                          )}
-                          <input
-                            type="checkbox"
-                            readOnly
-                            checked={selected}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => selectAndClose(node.id)}
-                            className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                          />
-                          <span
-                            className={
-                              selected
-                                ? "font-medium text-violet-700"
-                                : "text-slate-700"
-                            }
-                          >
-                            {node.label}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-3 py-1.5 text-slate-500">
-                        {node.code ?? "—"}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={2} className="px-4 py-3 text-slate-400">
+                        {searching ? "Sin resultados." : "Sin opciones."}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  )}
+                  {rows.map(({ node, depth, hasChildren }) => {
+                    const selected = valueId === node.id;
+                    return (
+                      <tr
+                        key={node.id}
+                        onClick={() => selectAndClose(node.id)}
+                        className={`cursor-pointer hover:bg-violet-50 ${
+                          selected ? "bg-violet-50" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-2">
+                          <div
+                            className="flex items-center gap-1.5"
+                            style={{ paddingLeft: depth * 18 }}
+                          >
+                            {hasChildren ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleExpanded(node.id);
+                                }}
+                                aria-label={
+                                  expanded.has(node.id)
+                                    ? "Contraer"
+                                    : "Expandir"
+                                }
+                                className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 hover:text-violet-600"
+                              >
+                                {expanded.has(node.id) ? "▾" : "▸"}
+                              </button>
+                            ) : (
+                              <span className="inline-block h-4 w-4 shrink-0" />
+                            )}
+                            <input
+                              type="checkbox"
+                              readOnly
+                              checked={selected}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => selectAndClose(node.id)}
+                              className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                            />
+                            <span
+                              className={
+                                selected
+                                  ? "font-medium text-violet-700"
+                                  : "text-slate-700"
+                              }
+                            >
+                              {node.label}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-slate-500">
+                          {node.code ?? "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end border-t border-slate-200 p-3">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
