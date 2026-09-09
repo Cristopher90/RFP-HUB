@@ -204,10 +204,13 @@ export function TemplateForm({
   const [items, setItems] = useState<TemplateItemInput[]>(
     initial?.items && initial.items.length > 0 ? initial.items : [emptyItem()],
   );
+  // Split by visibility, not respondedBy: a Contenido Externo question can
+  // be "Interna" (respondedBy BUYER) and still belong to this section —
+  // only visibility decides whether it's ever sent to the proveedor.
   const initialSupplierQuestions =
-    initial?.questions?.filter((q) => q.respondedBy !== "BUYER") ?? [];
+    initial?.questions?.filter((q) => q.visibility !== "INTERNAL") ?? [];
   const initialInternalQuestions =
-    initial?.questions?.filter((q) => q.respondedBy === "BUYER") ?? [];
+    initial?.questions?.filter((q) => q.visibility === "INTERNAL") ?? [];
   const [questions, setQuestions] = useState<TemplateQuestionInput[]>(
     initialSupplierQuestions.length > 0
       ? initialSupplierQuestions
@@ -1410,15 +1413,13 @@ export function TemplateForm({
                             className={smallInputClass()}
                             value={q.respondedBy}
                             onChange={(e) => {
+                              // Solo cambia quién responde — la pregunta se
+                              // queda en Contenido Externo (visibilidad
+                              // EXTERNAL) sea cual sea la respuesta; nunca
+                              // pasa a INTERNAL desde acá.
                               const respondedBy = e.target
                                 .value as TemplateQuestionResponder;
-                              updateQuestion(index, {
-                                respondedBy,
-                                visibility:
-                                  respondedBy === "BUYER"
-                                    ? "INTERNAL"
-                                    : "EXTERNAL",
-                              });
+                              updateQuestion(index, { respondedBy });
                             }}
                           >
                             {(

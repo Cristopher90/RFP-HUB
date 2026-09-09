@@ -28,6 +28,8 @@ type Question = {
   dependsOnQuestionId: string | null;
   dependsOnHeaderField: string | null;
   dependsOnValue: string | null;
+  respondedBy: "SUPPLIER" | "BUYER";
+  buyerAnswerValue: string | null;
 };
 
 function inputClass() {
@@ -192,6 +194,16 @@ export function ResponseForm({
                 >
                   {q.text}
                 </p>
+              ) : q.respondedBy === "BUYER" ? (
+                <div
+                  key={q.id}
+                  className="rounded-md bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <p className="font-medium text-slate-700">{q.text}</p>
+                  <p className="text-slate-500">
+                    {q.buyerAnswerValue || "— sin responder —"}
+                  </p>
+                </div>
               ) : (
               <div key={q.id}>
                 <label className="mb-1 block text-sm font-medium text-slate-700">

@@ -151,10 +151,11 @@ function shapeQuestions(questions: NewQuestionInput[]) {
   return questions
     .map((q) => {
       const respondedBy = q.respondedBy;
-      // A buyer-answered question is never sent to the supplier — force
-      // internal visibility and drop supplier-only affordances regardless
-      // of what the client sent.
-      const visibility = respondedBy === "BUYER" ? "INTERNAL" : q.visibility;
+      // Visibility is independent of who answers: a BUYER-answered question
+      // inside Contenido Externo keeps visibility EXTERNAL (still sent to
+      // the supplier) — only Contenido Interno's own questions are
+      // INTERNAL, and the client already sets that correctly per section.
+      const visibility = q.visibility;
       const isPrerequisite = respondedBy === "BUYER" ? false : q.isPrerequisite;
       return {
         id: q.id,

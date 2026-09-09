@@ -120,16 +120,26 @@ export default async function RfpDetailPage({
     ? (JSON.parse(rfp.appliedTemplates) as { id: string; name: string }[])
     : [];
 
+  // Section membership follows visibility, not who answers — a Contenido
+  // Externo question marked "responde el comprador" stays visible here
+  // (and to the proveedor) instead of moving to "Preguntas para el
+  // comprador", which is reserved for genuinely internal (never-sent)
+  // content.
   const supplierQuestions = rfp.questions.filter(
-    (q) => q.respondedBy !== "BUYER",
+    (q) => q.visibility !== "INTERNAL",
   );
-  const buyerQuestions = rfp.questions.filter(
-    (q) => q.respondedBy === "BUYER",
+  const internalOnlyQuestions = rfp.questions.filter(
+    (q) => q.visibility === "INTERNAL",
   );
+  // Condition evaluation needs every buyer-given answer regardless of
+  // section, since another question's condition may reference one that
+  // lives in Contenido Externo.
   const buyerAnswerValues = Object.fromEntries(
-    buyerQuestions.map((q) => [q.id, q.buyerAnswerValue ?? ""]),
+    rfp.questions
+      .filter((q) => q.respondedBy === "BUYER")
+      .map((q) => [q.id, q.buyerAnswerValue ?? ""]),
   );
-  const visibleBuyerQuestions = buyerQuestions.filter((q) =>
+  const visibleBuyerQuestions = internalOnlyQuestions.filter((q) =>
     isQuestionConditionMet(
       q,
       { commodity: rfp.commodity, region: rfp.region },
@@ -436,8 +446,19 @@ export default async function RfpDetailPage({
                             condicionada: {conditionLabel}
                           </span>
                         )}
+                        {q.respondedBy === "BUYER" && (
+                          <span className="ml-2 block text-xs text-slate-500">
+                            Respuesta del comprador:{" "}
+                            {q.buyerAnswerValue || "— sin responder —"}
+                          </span>
+                        )}
                       </span>
                       <span className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
+                        {q.respondedBy === "BUYER" && (
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
+                            responde el comprador
+                          </span>
+                        )}
                         {q.visibility !== "EXTERNAL" && (
                           <span
                             className={`rounded-full px-2 py-0.5 font-medium ${

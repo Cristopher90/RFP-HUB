@@ -113,11 +113,12 @@ export async function parseRfpExcelFile(file: File): Promise<{
         required: labelToBool((row.Obligatoria ?? "").toString()),
         weight: Math.min(10, Math.max(1, Number(row.Peso) || 1)),
         isPrerequisite: respondedBy === "BUYER" ? false : isPrerequisite,
-        visibility: (respondedBy === "BUYER"
-          ? "INTERNAL"
-          : labelToVisibility(
-              (row.Visibilidad ?? "").toString(),
-            )) as QuestionVisibility,
+        // La columna Visibilidad manda siempre — una fila "Comprador" puede
+        // seguir siendo Externa (se queda en Contenido Externo, visible
+        // para el proveedor) en vez de forzarse a Interna.
+        visibility: labelToVisibility(
+          (row.Visibilidad ?? "").toString(),
+        ) as QuestionVisibility,
         respondedBy,
         numberMin:
           row.NumeroMin !== undefined && row.NumeroMin !== ""

@@ -286,11 +286,11 @@ export function RfpForm({
     () => initial?.items ?? syncTemplateItems([], "", ""),
   );
   const [questions, setQuestions] = useState<NewQuestionInput[]>(
-    () => initial?.questions ?? syncTemplateQuestions([], "", "", "SUPPLIER"),
+    () => initial?.questions ?? syncTemplateQuestions([], "", "", "EXTERNAL"),
   );
   const [internalQuestions, setInternalQuestions] = useState<
     NewQuestionInput[]
-  >(() => initial?.internalQuestions ?? syncTemplateQuestions([], "", "", "BUYER"));
+  >(() => initial?.internalQuestions ?? syncTemplateQuestions([], "", "", "INTERNAL"));
   const [suppliers, setSuppliers] = useState<NewSupplierInput[]>(
     initial?.suppliers && initial.suppliers.length > 0
       ? initial.suppliers
@@ -365,7 +365,7 @@ export function RfpForm({
     prev: NewQuestionInput[],
     newCommodity: string,
     newRegion: string,
-    responderFilter: QuestionResponder,
+    areaFilter: "EXTERNAL" | "INTERNAL",
   ) {
     const matching = templates.filter((t) =>
       matchesTemplate(t, newCommodity, newRegion),
@@ -381,7 +381,11 @@ export function RfpForm({
     const additions: NewQuestionInput[] = [];
     for (const t of matching) {
       for (const tq of t.questions) {
-        if (tq.respondedBy !== responderFilter) continue;
+        // El área (Contenido Externo/Interno) la decide la visibilidad, no
+        // quién responde — así una pregunta "Interna" dentro de Contenido
+        // Externo se sincroniza a esa misma sección, no a la otra.
+        const area = tq.visibility === "INTERNAL" ? "INTERNAL" : "EXTERNAL";
+        if (area !== areaFilter) continue;
         if (existingSourceIds.has(tq.id)) continue;
         additions.push({
           clientKey: makeClientKey(),
@@ -391,15 +395,9 @@ export function RfpForm({
           options: tq.options,
           required: tq.required,
           weight: tq.weight,
-          isPrerequisite:
-            responderFilter === "BUYER" ? false : tq.isPrerequisite,
-          visibility:
-            responderFilter === "BUYER"
-              ? "INTERNAL"
-              : tq.visibility === "INTERNAL"
-                ? "EXTERNAL"
-                : tq.visibility,
-          respondedBy: responderFilter,
+          isPrerequisite: tq.respondedBy === "BUYER" ? false : tq.isPrerequisite,
+          visibility: tq.visibility,
+          respondedBy: tq.respondedBy,
           numberMin: tq.numberMin,
           numberMax: tq.numberMax,
           dependsOnQuestionKey: null,
@@ -423,10 +421,10 @@ export function RfpForm({
     setCommodity(value);
     setItems((prev) => syncTemplateItems(prev, value, region));
     setQuestions((prev) =>
-      syncTemplateQuestions(prev, value, region, "SUPPLIER"),
+      syncTemplateQuestions(prev, value, region, "EXTERNAL"),
     );
     setInternalQuestions((prev) =>
-      syncTemplateQuestions(prev, value, region, "BUYER"),
+      syncTemplateQuestions(prev, value, region, "INTERNAL"),
     );
   }
 
@@ -434,10 +432,10 @@ export function RfpForm({
     setRegion(value);
     setItems((prev) => syncTemplateItems(prev, commodity, value));
     setQuestions((prev) =>
-      syncTemplateQuestions(prev, commodity, value, "SUPPLIER"),
+      syncTemplateQuestions(prev, commodity, value, "EXTERNAL"),
     );
     setInternalQuestions((prev) =>
-      syncTemplateQuestions(prev, commodity, value, "BUYER"),
+      syncTemplateQuestions(prev, commodity, value, "INTERNAL"),
     );
   }
 
@@ -466,10 +464,10 @@ export function RfpForm({
         );
       }
       const importedSupplier = importedQuestions.filter(
-        (q) => q.respondedBy !== "BUYER",
+        (q) => q.visibility !== "INTERNAL",
       );
       const importedInternal = importedQuestions.filter(
-        (q) => q.respondedBy === "BUYER",
+        (q) => q.visibility === "INTERNAL",
       );
       setQuestions((prev) => {
         const kept = prev.filter((q) => q.text.trim().length > 0);
@@ -2093,15 +2091,12 @@ export function RfpForm({
                             value={q.respondedBy}
                             disabled={q.locked}
                             onChange={(e) => {
+                              // Solo cambia quién responde — se queda en
+                              // Preguntas para los proveedores (visibilidad
+                              // EXTERNAL) sea cual sea la respuesta.
                               const respondedBy = e.target
                                 .value as QuestionResponder;
-                              updateQuestion(index, {
-                                respondedBy,
-                                visibility:
-                                  respondedBy === "BUYER"
-                                    ? "INTERNAL"
-                                    : "EXTERNAL",
-                              });
+                              updateQuestion(index, { respondedBy });
                             }}
                           >
                             {(

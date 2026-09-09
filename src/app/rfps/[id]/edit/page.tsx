@@ -87,10 +87,14 @@ export default async function EditRfpPage({
   }));
 
   function mapQuestions(
-    respondedBy: "SUPPLIER" | "BUYER",
+    area: "EXTERNAL" | "INTERNAL",
   ): NewQuestionInput[] {
     return rfp!.questions
-      .filter((q) => q.respondedBy === respondedBy)
+      .filter((q) =>
+        area === "INTERNAL"
+          ? q.visibility === "INTERNAL"
+          : q.visibility !== "INTERNAL",
+      )
       .map((q) => ({
         // La propia id de la pregunta sirve como clientKey estable: ya es
         // el id real, así dependsOnQuestionId se puede reusar tal cual.
@@ -144,8 +148,8 @@ export default async function EditRfpPage({
       : null,
     scoringEnabled: rfp.scoringEnabled,
     items,
-    questions: mapQuestions("SUPPLIER"),
-    internalQuestions: mapQuestions("BUYER"),
+    questions: mapQuestions("EXTERNAL"),
+    internalQuestions: mapQuestions("INTERNAL"),
     suppliers,
   };
 

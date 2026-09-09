@@ -126,9 +126,15 @@ export async function buildItemsFromSourceRfp(
       : [],
   }));
 
-  function mapQuestions(respondedBy: "SUPPLIER" | "BUYER"): NewQuestionInput[] {
+  function mapQuestions(
+    area: "EXTERNAL" | "INTERNAL",
+  ): NewQuestionInput[] {
     return source!.questions
-      .filter((q) => q.respondedBy === respondedBy)
+      .filter((q) =>
+        area === "INTERNAL"
+          ? q.visibility === "INTERNAL"
+          : q.visibility !== "INTERNAL",
+      )
       .map((q) => ({
         // El id real de la pregunta origen sirve como clientKey estable
         // para resolver dependsOnQuestionKey dentro del set copiado; se
@@ -163,8 +169,8 @@ export async function buildItemsFromSourceRfp(
 
   return {
     items,
-    questions: mapQuestions("SUPPLIER"),
-    internalQuestions: mapQuestions("BUYER"),
+    questions: mapQuestions("EXTERNAL"),
+    internalQuestions: mapQuestions("INTERNAL"),
     suppliers,
     sourceTitle: source.title,
     sourceNumber: source.number,

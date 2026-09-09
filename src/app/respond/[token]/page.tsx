@@ -38,11 +38,13 @@ export default async function RespondPage({
   const { rfp, supplier, response } = invitation;
   const isClosed = rfp.status === "CLOSED";
   const isNotYetPublished = !isPublished;
-  // Internal / buyer-answered questions are never sent to the supplier —
-  // filter them out before anything reaches the client, not just at render
-  // time.
+  // Genuinely internal (Contenido Interno) questions are never sent to the
+  // supplier — filter them out before anything reaches the client, not
+  // just at render time. A Contenido Externo question answered by the
+  // buyer ("Interna" en Requiere respuesta) keeps visibility EXTERNAL and
+  // IS sent, shown read-only with the buyer's answer.
   const supplierQuestions = rfp.questions.filter(
-    (q) => q.visibility !== "INTERNAL" && q.respondedBy !== "BUYER",
+    (q) => q.visibility !== "INTERNAL",
   );
   // Buyer-only item fields (weight, decimals precision aside, historicalPrice,
   // commodity, locked, ...) must not reach the supplier's browser — strip

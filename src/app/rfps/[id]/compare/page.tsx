@@ -414,7 +414,8 @@ export default async function ComparePage({
                   (q) =>
                     !q.isPrerequisite &&
                     q.visibility === "EXTERNAL" &&
-                    q.type !== "INFO",
+                    q.type !== "INFO" &&
+                    q.respondedBy !== "BUYER",
                 )
                 .map((q) => ({
                   id: q.id,
