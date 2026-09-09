@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
@@ -9,6 +10,7 @@ export default async function NewRfpPage({
 }: PageProps<"/rfps/new">) {
   const scope = await requireClientScope();
   const { user } = scope;
+  if (user.role === "APPROVER") redirect("/");
   const sp = await searchParams;
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
   const copyMode =
@@ -153,7 +155,7 @@ export default async function NewRfpPage({
                     value: string;
                   }[])
                 : [],
-              lockMinRole: i.lockMinRole,
+              lockRoles: i.lockRoles,
             })),
             questions: t.questions.map((q) => ({
               id: q.id,
@@ -168,7 +170,7 @@ export default async function NewRfpPage({
               respondedBy: q.respondedBy,
               numberMin: q.numberMin,
               numberMax: q.numberMax,
-              lockMinRole: q.lockMinRole,
+              lockRoles: q.lockRoles,
             })),
           }))}
         />

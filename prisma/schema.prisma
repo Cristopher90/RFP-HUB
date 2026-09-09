@@ -41,6 +41,7 @@ enum QuestionType {
   MONEY
   ATTACHMENT
   YES_NO
+  INFO // bloque de texto informativo, sin respuesta (ni del proveedor ni del comprador)
 }
 
 enum QuestionResponder {
@@ -63,8 +64,11 @@ enum QuestionVisibility {
 // BUYER < SENIOR_BUYER < CLIENT_ADMIN < ADMIN (ver ROLE_LEVEL en
 // src/lib/roleLabels.ts). ADMIN es el único rol sin Cliente asignado (ve y
 // administra todos los clientes); CLIENT_ADMIN administra datos maestros,
-// plantillas y usuarios, pero solo dentro de su propio Cliente.
+// plantillas y usuarios, pero solo dentro de su propio Cliente. APPROVER
+// queda fuera de esa escalera (no crea RFPs, solo ve y decide las que
+// tiene asignadas como aprobador).
 enum UserRole {
+  APPROVER
   BUYER
   SENIOR_BUYER
   CLIENT_ADMIN
@@ -385,7 +389,7 @@ model TemplateItem {
   customFields String?
   section      String? // nombre de la sección a la que pertenece (agrupa y numera)
   order        Int      @default(0)
-  lockMinRole  UserRole @default(BUYER)
+  lockRoles    UserRole[] // roles que pueden editarlo/quitarlo al crear la RFP; vacío = cualquiera puede
 
   template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
@@ -407,7 +411,7 @@ model TemplateQuestion {
   numberMax      Float?
   section        String? // nombre de la sección a la que pertenece (agrupa y numera)
   order          Int                @default(0)
-  lockMinRole    UserRole           @default(BUYER) // desde qué rol se puede quitar o editar
+  lockRoles      UserRole[] // roles que pueden editarla/quitarla al crear la RFP; vacío = cualquiera puede
 
   dependsOnQuestionId  String?
   dependsOnHeaderField String?

@@ -239,7 +239,7 @@ async function main() {
             weight: 3,
             decimals: 2,
             order: 0,
-            lockMinRole: "SENIOR_BUYER",
+            lockRoles: ["SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"],
           },
         ],
       },
@@ -256,7 +256,7 @@ async function main() {
       isPrerequisite: true,
       weight: 1,
       order: 0,
-      lockMinRole: "ADMIN",
+      lockRoles: ["ADMIN"],
     },
   });
   await prisma.templateQuestion.create({
@@ -270,7 +270,7 @@ async function main() {
       required: true,
       weight: 4,
       order: 1,
-      lockMinRole: "BUYER",
+      lockRoles: [],
     },
   });
 
@@ -293,7 +293,7 @@ async function main() {
             isPrerequisite: true,
             weight: 1,
             order: 0,
-            lockMinRole: "SENIOR_BUYER",
+            lockRoles: ["SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"],
           },
         ],
       },

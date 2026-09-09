@@ -19,7 +19,7 @@ type Item = {
 type Question = {
   id: string;
   text: string;
-  type: "TEXT" | "NUMBER" | "SELECT" | "MONEY" | "ATTACHMENT" | "YES_NO";
+  type: "TEXT" | "NUMBER" | "SELECT" | "MONEY" | "ATTACHMENT" | "YES_NO" | "INFO";
   options: string | null;
   required: boolean;
   isPrerequisite: boolean;
@@ -184,7 +184,15 @@ export function ResponseForm({
             Preguntas del comprador
           </h2>
           <div className="mt-4 space-y-4">
-            {regularQuestions.map((q) => (
+            {regularQuestions.map((q) =>
+              q.type === "INFO" ? (
+                <p
+                  key={q.id}
+                  className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600"
+                >
+                  {q.text}
+                </p>
+              ) : (
               <div key={q.id}>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
                   {q.text}
@@ -300,7 +308,8 @@ export function ResponseForm({
                   />
                 )}
               </div>
-            ))}
+              ),
+            )}
           </div>
         </section>
       )}

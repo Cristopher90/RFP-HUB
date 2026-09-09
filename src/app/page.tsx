@@ -19,6 +19,7 @@ export default async function Home({
   // ADMIN sees every client's RFPs on "Todas"; CLIENT_ADMIN sees every RFP
   // within their own client; everyone else only ever sees "Mis RFPs".
   const canSeeAll = user.role === "ADMIN" || user.role === "CLIENT_ADMIN";
+  const isApprover = user.role === "APPROVER";
   const requestedTab = sp.tab === "all" ? "all" : "mine";
   const tab = requestedTab === "all" && canSeeAll ? "all" : "mine";
 
@@ -27,13 +28,23 @@ export default async function Home({
   const regionFilter = typeof sp.region === "string" ? sp.region : "";
   const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
 
+  // An APPROVER never creates RFPs, so "Mis RFPs" (createdByUserId) makes
+  // no sense for them — their whole list is just the RFPs they have (or
+  // had) an approval decision to make on.
+  const pendingApprovals = await findPendingApprovalsForUser(user.id);
+  const assignedRfpIds = pendingApprovals.map((p) => p.rfpId);
+
   const where = {
     // Soft-deleted RFPs stay in the DB but never show up in normal
     // listings unless the status filter explicitly asks for them.
     status: statusFilter
       ? (statusFilter as RfpStatus)
       : { not: "DELETED" as RfpStatus },
-    ...(tab === "mine" ? { createdByUserId: user.id } : scope.where),
+    ...(isApprover
+      ? { id: { in: assignedRfpIds } }
+      : tab === "mine"
+        ? { createdByUserId: user.id }
+        : scope.where),
     ...(commodityFilter ? { commodity: commodityFilter } : {}),
     ...(regionFilter ? { region: regionFilter } : {}),
     ...(tab === "all" && creatorFilter
@@ -41,24 +52,22 @@ export default async function Home({
       : {}),
   };
 
-  const [rfps, commodities, regions, creators, pendingApprovals] =
-    await Promise.all([
-      prisma.rfp.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        include: {
-          items: true,
-          invitations: { include: { response: true } },
-          createdBy: true,
-        },
-      }),
-      prisma.commodity.findMany({ where: scope.where, orderBy: { description: "asc" } }),
-      prisma.region.findMany({ where: scope.where, orderBy: { description: "asc" } }),
-      canSeeAll
-        ? prisma.user.findMany({ where: scope.where, orderBy: { name: "asc" } })
-        : null,
-      findPendingApprovalsForUser(user.id),
-    ]);
+  const [rfps, commodities, regions, creators] = await Promise.all([
+    prisma.rfp.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        items: true,
+        invitations: { include: { response: true } },
+        createdBy: true,
+      },
+    }),
+    prisma.commodity.findMany({ where: scope.where, orderBy: { description: "asc" } }),
+    prisma.region.findMany({ where: scope.where, orderBy: { description: "asc" } }),
+    canSeeAll
+      ? prisma.user.findMany({ where: scope.where, orderBy: { name: "asc" } })
+      : null,
+  ]);
 
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
@@ -76,19 +85,22 @@ export default async function Home({
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Solicitudes de cotización (RFP)
+            {isApprover ? "RFPs asignadas para tu aprobación" : "Solicitudes de cotización (RFP)"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Crea una RFP, invita proveedores y compara sus respuestas en un
-            solo lugar.
+            {isApprover
+              ? "Solo ves las RFPs en las que participás como aprobador."
+              : "Crea una RFP, invita proveedores y compara sus respuestas en un solo lugar."}
           </p>
         </div>
-        <Link
-          href="/rfps/new"
-          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
-        >
-          + Nueva RFP
-        </Link>
+        {!isApprover && (
+          <Link
+            href="/rfps/new"
+            className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
+          >
+            + Nueva RFP
+          </Link>
+        )}
       </div>
 
       {pendingApprovals.length > 0 && (
@@ -104,32 +116,34 @@ export default async function Home({
         />
       )}
 
-      <div className="mb-4 border-b border-slate-200">
-        <nav className="-mb-px flex gap-6">
-          <Link
-            href={tabHref("mine")}
-            className={`border-b-2 px-1 pb-3 text-sm font-medium ${
-              tab === "mine"
-                ? "border-violet-600 text-violet-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            Mis RFPs
-          </Link>
-          {canSeeAll && (
+      {!isApprover && (
+        <div className="mb-4 border-b border-slate-200">
+          <nav className="-mb-px flex gap-6">
             <Link
-              href={tabHref("all")}
+              href={tabHref("mine")}
               className={`border-b-2 px-1 pb-3 text-sm font-medium ${
-                tab === "all"
+                tab === "mine"
                   ? "border-violet-600 text-violet-700"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
-              Todas las RFPs
+              Mis RFPs
             </Link>
-          )}
-        </nav>
-      </div>
+            {canSeeAll && (
+              <Link
+                href={tabHref("all")}
+                className={`border-b-2 px-1 pb-3 text-sm font-medium ${
+                  tab === "all"
+                    ? "border-violet-600 text-violet-700"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Todas las RFPs
+              </Link>
+            )}
+          </nav>
+        </div>
+      )}
 
       <div className="mb-6">
         <RfpFilters
@@ -146,14 +160,18 @@ export default async function Home({
       {rfps.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <p className="text-slate-500">
-            No hay RFPs que coincidan con estos filtros.
+            {isApprover
+              ? "No tenés RFPs asignadas por el momento."
+              : "No hay RFPs que coincidan con estos filtros."}
           </p>
-          <Link
-            href="/rfps/new"
-            className="mt-4 inline-block rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-          >
-            Crear la primera RFP
-          </Link>
+          {!isApprover && (
+            <Link
+              href="/rfps/new"
+              className="mt-4 inline-block rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              Crear la primera RFP
+            </Link>
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

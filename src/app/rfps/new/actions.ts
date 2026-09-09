@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, ROLE_LEVEL } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { matchesTemplate } from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
@@ -34,7 +34,8 @@ export type QuestionType =
   | "SELECT"
   | "MONEY"
   | "ATTACHMENT"
-  | "YES_NO";
+  | "YES_NO"
+  | "INFO";
 
 export type QuestionVisibility = "INTERNAL" | "SUPPLIER_ONLY" | "EXTERNAL";
 
@@ -222,7 +223,9 @@ export async function validateAndShapeRfp(
 
   for (const template of matchingTemplates) {
     for (const templateItem of template.items) {
-      const locked = ROLE_LEVEL[user.role] < ROLE_LEVEL[templateItem.lockMinRole];
+      const locked =
+        templateItem.lockRoles.length > 0 &&
+        !templateItem.lockRoles.includes(user.role);
       if (locked && !submittedItemSourceIds.has(templateItem.id)) {
         return {
           error: `No puedes quitar el artículo obligatorio "${templateItem.name}" (plantilla: ${template.name}).`,
@@ -231,7 +234,8 @@ export async function validateAndShapeRfp(
     }
     for (const templateQuestion of template.questions) {
       const locked =
-        ROLE_LEVEL[user.role] < ROLE_LEVEL[templateQuestion.lockMinRole];
+        templateQuestion.lockRoles.length > 0 &&
+        !templateQuestion.lockRoles.includes(user.role);
       if (locked && !submittedQuestionSourceIds.has(templateQuestion.id)) {
         return {
           error: `No puedes quitar la pregunta obligatoria "${templateQuestion.text}" (plantilla: ${template.name}).`,
@@ -258,6 +262,9 @@ export async function createRfp(
   input: CreateRfpInput,
 ): Promise<{ error: string } | never> {
   const user = await requireUser();
+  if (user.role === "APPROVER") {
+    return { error: "Tu usuario solo puede aprobar RFPs, no crearlas." };
+  }
 
   const title = input.title.trim();
   const buyerName = input.buyerName.trim();

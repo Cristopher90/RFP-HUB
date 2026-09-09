@@ -9,7 +9,6 @@ import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
-import { ROLE_LEVEL } from "@/lib/roleLabels";
 import { matchesTemplate } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
@@ -42,7 +41,7 @@ export type TemplateData = {
     weight: number;
     decimals: number;
     customFields: NewCustomField[];
-    lockMinRole: UserRole;
+    lockRoles: UserRole[];
   }[];
   questions: {
     id: string;
@@ -57,7 +56,7 @@ export type TemplateData = {
     respondedBy: QuestionResponder;
     numberMin: number | null;
     numberMax: number | null;
-    lockMinRole: UserRole;
+    lockRoles: UserRole[];
   }[];
 };
 
@@ -119,6 +118,27 @@ function emptyInternalQuestion(): NewQuestionInput {
   };
 }
 
+function emptyInfoBlock(area: "external" | "internal"): NewQuestionInput {
+  return {
+    clientKey: makeClientKey(),
+    section: null,
+    text: "",
+    type: "INFO",
+    options: [],
+    required: false,
+    weight: 1,
+    isPrerequisite: false,
+    visibility: area === "internal" ? "INTERNAL" : "EXTERNAL",
+    respondedBy: area === "internal" ? "BUYER" : "SUPPLIER",
+    numberMin: null,
+    numberMax: null,
+    dependsOnQuestionKey: null,
+    dependsOnHeaderField: null,
+    dependsOnValue: "",
+    buyerAnswerValue: "",
+  };
+}
+
 function emptySupplier(): NewSupplierInput {
   return { name: "", email: "", company: "", supplierDirectoryId: null };
 }
@@ -150,14 +170,15 @@ const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
   MONEY: "Dinero",
   ATTACHMENT: "Adjunto",
   YES_NO: "Sí / No",
+  INFO: "Texto informativo (sin respuesta)",
 };
 
-const SUPPLIER_VISIBILITY_LABEL: Record<
-  Exclude<QuestionVisibility, "INTERNAL">,
-  string
-> = {
-  SUPPLIER_ONLY: "Solo proveedor (respuesta oculta para el comprador)",
-  EXTERNAL: "Externa (visible para ambos)",
+// "Requiere respuesta" reemplaza a la vieja "Visibilidad" dentro de las
+// preguntas para proveedores: en vez de elegir cuán visible es la
+// respuesta, se elige directamente quién debe responder.
+const REQUIRES_ANSWER_LABEL: Record<QuestionResponder, string> = {
+  SUPPLIER: "Externa — debe responder el proveedor",
+  BUYER: "Interna — debe responder el comprador antes de publicar",
 };
 
 export type RfpInitialData = {
@@ -329,7 +350,8 @@ export function RfpForm({
           customFields: ti.customFields,
           sourceTemplateItemId: ti.id,
           sourceTemplateId: t.id,
-          locked: ROLE_LEVEL[currentUserRole] < ROLE_LEVEL[ti.lockMinRole],
+          locked:
+            ti.lockRoles.length > 0 && !ti.lockRoles.includes(currentUserRole),
         });
       }
     }
@@ -386,7 +408,8 @@ export function RfpForm({
           buyerAnswerValue: "",
           sourceTemplateQuestionId: tq.id,
           sourceTemplateId: t.id,
-          locked: ROLE_LEVEL[currentUserRole] < ROLE_LEVEL[tq.lockMinRole],
+          locked:
+            tq.lockRoles.length > 0 && !tq.lockRoles.includes(currentUserRole),
         });
       }
     }
@@ -638,6 +661,23 @@ export function RfpForm({
       insertIndex,
       section,
     );
+  const insertInfoBlockAt = (insertIndex: number, section: string | null) =>
+    insertQuestionInto(
+      setQuestions,
+      () => emptyInfoBlock("external"),
+      insertIndex,
+      section,
+    );
+  const insertInternalInfoBlockAt = (
+    insertIndex: number,
+    section: string | null,
+  ) =>
+    insertQuestionInto(
+      setInternalQuestions,
+      () => emptyInfoBlock("internal"),
+      insertIndex,
+      section,
+    );
   const renameQuestionSection = (oldName: string, newName: string) =>
     renameQuestionSectionIn(setQuestions, oldName, newName);
   const renameInternalQuestionSection = (oldName: string, newName: string) =>
@@ -715,9 +755,10 @@ export function RfpForm({
     );
   }
 
-  function internalAnswerField(q: NewQuestionInput, index: number) {
-    const onChange = (value: string) =>
-      updateInternalQuestion(index, { buyerAnswerValue: value });
+  function answerField(
+    q: NewQuestionInput,
+    onChange: (value: string) => void,
+  ) {
     if (q.type === "ATTACHMENT") {
       return (
         <p className="text-xs text-slate-400">
@@ -1230,7 +1271,7 @@ export function RfpForm({
                     key={index}
                     className="rounded-lg border border-slate-100 bg-slate-50 p-3"
                   >
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-center">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
                       <div className="sm:col-span-2">
                         <div className="flex items-center gap-2">
                           <span className="w-9 shrink-0 text-right text-xs font-medium text-slate-400">
@@ -1535,6 +1576,19 @@ export function RfpForm({
             >
               + Agregar pregunta
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                insertInternalInfoBlockAt(
+                  internalQuestions.length,
+                  internalQuestions[internalQuestions.length - 1]?.section ??
+                    null,
+                )
+              }
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar texto
+            </button>
           </div>
         }
       >
@@ -1565,7 +1619,7 @@ export function RfpForm({
                     key={q.clientKey}
                     className="rounded-lg border border-slate-100 bg-slate-50 p-3"
                   >
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-center">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
                       <div className="sm:col-span-5">
                         <div className="flex items-center gap-2">
                           <span className="w-9 shrink-0 text-right text-xs font-medium text-slate-400">
@@ -1573,7 +1627,11 @@ export function RfpForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Ej. Verificar antecedentes legales del proveedor"
+                            placeholder={
+                              q.type === "INFO"
+                                ? "Texto informativo a mostrar (sin respuesta)"
+                                : "Ej. Verificar antecedentes legales del proveedor"
+                            }
                             value={q.text}
                             onChange={(e) =>
                               updateInternalQuestion(index, {
@@ -1602,20 +1660,22 @@ export function RfpForm({
                           ))}
                         </select>
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="flex h-full items-center gap-2 text-sm text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={q.required}
-                            onChange={(e) =>
-                              updateInternalQuestion(index, {
-                                required: e.target.checked,
-                              })
-                            }
-                          />
-                          Obligatoria
-                        </label>
-                      </div>
+                      {q.type !== "INFO" && (
+                        <div className="sm:col-span-2">
+                          <label className="flex h-full items-center gap-2 text-sm text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={q.required}
+                              onChange={(e) =>
+                                updateInternalQuestion(index, {
+                                  required: e.target.checked,
+                                })
+                              }
+                            />
+                            Obligatoria
+                          </label>
+                        </div>
+                      )}
                       <div className="flex justify-end gap-2 sm:col-span-3">
                         <GearButton
                           active={expandedInternalQuestions.has(index)}
@@ -1640,12 +1700,18 @@ export function RfpForm({
                       </div>
                     </div>
 
-                    <div className="mt-2 pl-11">
-                      <label className="mb-1 block text-xs font-medium text-slate-500">
-                        Respuesta
-                      </label>
-                      {internalAnswerField(q, index)}
-                    </div>
+                    {q.type !== "INFO" && (
+                      <div className="mt-2 pl-11">
+                        <label className="mb-1 block text-xs font-medium text-slate-500">
+                          Respuesta
+                        </label>
+                        {answerField(q, (value) =>
+                          updateInternalQuestion(index, {
+                            buyerAnswerValue: value,
+                          }),
+                        )}
+                      </div>
+                    )}
 
                     {expandedInternalQuestions.has(index) && (
                       <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200 pt-3 sm:grid-cols-12">
@@ -1809,6 +1875,18 @@ export function RfpForm({
             >
               + Agregar pregunta
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                insertInfoBlockAt(
+                  questions.length,
+                  questions[questions.length - 1]?.section ?? null,
+                )
+              }
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar texto
+            </button>
           </div>
         }
       >
@@ -1836,7 +1914,7 @@ export function RfpForm({
                     key={q.clientKey}
                     className="rounded-lg border border-slate-100 bg-slate-50 p-3"
                   >
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-center">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
                       <div className="sm:col-span-5">
                         <div className="flex items-center gap-2">
                           <span className="w-9 shrink-0 text-right text-xs font-medium text-slate-400">
@@ -1844,7 +1922,11 @@ export function RfpForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                            placeholder={
+                              q.type === "INFO"
+                                ? "Texto informativo a mostrar (sin respuesta)"
+                                : "Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                            }
                             value={q.text}
                             disabled={q.locked}
                             onChange={(e) =>
@@ -1879,21 +1961,23 @@ export function RfpForm({
                           ))}
                         </select>
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="flex h-full items-center gap-2 text-sm text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={q.required}
-                            disabled={q.isPrerequisite || q.locked}
-                            onChange={(e) =>
-                              updateQuestion(index, {
-                                required: e.target.checked,
-                              })
-                            }
-                          />
-                          Obligatoria
-                        </label>
-                      </div>
+                      {q.type !== "INFO" && (
+                        <div className="sm:col-span-2">
+                          <label className="flex h-full items-center gap-2 text-sm text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={q.required}
+                              disabled={q.isPrerequisite || q.locked}
+                              onChange={(e) =>
+                                updateQuestion(index, {
+                                  required: e.target.checked,
+                                })
+                              }
+                            />
+                            Obligatoria
+                          </label>
+                        </div>
+                      )}
                       <div className="flex justify-end gap-2 sm:col-span-3">
                         <GearButton
                           active={expandedQuestions.has(index)}
@@ -2002,48 +2086,65 @@ export function RfpForm({
                         )}
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Visibilidad
+                            Requiere respuesta
                           </label>
                           <select
                             className={smallInputClass()}
-                            value={q.visibility}
+                            value={q.respondedBy}
                             disabled={q.locked}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const respondedBy = e.target
+                                .value as QuestionResponder;
                               updateQuestion(index, {
-                                visibility: e.target
-                                  .value as QuestionVisibility,
-                              })
-                            }
+                                respondedBy,
+                                visibility:
+                                  respondedBy === "BUYER"
+                                    ? "INTERNAL"
+                                    : "EXTERNAL",
+                              });
+                            }}
                           >
                             {(
                               Object.keys(
-                                SUPPLIER_VISIBILITY_LABEL,
-                              ) as (keyof typeof SUPPLIER_VISIBILITY_LABEL)[]
+                                REQUIRES_ANSWER_LABEL,
+                              ) as QuestionResponder[]
                             ).map((v) => (
                               <option key={v} value={v}>
-                                {SUPPLIER_VISIBILITY_LABEL[v]}
+                                {REQUIRES_ANSWER_LABEL[v]}
                               </option>
                             ))}
                           </select>
                         </div>
-                        <div className="flex items-end sm:col-span-4">
-                          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                            <input
-                              type="checkbox"
-                              checked={q.isPrerequisite}
-                              disabled={q.locked}
-                              onChange={(e) =>
-                                updateQuestion(index, {
-                                  isPrerequisite: e.target.checked,
-                                  required: e.target.checked
-                                    ? true
-                                    : q.required,
-                                })
-                              }
-                            />
-                            Es prerrequisito (debe aceptarla)
-                          </label>
-                        </div>
+                        {q.respondedBy === "SUPPLIER" && (
+                          <div className="flex items-end sm:col-span-4">
+                            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                              <input
+                                type="checkbox"
+                                checked={q.isPrerequisite}
+                                disabled={q.locked}
+                                onChange={(e) =>
+                                  updateQuestion(index, {
+                                    isPrerequisite: e.target.checked,
+                                    required: e.target.checked
+                                      ? true
+                                      : q.required,
+                                  })
+                                }
+                              />
+                              Es prerrequisito (debe aceptarla)
+                            </label>
+                          </div>
+                        )}
+                        {q.respondedBy === "BUYER" && q.type !== "INFO" && (
+                          <div className="sm:col-span-12">
+                            <label className="mb-1 block text-xs font-medium text-slate-500">
+                              Respuesta
+                            </label>
+                            {answerField(q, (value) =>
+                              updateQuestion(index, { buyerAnswerValue: value }),
+                            )}
+                          </div>
+                        )}
                         <p className="text-xs text-slate-400 sm:col-span-12">
                           Una pregunta condicionada solo aparece (y solo es
                           obligatoria) cuando se cumple la condición, aunque

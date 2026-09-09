@@ -60,7 +60,7 @@ export default async function EditTemplatePage({
       customFields: i.customFields
         ? (JSON.parse(i.customFields) as { label: string; value: string }[])
         : [],
-      lockMinRole: i.lockMinRole,
+      lockRoles: i.lockRoles,
     })),
     questions: template.questions.map((q) => ({
       clientKey: questionClientKeyById.get(q.id)!,
@@ -83,7 +83,7 @@ export default async function EditTemplatePage({
         | "region"
         | null,
       dependsOnValue: q.dependsOnValue ?? "",
-      lockMinRole: q.lockMinRole,
+      lockRoles: q.lockRoles,
     })),
   };
 

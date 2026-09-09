@@ -207,7 +207,7 @@ export default async function EditRfpPage({
                     value: string;
                   }[])
                 : [],
-              lockMinRole: i.lockMinRole,
+              lockRoles: i.lockRoles,
             })),
             questions: t.questions.map((q) => ({
               id: q.id,
@@ -222,7 +222,7 @@ export default async function EditRfpPage({
               respondedBy: q.respondedBy,
               numberMin: q.numberMin,
               numberMax: q.numberMax,
-              lockMinRole: q.lockMinRole,
+              lockRoles: q.lockRoles,
             })),
           }))}
         />

@@ -34,6 +34,7 @@ const TYPE_LABEL: Record<string, string> = {
   ATTACHMENT: "Adjunto",
   YES_NO: "Sí / No",
   TEXT: "Texto",
+  INFO: "Texto informativo",
 };
 
 export default async function RfpDetailPage({

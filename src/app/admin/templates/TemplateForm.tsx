@@ -14,7 +14,7 @@ import {
   type TemplateItemInput,
   type TemplateQuestionInput,
   type TemplateQuestionType,
-  type TemplateQuestionVisibility,
+  type TemplateQuestionResponder,
 } from "./actions";
 
 const QUESTION_TYPE_LABEL: Record<TemplateQuestionType, string> = {
@@ -24,17 +24,20 @@ const QUESTION_TYPE_LABEL: Record<TemplateQuestionType, string> = {
   MONEY: "Dinero",
   ATTACHMENT: "Adjunto",
   YES_NO: "Sí / No",
+  INFO: "Texto informativo (sin respuesta)",
 };
 
-const SUPPLIER_VISIBILITY_LABEL: Record<
-  Exclude<TemplateQuestionVisibility, "INTERNAL">,
-  string
-> = {
-  SUPPLIER_ONLY: "Solo proveedor (respuesta oculta para el comprador)",
-  EXTERNAL: "Externa (visible para ambos)",
+// "Requiere respuesta" reemplaza a la vieja "Visibilidad" dentro de
+// Contenido Externo: en vez de elegir cuán visible es la respuesta del
+// proveedor, se elige directamente quién debe responder — reutiliza
+// respondedBy/visibility ya existentes (misma pareja que ya usa Contenido
+// Interno) en vez de agregar un campo nuevo.
+const REQUIRES_ANSWER_LABEL: Record<TemplateQuestionResponder, string> = {
+  SUPPLIER: "Externa — debe responder el proveedor",
+  BUYER: "Interna — debe responder el comprador antes de publicar",
 };
 
-const LOCK_ROLES: UserRole[] = ["BUYER", "SENIOR_BUYER", "ADMIN"];
+const ALL_USER_ROLES = Object.keys(ROLE_LABEL) as UserRole[];
 
 function emptyItem(): TemplateItemInput {
   return {
@@ -46,7 +49,7 @@ function emptyItem(): TemplateItemInput {
     weight: 5,
     decimals: 2,
     customFields: [],
-    lockMinRole: "BUYER",
+    lockRoles: [],
   };
 }
 
@@ -67,7 +70,28 @@ function emptySupplierQuestion(): TemplateQuestionInput {
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
-    lockMinRole: "BUYER",
+    lockRoles: [],
+  };
+}
+
+function emptyInfoBlock(area: "external" | "internal"): TemplateQuestionInput {
+  return {
+    clientKey: makeClientKey(),
+    section: null,
+    text: "",
+    type: "INFO",
+    options: [],
+    required: false,
+    weight: 1,
+    isPrerequisite: false,
+    visibility: area === "internal" ? "INTERNAL" : "EXTERNAL",
+    respondedBy: area === "internal" ? "BUYER" : "SUPPLIER",
+    numberMin: null,
+    numberMax: null,
+    dependsOnQuestionKey: null,
+    dependsOnHeaderField: null,
+    dependsOnValue: "",
+    lockRoles: [],
   };
 }
 
@@ -88,7 +112,7 @@ function emptyInternalQuestion(): TemplateQuestionInput {
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
-    lockMinRole: "BUYER",
+    lockRoles: [],
   };
 }
 
@@ -98,6 +122,40 @@ function inputClass() {
 
 function smallInputClass() {
   return "w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+}
+
+// "Editable/excluible por grupo": qué roles pueden editar/quitar este
+// ítem o pregunta al crear la RFP a partir de esta plantilla — un
+// conjunto explícito de roles (multi-selección), no un umbral jerárquico
+// como antes (lockMinRole). Vacío = cualquiera puede.
+function lockRolesField(
+  selected: UserRole[],
+  onChange: (roles: UserRole[]) => void,
+) {
+  function toggle(role: UserRole) {
+    onChange(
+      selected.includes(role)
+        ? selected.filter((r) => r !== role)
+        : [...selected, role],
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-x-3 gap-y-1">
+      {ALL_USER_ROLES.map((r) => (
+        <label
+          key={r}
+          className="flex items-center gap-1.5 text-xs text-slate-600"
+        >
+          <input
+            type="checkbox"
+            checked={selected.includes(r)}
+            onChange={() => toggle(r)}
+          />
+          {ROLE_LABEL[r]}
+        </label>
+      ))}
+    </div>
+  );
 }
 
 export function TemplateForm({
@@ -327,6 +385,23 @@ export function TemplateForm({
     insertQuestionInto(
       setInternalQuestions,
       emptyInternalQuestion,
+      insertIndex,
+      section,
+    );
+  const insertInfoBlockAt = (insertIndex: number, section: string | null) =>
+    insertQuestionInto(
+      setQuestions,
+      () => emptyInfoBlock("external"),
+      insertIndex,
+      section,
+    );
+  const insertInternalInfoBlockAt = (
+    insertIndex: number,
+    section: string | null,
+  ) =>
+    insertQuestionInto(
+      setInternalQuestions,
+      () => emptyInfoBlock("internal"),
       insertIndex,
       section,
     );
@@ -703,25 +778,14 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-6">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            No se puede quitar al crear la RFP salvo rol
+                            Editable/excluible por grupo
                           </label>
-                          <select
-                            className={smallInputClass()}
-                            value={item.lockMinRole}
-                            onChange={(e) =>
-                              updateItem(index, {
-                                lockMinRole: e.target.value as UserRole,
-                              })
-                            }
-                          >
-                            {LOCK_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {r === "BUYER"
-                                  ? "Nadie (cualquiera puede quitarlo)"
-                                  : `${ROLE_LABEL[r]} o superior`}
-                              </option>
-                            ))}
-                          </select>
+                          {lockRolesField(item.lockRoles, (lockRoles) =>
+                            updateItem(index, { lockRoles }),
+                          )}
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Sin marcar = cualquiera puede editarlo o quitarlo.
+                          </p>
                         </div>
                         <div className="sm:col-span-12">
                           <div className="mb-1 flex items-center justify-between">
@@ -820,7 +884,7 @@ export function TemplateForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Preguntas internas por defecto"
+        title="Contenido Interno"
         subtitle="Las responde el comprador directamente; nunca se envían al proveedor."
         storageKey="template-internal-questions"
         right={
@@ -844,6 +908,19 @@ export function TemplateForm({
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
               + Agregar pregunta
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                insertInternalInfoBlockAt(
+                  internalQuestions.length,
+                  internalQuestions[internalQuestions.length - 1]?.section ??
+                    null,
+                )
+              }
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar texto
             </button>
           </div>
         }
@@ -1031,25 +1108,14 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            No se puede quitar ni editar salvo rol
+                            Editable/excluible por grupo
                           </label>
-                          <select
-                            className={smallInputClass()}
-                            value={q.lockMinRole}
-                            onChange={(e) =>
-                              updateInternalQuestion(index, {
-                                lockMinRole: e.target.value as UserRole,
-                              })
-                            }
-                          >
-                            {LOCK_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {r === "BUYER"
-                                  ? "Nadie (cualquiera puede quitarla o editarla)"
-                                  : `${ROLE_LABEL[r]} o superior`}
-                              </option>
-                            ))}
-                          </select>
+                          {lockRolesField(q.lockRoles, (lockRoles) =>
+                            updateInternalQuestion(index, { lockRoles }),
+                          )}
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Sin marcar = cualquiera puede editarla o quitarla.
+                          </p>
                         </div>
                         <p className="text-xs text-slate-400 sm:col-span-12">
                           Una pregunta condicionada solo aparece (y solo es
@@ -1108,7 +1174,7 @@ export function TemplateForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Preguntas por defecto para los proveedores"
+        title="Contenido Externo"
         storageKey="template-supplier-questions"
         right={
           <div className="flex items-center gap-4">
@@ -1130,6 +1196,18 @@ export function TemplateForm({
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
               + Agregar pregunta
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                insertInfoBlockAt(
+                  questions.length,
+                  questions[questions.length - 1]?.section ?? null,
+                )
+              }
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar texto
             </button>
           </div>
         }
@@ -1166,7 +1244,11 @@ export function TemplateForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                            placeholder={
+                              q.type === "INFO"
+                                ? "Texto informativo a mostrar (sin respuesta)"
+                                : "Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                            }
                             value={q.text}
                             onChange={(e) =>
                               updateQuestion(index, { text: e.target.value })
@@ -1195,21 +1277,23 @@ export function TemplateForm({
                           ))}
                         </select>
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="flex h-full items-center gap-2 text-sm text-slate-600">
-                          <input
-                            type="checkbox"
-                            checked={q.required}
-                            disabled={q.isPrerequisite}
-                            onChange={(e) =>
-                              updateQuestion(index, {
-                                required: e.target.checked,
-                              })
-                            }
-                          />
-                          Obligatoria
-                        </label>
-                      </div>
+                      {q.type !== "INFO" && (
+                        <div className="sm:col-span-2">
+                          <label className="flex h-full items-center gap-2 text-sm text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={q.required}
+                              disabled={q.isPrerequisite}
+                              onChange={(e) =>
+                                updateQuestion(index, {
+                                  required: e.target.checked,
+                                })
+                              }
+                            />
+                            Obligatoria
+                          </label>
+                        </div>
+                      )}
                       <div className="flex justify-end gap-2 sm:col-span-3">
                         <GearButton
                           active={expandedQuestions.has(index)}
@@ -1309,68 +1393,71 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            No se puede quitar ni editar salvo rol
+                            Editable/excluible por grupo
                           </label>
-                          <select
-                            className={smallInputClass()}
-                            value={q.lockMinRole}
-                            onChange={(e) =>
-                              updateQuestion(index, {
-                                lockMinRole: e.target.value as UserRole,
-                              })
-                            }
-                          >
-                            {LOCK_ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {r === "BUYER"
-                                  ? "Nadie (cualquiera puede quitarla o editarla)"
-                                  : `${ROLE_LABEL[r]} o superior`}
-                              </option>
-                            ))}
-                          </select>
+                          {lockRolesField(q.lockRoles, (lockRoles) =>
+                            updateQuestion(index, { lockRoles }),
+                          )}
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Sin marcar = cualquiera puede editarla o quitarla.
+                          </p>
                         </div>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Visibilidad
+                            Requiere respuesta
                           </label>
                           <select
                             className={smallInputClass()}
-                            value={q.visibility}
-                            onChange={(e) =>
+                            value={q.respondedBy}
+                            onChange={(e) => {
+                              const respondedBy = e.target
+                                .value as TemplateQuestionResponder;
                               updateQuestion(index, {
-                                visibility: e.target
-                                  .value as TemplateQuestionVisibility,
-                              })
-                            }
+                                respondedBy,
+                                visibility:
+                                  respondedBy === "BUYER"
+                                    ? "INTERNAL"
+                                    : "EXTERNAL",
+                              });
+                            }}
                           >
                             {(
                               Object.keys(
-                                SUPPLIER_VISIBILITY_LABEL,
-                              ) as (keyof typeof SUPPLIER_VISIBILITY_LABEL)[]
+                                REQUIRES_ANSWER_LABEL,
+                              ) as TemplateQuestionResponder[]
                             ).map((v) => (
                               <option key={v} value={v}>
-                                {SUPPLIER_VISIBILITY_LABEL[v]}
+                                {REQUIRES_ANSWER_LABEL[v]}
                               </option>
                             ))}
                           </select>
                         </div>
-                        <div className="flex items-end sm:col-span-4">
-                          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                            <input
-                              type="checkbox"
-                              checked={q.isPrerequisite}
-                              onChange={(e) =>
-                                updateQuestion(index, {
-                                  isPrerequisite: e.target.checked,
-                                  required: e.target.checked
-                                    ? true
-                                    : q.required,
-                                })
-                              }
-                            />
-                            Es prerrequisito (debe aceptarla)
-                          </label>
-                        </div>
+                        {q.respondedBy === "SUPPLIER" && (
+                          <div className="flex items-end sm:col-span-4">
+                            <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                              <input
+                                type="checkbox"
+                                checked={q.isPrerequisite}
+                                onChange={(e) =>
+                                  updateQuestion(index, {
+                                    isPrerequisite: e.target.checked,
+                                    required: e.target.checked
+                                      ? true
+                                      : q.required,
+                                  })
+                                }
+                              />
+                              Es prerrequisito (debe aceptarla)
+                            </label>
+                          </div>
+                        )}
+                        {q.respondedBy === "BUYER" && (
+                          <p className="text-xs text-slate-400 sm:col-span-12">
+                            El comprador la responderá desde el detalle de
+                            cada RFP creada con esta plantilla, antes de
+                            publicarla.
+                          </p>
+                        )}
                         <p className="text-xs text-slate-400 sm:col-span-12">
                           Una pregunta condicionada solo aparece (y solo es
                           obligatoria) cuando se cumple la condición, aunque

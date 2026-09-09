@@ -27,8 +27,8 @@ export function UserForm({
   actorIsSuperAdmin: boolean;
 }) {
   const ROLES: UserRole[] = actorIsSuperAdmin
-    ? ["BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
-    : ["BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
+    ? ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
+    : ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
   const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",

@@ -6,7 +6,7 @@ import { setBuyerAnswer } from "./actions";
 type Question = {
   id: string;
   text: string;
-  type: "TEXT" | "NUMBER" | "SELECT" | "MONEY" | "ATTACHMENT" | "YES_NO";
+  type: "TEXT" | "NUMBER" | "SELECT" | "MONEY" | "ATTACHMENT" | "YES_NO" | "INFO";
   options: string | null;
   numberMin: number | null;
   numberMax: number | null;
@@ -26,6 +26,8 @@ export function BuyerQuestionForm({
 }) {
   const [pending, startTransition] = useTransition();
   const action = setBuyerAnswer.bind(null, rfpId, question.id);
+
+  if (question.type === "INFO") return null;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

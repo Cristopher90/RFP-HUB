@@ -15,7 +15,7 @@ export type TemplateItemInput = {
   weight: number;
   decimals: number;
   customFields: { label: string; value: string }[];
-  lockMinRole: UserRole;
+  lockRoles: UserRole[];
 };
 
 export type TemplateQuestionType =
@@ -24,7 +24,8 @@ export type TemplateQuestionType =
   | "SELECT"
   | "MONEY"
   | "ATTACHMENT"
-  | "YES_NO";
+  | "YES_NO"
+  | "INFO";
 
 export type TemplateQuestionVisibility =
   | "INTERNAL"
@@ -49,7 +50,7 @@ export type TemplateQuestionInput = {
   dependsOnQuestionKey: string | null;
   dependsOnHeaderField: "commodity" | "region" | null;
   dependsOnValue: string;
-  lockMinRole: UserRole;
+  lockRoles: UserRole[];
 };
 
 export type SaveTemplateInput = {
@@ -106,7 +107,7 @@ export async function saveTemplate(
           .map((f) => ({ label: f.label.trim(), value: f.value.trim() }))
           .filter((f) => f.label.length > 0),
       ),
-      lockMinRole: item.lockMinRole,
+      lockRoles: item.lockRoles,
     }))
     .filter((item) => item.name.length > 0);
 
@@ -126,7 +127,7 @@ export async function saveTemplate(
       dependsOnQuestionKey: q.dependsOnQuestionKey,
       dependsOnHeaderField: q.dependsOnHeaderField,
       dependsOnValue: q.dependsOnValue.trim(),
-      lockMinRole: q.lockMinRole,
+      lockRoles: q.lockRoles,
       options:
         q.type === "SELECT"
           ? JSON.stringify(
@@ -184,7 +185,7 @@ export async function saveTemplate(
         dependsOnHeaderField: q.dependsOnHeaderField,
         dependsOnValue: q.dependsOnValue || null,
         options: q.options,
-        lockMinRole: q.lockMinRole,
+        lockRoles: q.lockRoles,
         order,
       },
     });

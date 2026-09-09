@@ -410,7 +410,12 @@ export default async function ComparePage({
                 weight: i.weight,
               }))}
               questions={rfp.questions
-                .filter((q) => !q.isPrerequisite && q.visibility === "EXTERNAL")
+                .filter(
+                  (q) =>
+                    !q.isPrerequisite &&
+                    q.visibility === "EXTERNAL" &&
+                    q.type !== "INFO",
+                )
                 .map((q) => ({
                   id: q.id,
                   text: q.text,
