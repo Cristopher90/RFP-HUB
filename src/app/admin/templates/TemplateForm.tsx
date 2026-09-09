@@ -2,7 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 import { GearButton } from "@/components/GearButton";
-import { TreeSingleSelect } from "@/components/TreeSingleSelect";
+import { TreePickerField } from "@/components/TreePickerField";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { ROLE_LABEL } from "@/lib/roleLabels";
 import { groupBySection, nextSectionName } from "@/lib/sections";
@@ -461,7 +461,7 @@ export function TemplateForm({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Aplica cuando el Commodity sea
             </label>
-            <TreeSingleSelect
+            <TreePickerField
               nodes={commodities.map((c) => ({
                 id: c.id,
                 parentId: c.parentId,
@@ -475,14 +475,15 @@ export function TemplateForm({
                 const node = commodities.find((c) => c.id === id);
                 setMatchCommodity(node?.description ?? "");
               }}
-              rootPlaceholder="Cualquiera"
+              placeholder="Cualquiera"
+              clearLabel="Cualquiera"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Aplica cuando la Región sea
             </label>
-            <TreeSingleSelect
+            <TreePickerField
               nodes={regions.map((r) => ({
                 id: r.id,
                 parentId: r.parentId,
@@ -496,7 +497,8 @@ export function TemplateForm({
                 const node = regions.find((r) => r.id === id);
                 setMatchRegion(node?.description ?? "");
               }}
-              rootPlaceholder="Cualquiera"
+              placeholder="Cualquiera"
+              clearLabel="Cualquiera"
             />
           </div>
           <div className="sm:col-span-2">

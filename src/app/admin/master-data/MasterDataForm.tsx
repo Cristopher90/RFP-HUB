@@ -6,7 +6,7 @@ import { parseMasterDataExcelFile } from "./masterDataImport";
 import { downloadMasterDataExcel } from "./masterDataExport";
 import { buildTreeOrder } from "@/lib/masterDataTree";
 import { makeClientKey } from "@/lib/clientKey";
-import { TreeCascadeSelect } from "@/components/TreeCascadeSelect";
+import { TreePickerField } from "@/components/TreePickerField";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { useColumnPrefs, type ColumnDef } from "@/lib/useColumnPrefs";
 import {
@@ -359,7 +359,7 @@ export function MasterDataForm({
                             ))}
                           {def.key === "parent" &&
                             (isEditing ? (
-                              <TreeCascadeSelect
+                              <TreePickerField
                                 nodes={rows
                                   .filter(
                                     (r) =>
@@ -379,7 +379,9 @@ export function MasterDataForm({
                                     parentClientKey: id,
                                   })
                                 }
-                                rootPlaceholder="— Sin padre (raíz) —"
+                                placeholder="— Sin padre (raíz) —"
+                                clearLabel="— Sin padre (raíz) —"
+                                allowSelectingBranches
                               />
                             ) : (
                               <span className="text-slate-500">

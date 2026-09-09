@@ -2,8 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from "react";
 import { GearButton } from "@/components/GearButton";
-import { TreeCascadeSelect } from "@/components/TreeCascadeSelect";
-import { TreeSingleSelect } from "@/components/TreeSingleSelect";
+import { TreePickerField } from "@/components/TreePickerField";
 import { SupplierSearchPicker } from "@/components/SupplierSearchPicker";
 import { ItemCatalogPicker, type ItemCatalogEntry } from "@/components/ItemCatalogPicker";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
@@ -941,7 +940,7 @@ export function RfpForm({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Commodity
             </label>
-            <TreeSingleSelect
+            <TreePickerField
               nodes={commodities.map((c) => ({
                 id: c.id,
                 parentId: c.parentId,
@@ -955,14 +954,15 @@ export function RfpForm({
                 const node = commodities.find((c) => c.id === id);
                 handleCommodityChange(node?.description ?? "");
               }}
-              rootPlaceholder="Selecciona un commodity"
+              placeholder="Selecciona un commodity"
+              clearLabel="— Ninguno —"
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Región
             </label>
-            <TreeSingleSelect
+            <TreePickerField
               nodes={regions.map((r) => ({
                 id: r.id,
                 parentId: r.parentId,
@@ -975,7 +975,8 @@ export function RfpForm({
                 const node = regions.find((r) => r.id === id);
                 handleRegionChange(node?.description ?? "");
               }}
-              rootPlaceholder="Selecciona una región"
+              placeholder="Selecciona una región"
+              clearLabel="— Ninguna —"
             />
           </div>
           <div>
@@ -1018,7 +1019,7 @@ export function RfpForm({
                 (no visible para el proveedor)
               </span>
             </label>
-            <TreeCascadeSelect
+            <TreePickerField
               nodes={origins.map((o) => ({
                 id: o.id,
                 parentId: o.parentId,
@@ -1031,7 +1032,9 @@ export function RfpForm({
                 const node = origins.find((o) => o.id === id);
                 setOrigin(node?.description ?? "");
               }}
-              rootPlaceholder="Selecciona un origen"
+              placeholder="Selecciona un origen"
+              clearLabel="— Ninguno —"
+              allowSelectingBranches
             />
           </div>
           <div>
@@ -1385,7 +1388,7 @@ export function RfpForm({
                               {item.commodity || "— Sin commodity específico —"}
                             </p>
                           ) : (
-                            <TreeSingleSelect
+                            <TreePickerField
                               nodes={commodities.map((c) => ({
                                 id: c.id,
                                 parentId: c.parentId,
@@ -1402,7 +1405,8 @@ export function RfpForm({
                                   commodity: node?.description ?? null,
                                 });
                               }}
-                              rootPlaceholder="— Sin commodity específico —"
+                              placeholder="— Sin commodity específico —"
+                              clearLabel="— Sin commodity específico —"
                             />
                           )}
                         </div>
