@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
+import {
+  matchesTemplate,
+  resolveAppliedTemplates,
+  ancestorChain,
+} from "@/lib/templateMatch";
 import {
   pickApprovalWorkflow,
   levelsForStage,
@@ -54,14 +58,19 @@ export async function awardInvitation(
     return sum + (price ? price.unitPrice * item.quantity : 0);
   }, 0);
 
+  const [allTemplates, commodities, regions] = await Promise.all([
+    prisma.rfpTemplate.findMany({
+      where: { active: true, clientId: rfp.clientId },
+      include: { approvalWorkflow: { include: { levels: true } } },
+    }),
+    prisma.commodity.findMany({ where: { clientId: rfp.clientId } }),
+    prisma.region.findMany({ where: { clientId: rfp.clientId } }),
+  ]);
+  const commodityChain = ancestorChain(commodities, rfp.commodity ?? "");
+  const regionChain = ancestorChain(regions, rfp.region ?? "");
   const matchingTemplates = resolveAppliedTemplates(
-    (
-      await prisma.rfpTemplate.findMany({
-        where: { active: true },
-        include: { approvalWorkflow: { include: { levels: true } } },
-      })
-    ).filter((t) =>
-      matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? "", rfp.estimatedPrice),
+    allTemplates.filter((t) =>
+      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice),
     ),
     rfp.selectedTemplateId,
   );

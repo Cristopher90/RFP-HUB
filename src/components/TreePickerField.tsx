@@ -7,6 +7,11 @@ export type TreePickerNode = {
   parentId: string | null;
   label: string;
   code?: string;
+  // false = this level is only for grouping its children, not a value you
+  // can pick directly (e.g. a commodity category whose only real, choosable
+  // values are its leaves). Omitted/true = choosable, the default for every
+  // tree that doesn't have this concept at all.
+  selectable?: boolean;
 };
 
 function displayLabel(n: TreePickerNode): string {
@@ -184,13 +189,22 @@ export function TreePickerField({
                   )}
                   {rows.map(({ node, depth, hasChildren }) => {
                     const selected = valueId === node.id;
+                    const selectable = node.selectable !== false;
+                    // A non-selectable node (a pure grouping level, e.g. a
+                    // commodity category) can still be browsed/expanded —
+                    // clicking it just toggles its children instead of
+                    // picking it as the value.
+                    function handleRowClick() {
+                      if (selectable) selectAndClose(node.id);
+                      else if (hasChildren) toggleExpanded(node.id);
+                    }
                     return (
                       <tr
                         key={node.id}
-                        onClick={() => selectAndClose(node.id)}
-                        className={`cursor-pointer hover:bg-violet-50 ${
-                          selected ? "bg-violet-50" : ""
-                        }`}
+                        onClick={handleRowClick}
+                        className={`hover:bg-violet-50 ${
+                          selectable ? "cursor-pointer" : ""
+                        } ${selected ? "bg-violet-50" : ""}`}
                       >
                         <td className="px-4 py-2">
                           <div
@@ -216,22 +230,29 @@ export function TreePickerField({
                             ) : (
                               <span className="inline-block h-4 w-4 shrink-0" />
                             )}
-                            <input
-                              type="checkbox"
-                              readOnly
-                              checked={selected}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={() => selectAndClose(node.id)}
-                              className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                            />
+                            {selectable ? (
+                              <input
+                                type="checkbox"
+                                readOnly
+                                checked={selected}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={() => selectAndClose(node.id)}
+                                className="h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                              />
+                            ) : (
+                              <span className="inline-block h-3.5 w-3.5 shrink-0" />
+                            )}
                             <span
                               className={
                                 selected
                                   ? "font-medium text-violet-700"
-                                  : "text-slate-700"
+                                  : selectable
+                                    ? "text-slate-700"
+                                    : "text-slate-400 italic"
                               }
                             >
                               {node.label}
+                              {!selectable && " (categoría)"}
                             </span>
                           </div>
                         </td>

@@ -3,7 +3,11 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
+import {
+  matchesTemplate,
+  resolveAppliedTemplates,
+  ancestorChain,
+} from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -117,16 +121,23 @@ async function findMatchingTemplates(
   selectedTemplateId: string | null,
   clientId: string,
 ) {
-  const matching = (
-    await prisma.rfpTemplate.findMany({
+  const [templates, commodities, regions] = await Promise.all([
+    prisma.rfpTemplate.findMany({
       where: { active: true, clientId },
       include: {
         items: true,
         questions: true,
         approvalWorkflow: { include: { levels: true } },
       },
-    })
-  ).filter((t) => matchesTemplate(t, commodity, region, estimatedPrice));
+    }),
+    prisma.commodity.findMany({ where: { clientId } }),
+    prisma.region.findMany({ where: { clientId } }),
+  ]);
+  const commodityChain = ancestorChain(commodities, commodity);
+  const regionChain = ancestorChain(regions, region);
+  const matching = templates.filter((t) =>
+    matchesTemplate(t, commodityChain, regionChain, estimatedPrice),
+  );
   return resolveAppliedTemplates(matching, selectedTemplateId);
 }
 

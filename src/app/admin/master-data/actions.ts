@@ -11,6 +11,7 @@ export type MasterDataItemInput = {
   description: string;
   parentClientKey: string | null;
   icon?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
+  selectable?: boolean; // solo usado por kind: "commodity"
 };
 
 function pathFor(kind: Exclude<MasterDataKind, "client">) {
@@ -129,6 +130,7 @@ export async function saveMasterDataList(
       code: i.code.trim(),
       description: i.description.trim(),
       parentClientKey: i.parentClientKey,
+      selectable: i.selectable ?? true,
     }))
     .filter((i) => i.code.length > 0 && i.description.length > 0);
 
@@ -165,7 +167,12 @@ export async function saveMasterDataList(
   type TreeDelegate = {
     deleteMany(args: { where: { clientId: string } }): Promise<unknown>;
     create(args: {
-      data: { clientId: string; code: string; description: string };
+      data: {
+        clientId: string;
+        code: string;
+        description: string;
+        selectable?: boolean;
+      };
     }): Promise<{ id: string }>;
     update(args: {
       where: { id: string };
@@ -186,7 +193,12 @@ export async function saveMasterDataList(
   const idByKey = new Map<string, string>();
   for (const i of cleaned) {
     const row = await model.create({
-      data: { clientId, code: i.code, description: i.description },
+      data: {
+        clientId,
+        code: i.code,
+        description: i.description,
+        ...(kind === "commodity" ? { selectable: i.selectable } : {}),
+      },
     });
     idByKey.set(i.clientKey, row.id);
   }

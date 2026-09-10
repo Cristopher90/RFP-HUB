@@ -194,7 +194,9 @@ export function TemplateForm({
     name: string;
     description: string;
     matchCommodity: string;
+    matchCommodityIncludeDescendants: boolean;
     matchRegion: string;
+    matchRegionIncludeDescendants: boolean;
     matchPriceCondition: TemplatePriceCondition | null;
     matchPriceMin: number | null;
     matchPriceMax: number | null;
@@ -210,7 +212,11 @@ export function TemplateForm({
   const [matchCommodity, setMatchCommodity] = useState(
     initial?.matchCommodity ?? "",
   );
+  const [matchCommodityIncludeDescendants, setMatchCommodityIncludeDescendants] =
+    useState(initial?.matchCommodityIncludeDescendants ?? false);
   const [matchRegion, setMatchRegion] = useState(initial?.matchRegion ?? "");
+  const [matchRegionIncludeDescendants, setMatchRegionIncludeDescendants] =
+    useState(initial?.matchRegionIncludeDescendants ?? false);
   const [matchPriceCondition, setMatchPriceCondition] = useState<
     TemplatePriceCondition | null
   >(initial?.matchPriceCondition ?? null);
@@ -514,7 +520,9 @@ export function TemplateForm({
       name,
       description,
       matchCommodity,
+      matchCommodityIncludeDescendants,
       matchRegion,
+      matchRegionIncludeDescendants,
       matchPriceCondition,
       matchPriceMin,
       matchPriceMax,
@@ -595,6 +603,18 @@ export function TemplateForm({
               placeholder="Cualquiera"
               clearLabel="Cualquiera"
             />
+            {matchCommodity && (
+              <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={matchCommodityIncludeDescendants}
+                  onChange={(e) =>
+                    setMatchCommodityIncludeDescendants(e.target.checked)
+                  }
+                />
+                También aplica a los niveles debajo de este
+              </label>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -618,6 +638,18 @@ export function TemplateForm({
               placeholder="Cualquiera"
               clearLabel="Cualquiera"
             />
+            {matchRegion && (
+              <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={matchRegionIncludeDescendants}
+                  onChange={(e) =>
+                    setMatchRegionIncludeDescendants(e.target.checked)
+                  }
+                />
+                También aplica a los niveles debajo de este
+              </label>
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">

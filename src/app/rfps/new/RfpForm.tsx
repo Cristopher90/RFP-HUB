@@ -7,6 +7,7 @@ import { SupplierSearchPicker } from "@/components/SupplierSearchPicker";
 import { ItemCatalogPicker, type ItemCatalogEntry } from "@/components/ItemCatalogPicker";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { QuestionScoringFields } from "@/components/QuestionScoringFields";
+import { TemplatePicker } from "@/components/TemplatePicker";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
@@ -14,6 +15,7 @@ import {
   matchesTemplate,
   splitConditionalTemplates,
   resolveAppliedTemplates,
+  ancestorChain,
   type TemplatePriceCondition,
 } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
@@ -35,8 +37,11 @@ import {
 export type TemplateData = {
   id: string;
   name: string;
+  description: string | null;
   matchCommodity: string | null;
+  matchCommodityIncludeDescendants: boolean;
   matchRegion: string | null;
+  matchRegionIncludeDescendants: boolean;
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: number | null;
   matchPriceMax: number | null;
@@ -244,6 +249,7 @@ export function RfpForm({
     parentId: string | null;
     code: string;
     description: string;
+    selectable: boolean;
   }[];
   regions: {
     id: string;
@@ -326,9 +332,6 @@ export function RfpForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [weightingEnabled, setWeightingEnabled] = useState(
-    initial?.scoringEnabled ?? false,
-  );
   const [weightingQuestionsEnabled, setWeightingQuestionsEnabled] = useState(
     initial?.scoringEnabled ?? false,
   );
@@ -350,8 +353,10 @@ export function RfpForm({
     newPrice: number | null,
     newSelectedTemplateId: string | null,
   ) {
+    const commodityChain = ancestorChain(commodities, newCommodity);
+    const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, newCommodity, newRegion, newPrice),
+      matchesTemplate(t, commodityChain, regionChain, newPrice),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -400,8 +405,10 @@ export function RfpForm({
     newPrice: number | null,
     newSelectedTemplateId: string | null,
   ) {
+    const commodityChain = ancestorChain(commodities, newCommodity);
+    const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, newCommodity, newRegion, newPrice),
+      matchesTemplate(t, commodityChain, regionChain, newPrice),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -462,7 +469,12 @@ export function RfpForm({
     newPrice: number | null,
   ): string | null {
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, newCommodity, newRegion, newPrice),
+      matchesTemplate(
+        t,
+        ancestorChain(commodities, newCommodity),
+        ancestorChain(regions, newRegion),
+        newPrice,
+      ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
     if (conditional.length === 1) return conditional[0].id;
@@ -945,7 +957,7 @@ export function RfpForm({
           parsePrice(estimatedPrice),
         ),
         isNextRound: initial?.isNextRound ?? false,
-        scoringEnabled: weightingEnabled || weightingQuestionsEnabled,
+        scoringEnabled: weightingQuestionsEnabled,
         saveAsDraft,
         items,
         questions: [...questions, ...internalQuestions],
@@ -990,7 +1002,12 @@ export function RfpForm({
   );
   const conditionalMatchCount = splitConditionalTemplates(
     templates.filter((t) =>
-      matchesTemplate(t, commodity, region, parsePrice(estimatedPrice)),
+      matchesTemplate(
+        t,
+        ancestorChain(commodities, commodity),
+        ancestorChain(regions, region),
+        parsePrice(estimatedPrice),
+      ),
     ),
   ).conditional.length;
   const templateResolved = conditionalMatchCount === 0 || Boolean(selectedTemplateId);
@@ -1083,6 +1100,7 @@ export function RfpForm({
                 parentId: c.parentId,
                 label: c.description,
                 code: c.code,
+                selectable: c.selectable,
               }))}
               valueId={
                 commodities.find((c) => c.description === commodity)?.id ??
@@ -1150,41 +1168,6 @@ export function RfpForm({
               value={estimatedPrice}
               onChange={(e) => handleEstimatedPriceChange(e.target.value)}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Plantilla
-            </label>
-            {(() => {
-              const rawMatching = templates.filter((t) =>
-                matchesTemplate(t, commodity, region, parsePrice(estimatedPrice)),
-              );
-              const { conditional } = splitConditionalTemplates(rawMatching);
-              if (conditional.length === 0) {
-                return (
-                  <input
-                    disabled
-                    className={`${inputClass()} disabled:bg-slate-50 disabled:text-slate-500`}
-                    value="Ninguna plantilla específica aplica"
-                    readOnly
-                  />
-                );
-              }
-              return (
-                <select
-                  className={inputClass()}
-                  value={selectedTemplateId ?? ""}
-                  onChange={(e) => handleTemplateSelectionChange(e.target.value)}
-                >
-                  <option value="">Selecciona una plantilla</option>
-                  {conditional.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              );
-            })()}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -1273,15 +1256,30 @@ export function RfpForm({
               />
             )}
           </div>
-          <div className="flex items-center gap-4 sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={weightingEnabled}
-                onChange={(e) => setWeightingEnabled(e.target.checked)}
-              />
-              Ponderar artículos
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Plantilla
             </label>
+            <TemplatePicker
+              templates={splitConditionalTemplates(
+                templates.filter((t) =>
+                  matchesTemplate(
+                    t,
+                    ancestorChain(commodities, commodity),
+                    ancestorChain(regions, region),
+                    parsePrice(estimatedPrice),
+                  ),
+                ),
+              ).conditional.map((t) => ({
+                id: t.id,
+                name: t.name,
+                description: t.description,
+              }))}
+              selectedId={selectedTemplateId}
+              onChange={(id) => handleTemplateSelectionChange(id ?? "")}
+            />
+          </div>
+          <div className="flex items-center gap-4 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"
@@ -1523,43 +1521,23 @@ export function RfpForm({
 
                     {expandedItems.has(index) && (
                       <div className="mt-3 max-w-xl space-y-3 border-t border-slate-200 pt-3">
-                        {weightingEnabled ? (
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Peso (para puntaje)
-                            </label>
-                            <input
-                              type="number"
-                              min={1}
-                              max={10}
-                              className={smallInputClass()}
-                              value={item.weight}
-                              onChange={(e) =>
-                                updateItem(index, {
-                                  weight: Number(e.target.value),
-                                })
-                              }
-                            />
-                          </div>
-                        ) : (
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Decimales del precio
-                            </label>
-                            <input
-                              type="number"
-                              min={0}
-                              max={4}
-                              className={smallInputClass()}
-                              value={item.decimals}
-                              onChange={(e) =>
-                                updateItem(index, {
-                                  decimals: Number(e.target.value),
-                                })
-                              }
-                            />
-                          </div>
-                        )}
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                            Decimales del precio
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={4}
+                            className={smallInputClass()}
+                            value={item.decimals}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                decimals: Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500">
                             Precio histórico{" "}
@@ -1598,6 +1576,7 @@ export function RfpForm({
                                 parentId: c.parentId,
                                 label: c.description,
                                 code: c.code,
+                                selectable: c.selectable,
                               }))}
                               valueId={
                                 commodities.find(

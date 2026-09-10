@@ -172,6 +172,7 @@ model Commodity {
   parentId    String?
   parent      Commodity?  @relation("CommodityTree", fields: [parentId], references: [id])
   children    Commodity[] @relation("CommodityTree")
+  selectable  Boolean     @default(true) // si se puede elegir este nivel en una RFP/plantilla, o es solo un nodo de agrupación
   createdAt   DateTime    @default(now())
 
   @@unique([clientId, code])
@@ -317,19 +318,21 @@ model ItemCatalogEntry {
 // artículo/pregunta puede bloquearse para que solo un rol igual o superior
 // a lockMinRole pueda quitarlo.
 model RfpTemplate {
-  id                  String                  @id @default(cuid())
-  clientId            String
-  client              Client                  @relation(fields: [clientId], references: [id])
-  name                String
-  description         String?
-  matchCommodity      String?
-  matchRegion         String?
-  matchPriceCondition TemplatePriceCondition?
-  matchPriceMin       Float?
-  matchPriceMax       Float?
-  active              Boolean                 @default(true)
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
+  id                               String                  @id @default(cuid())
+  clientId                         String
+  client                           Client                  @relation(fields: [clientId], references: [id])
+  name                             String
+  description                      String?
+  matchCommodity                   String?
+  matchCommodityIncludeDescendants Boolean                 @default(false) // si matchCommodity también aplica a los niveles debajo de él en el árbol
+  matchRegion                      String?
+  matchRegionIncludeDescendants    Boolean                 @default(false) // idem para matchRegion
+  matchPriceCondition              TemplatePriceCondition?
+  matchPriceMin                    Float?
+  matchPriceMax                    Float?
+  active                           Boolean                 @default(true)
+  createdAt                        DateTime                @default(now())
+  updatedAt                        DateTime                @updatedAt
 
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
 

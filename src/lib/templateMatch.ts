@@ -2,11 +2,38 @@ export type TemplatePriceCondition = "GREATER_THAN" | "LESS_THAN" | "BETWEEN";
 
 export type MatchableTemplate = {
   matchCommodity: string | null;
+  matchCommodityIncludeDescendants: boolean;
   matchRegion: string | null;
+  matchRegionIncludeDescendants: boolean;
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: number | null;
   matchPriceMax: number | null;
 };
+
+export type HierarchyNode = { id: string; parentId: string | null; description: string };
+
+// [selected value, its parent's, its grandparent's, ...] up to the root —
+// what "aplica también a los niveles de abajo" checks against: a template
+// condition set to "España" with the flag on matches an RFP whose región is
+// "Madrid" because "España" shows up in Madrid's own chain.
+export function ancestorChain(nodes: HierarchyNode[], value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  const node = nodes.find(
+    (n) => n.description.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (!node) return [trimmed];
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const chain: string[] = [];
+  const visited = new Set<string>();
+  let current: HierarchyNode | undefined = node;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    chain.push(current.description);
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+  return chain;
+}
 
 function matchesPriceCondition(
   template: MatchableTemplate,
@@ -31,19 +58,33 @@ function matchesPriceCondition(
   }
 }
 
+function chainIncludes(chain: string[], value: string): boolean {
+  const target = value.trim().toLowerCase();
+  return chain.some((c) => c.trim().toLowerCase() === target);
+}
+
+// commodityChain/regionChain are the RFP's own value plus its ancestors
+// (see ancestorChain) — a caller with no tree data on hand can just pass a
+// one-element chain (`[commodity]`), which behaves like a plain exact match.
 export function matchesTemplate(
   template: MatchableTemplate,
-  commodity: string,
-  region: string,
+  commodityChain: string[],
+  regionChain: string[],
   estimatedPrice: number | null = null,
 ) {
   const commodityOk =
     !template.matchCommodity ||
-    template.matchCommodity.trim().toLowerCase() ===
-      commodity.trim().toLowerCase();
+    (template.matchCommodityIncludeDescendants
+      ? chainIncludes(commodityChain, template.matchCommodity)
+      : commodityChain[0] !== undefined &&
+        commodityChain[0].trim().toLowerCase() ===
+          template.matchCommodity.trim().toLowerCase());
   const regionOk =
     !template.matchRegion ||
-    template.matchRegion.trim().toLowerCase() === region.trim().toLowerCase();
+    (template.matchRegionIncludeDescendants
+      ? chainIncludes(regionChain, template.matchRegion)
+      : regionChain[0] !== undefined &&
+        regionChain[0].trim().toLowerCase() === template.matchRegion.trim().toLowerCase());
   return commodityOk && regionOk && matchesPriceCondition(template, estimatedPrice);
 }
 

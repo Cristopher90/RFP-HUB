@@ -51,6 +51,7 @@ export default async function CommoditiesPage({
               code: c.code,
               description: c.description,
               parentClientKey: c.parentId,
+              selectable: c.selectable,
             }))}
           />
         </div>

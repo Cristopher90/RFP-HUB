@@ -198,8 +198,11 @@ export default async function EditRfpPage({
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,
+            description: t.description,
             matchCommodity: t.matchCommodity,
+            matchCommodityIncludeDescendants: t.matchCommodityIncludeDescendants,
             matchRegion: t.matchRegion,
+            matchRegionIncludeDescendants: t.matchRegionIncludeDescendants,
             matchPriceCondition: t.matchPriceCondition,
             matchPriceMin: t.matchPriceMin,
             matchPriceMax: t.matchPriceMax,

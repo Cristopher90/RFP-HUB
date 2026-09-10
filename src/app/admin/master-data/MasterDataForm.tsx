@@ -21,7 +21,7 @@ import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 
-type ColumnKey = "code" | "description" | "parent";
+type ColumnKey = "code" | "description" | "parent" | "selectable";
 
 const COLUMN_DEFS: ColumnDef<ColumnKey>[] = [
   { key: "code", label: "Código", defaultWidth: 140, minWidth: 90 },
@@ -29,12 +29,24 @@ const COLUMN_DEFS: ColumnDef<ColumnKey>[] = [
   { key: "parent", label: "Padre", defaultWidth: 280, minWidth: 160 },
 ];
 
+// Solo "commodity" tiene esta columna: si un nivel del árbol es un valor
+// elegible en una RFP/plantilla, o solo sirve para agrupar sus hijos (para
+// armar una jerarquía donde, por ejemplo, solo el último nivel es
+// seleccionable).
+const SELECTABLE_COLUMN_DEF: ColumnDef<ColumnKey> = {
+  key: "selectable",
+  label: "Seleccionable en RFP",
+  defaultWidth: 160,
+  minWidth: 120,
+};
+
 function emptyRow(): MasterDataItemInput {
   return {
     clientKey: makeClientKey(),
     code: "",
     description: "",
     parentClientKey: null,
+    selectable: true,
   };
 }
 
@@ -73,7 +85,9 @@ export function MasterDataForm({
     clearMasterDataTable(kind, targetClientId),
   );
 
-  const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, COLUMN_DEFS);
+  const columnDefs =
+    kind === "commodity" ? [...COLUMN_DEFS, SELECTABLE_COLUMN_DEF] : COLUMN_DEFS;
+  const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, columnDefs);
 
   function updateRow(clientKey: string, patch: Partial<MasterDataItemInput>) {
     setSuccess(false);
@@ -368,7 +382,7 @@ export function MasterDataForm({
         right={
           <div className="flex items-center gap-3">
             <ColumnSettingsMenu
-              defs={COLUMN_DEFS}
+              defs={columnDefs}
               order={columnPrefs.order}
               hidden={columnPrefs.hidden}
               toggleVisible={columnPrefs.toggleVisible}
@@ -553,6 +567,18 @@ export function MasterDataForm({
                                 {parentLabel(row)}
                               </span>
                             ))}
+                          {def.key === "selectable" && (
+                            <input
+                              type="checkbox"
+                              disabled={!isEditing}
+                              checked={row.selectable ?? true}
+                              onChange={(e) =>
+                                updateRow(row.clientKey, {
+                                  selectable: e.target.checked,
+                                })
+                              }
+                            />
+                          )}
                         </td>
                       ))}
                       <td className="rounded-r-lg px-3 py-2 text-right">

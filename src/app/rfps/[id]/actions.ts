@@ -15,7 +15,11 @@ import {
   recordDecision,
   sendReminder,
 } from "@/lib/approvalEngine";
-import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
+import {
+  matchesTemplate,
+  resolveAppliedTemplates,
+  ancestorChain,
+} from "@/lib/templateMatch";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -133,14 +137,19 @@ export async function publishRfp(rfpId: string) {
     return { error: "Solo se puede publicar una RFP en borrador." };
   }
 
+  const [allTemplates, commodities, regions] = await Promise.all([
+    prisma.rfpTemplate.findMany({
+      where: { active: true, clientId: rfp.clientId },
+      include: { approvalWorkflow: { include: { levels: true } } },
+    }),
+    prisma.commodity.findMany({ where: { clientId: rfp.clientId } }),
+    prisma.region.findMany({ where: { clientId: rfp.clientId } }),
+  ]);
+  const commodityChain = ancestorChain(commodities, rfp.commodity ?? "");
+  const regionChain = ancestorChain(regions, rfp.region ?? "");
   const matchingTemplates = resolveAppliedTemplates(
-    (
-      await prisma.rfpTemplate.findMany({
-        where: { active: true },
-        include: { approvalWorkflow: { include: { levels: true } } },
-      })
-    ).filter((t) =>
-      matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? "", rfp.estimatedPrice),
+    allTemplates.filter((t) =>
+      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice),
     ),
     rfp.selectedTemplateId,
   );

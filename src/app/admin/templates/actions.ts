@@ -63,7 +63,9 @@ export type SaveTemplateInput = {
   name: string;
   description: string;
   matchCommodity: string;
+  matchCommodityIncludeDescendants: boolean;
   matchRegion: string;
+  matchRegionIncludeDescendants: boolean;
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: string;
   matchPriceMax: string;
@@ -169,7 +171,13 @@ export async function saveTemplate(
     name,
     description: input.description.trim() || null,
     matchCommodity: input.matchCommodity.trim() || null,
+    matchCommodityIncludeDescendants: input.matchCommodity.trim()
+      ? input.matchCommodityIncludeDescendants
+      : false,
     matchRegion: input.matchRegion.trim() || null,
+    matchRegionIncludeDescendants: input.matchRegion.trim()
+      ? input.matchRegionIncludeDescendants
+      : false,
     matchPriceCondition: input.matchPriceCondition,
     matchPriceMin: input.matchPriceCondition ? matchPriceMin : null,
     matchPriceMax: input.matchPriceCondition ? matchPriceMax : null,
