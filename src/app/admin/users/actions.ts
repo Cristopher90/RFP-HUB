@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { requireClientScope } from "@/lib/clientScope";
 import type { UserRole } from "@/generated/prisma/enums";
+import { getDictionary } from "@/i18n/getDictionary";
+import type { Dictionary } from "@/i18n/getDictionary";
 
 export type UserFormInput = {
   name: string;
@@ -43,25 +45,26 @@ function shapeApprovalGroups(rows: { approvalGroupId: string; limit: string }[])
 function resolveTargetClientAndRole(
   scope: Awaited<ReturnType<typeof requireClientScope>>,
   input: UserFormInput,
+  dictionary: Dictionary,
 ): { clientId: string | null } | { error: string } {
   if (scope.isSuperAdmin) {
     if (input.role === "ADMIN") {
       if (input.clientId) {
-        return { error: "Un Super Administrador no pertenece a un cliente." };
+        return { error: dictionary.usersActions.superAdminNoClient };
       }
       return { clientId: null };
     }
     if (!input.clientId) {
-      return { error: "Selecciona el cliente de este usuario." };
+      return { error: dictionary.usersActions.selectClientForUser };
     }
     return { clientId: input.clientId };
   }
   // CLIENT_ADMIN actor: fixed to their own client, can't grant ADMIN.
   if (input.role === "ADMIN") {
-    return { error: "Solo un Super Administrador puede crear otro." };
+    return { error: dictionary.usersActions.onlySuperAdminCreatesAdmin };
   }
   if (!scope.user.clientId) {
-    return { error: "Tu usuario no tiene un cliente asignado." };
+    return { error: dictionary.usersActions.noClientAssigned };
   }
   return { clientId: scope.user.clientId };
 }
@@ -70,24 +73,25 @@ export async function createUser(
   input: UserFormInput,
 ): Promise<{ error: string } | never> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
     redirect("/");
   }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
-  if (!name) return { error: "El nombre es obligatorio." };
-  if (!email) return { error: "El correo es obligatorio." };
+  if (!name) return { error: dictionary.usersActions.nameRequired };
+  if (!email) return { error: dictionary.usersActions.emailRequired };
   if (!input.password || input.password.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
+    return { error: dictionary.usersActions.passwordMinLength };
   }
 
-  const targetClient = resolveTargetClientAndRole(scope, input);
+  const targetClient = resolveTargetClientAndRole(scope, input, dictionary);
   if ("error" in targetClient) return targetClient;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { error: `Ya existe un usuario con el correo "${email}".` };
+    return { error: dictionary.usersActions.emailAlreadyExists.replace("{email}", email) };
   }
 
   const approvalGroups = targetClient.clientId
@@ -121,30 +125,31 @@ export async function updateUser(
   input: UserFormInput,
 ): Promise<{ error: string } | never> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
     redirect("/");
   }
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) return { error: "Usuario no encontrado." };
+  if (!target) return { error: dictionary.usersActions.userNotFound };
   if (!scope.isSuperAdmin && target.clientId !== scope.user.clientId) {
-    return { error: "No podés editar un usuario de otro cliente." };
+    return { error: dictionary.usersActions.cannotEditOtherClientUser };
   }
 
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
-  if (!name) return { error: "El nombre es obligatorio." };
-  if (!email) return { error: "El correo es obligatorio." };
+  if (!name) return { error: dictionary.usersActions.nameRequired };
+  if (!email) return { error: dictionary.usersActions.emailRequired };
   if (input.password && input.password.length < 6) {
-    return { error: "La contraseña debe tener al menos 6 caracteres." };
+    return { error: dictionary.usersActions.passwordMinLength };
   }
 
-  const targetClient = resolveTargetClientAndRole(scope, input);
+  const targetClient = resolveTargetClientAndRole(scope, input, dictionary);
   if ("error" in targetClient) return targetClient;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing && existing.id !== userId) {
-    return { error: `Ya existe un usuario con el correo "${email}".` };
+    return { error: dictionary.usersActions.emailAlreadyExists.replace("{email}", email) };
   }
 
   const approvalGroups = targetClient.clientId

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 import { CURRENCIES } from "@/lib/profileOptions";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type MasterDataItemInput = {
   clientKey: string;
@@ -29,8 +30,9 @@ export async function saveClientList(
   items: MasterDataItemInput[],
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (!scope.isSuperAdmin) {
-    return { error: "Solo un Super Administrador puede editar los clientes." };
+    return { error: dictionary.masterDataActions.onlySuperAdminEditClients };
   }
 
   const cleaned = items
@@ -46,10 +48,10 @@ export async function saveClientList(
   const seen = new Set<string>();
   for (const i of cleaned) {
     const key = i.code.toLowerCase();
-    if (seen.has(key)) return { error: `El ID "${i.code}" está repetido.` };
+    if (seen.has(key)) return { error: dictionary.masterDataActions.duplicateId.replace("{id}", i.code) };
     seen.add(key);
     if (!CURRENCIES.includes(i.currency)) {
-      return { error: `La moneda "${i.currency}" no es válida.` };
+      return { error: dictionary.masterDataActions.invalidCurrency.replace("{currency}", i.currency) };
     }
   }
 
@@ -71,7 +73,7 @@ export async function saveClientList(
         await prisma.client.delete({ where: { id: client.id } });
       } catch {
         return {
-          error: `No se puede eliminar el cliente "${client.description}" porque ya tiene datos asociados.`,
+          error: dictionary.masterDataActions.cannotDeleteClientInUse.replace("{name}", client.description),
         };
       }
     }
@@ -101,15 +103,15 @@ export async function clearClientList(): Promise<
   { error: string } | { success: true }
 > {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (!scope.isSuperAdmin) {
-    return { error: "Solo un Super Administrador puede borrar la tabla de clientes." };
+    return { error: dictionary.masterDataActions.onlySuperAdminDeleteClientsTable };
   }
   try {
     await prisma.client.deleteMany({});
   } catch {
     return {
-      error:
-        "No se pueden borrar todos los clientes: alguno todavía tiene datos asociados.",
+      error: dictionary.masterDataActions.cannotDeleteAllClients,
     };
   }
   revalidatePath("/admin/master-data/clients");
@@ -122,12 +124,13 @@ export async function saveMasterDataList(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    return { error: "No tenés permiso para editar datos maestros." };
+    return { error: dictionary.masterDataActions.noPermissionMasterData };
   }
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
   if (!clientId) {
-    return { error: "Selecciona el cliente cuyos datos vas a editar." };
+    return { error: dictionary.masterDataActions.selectClientToEditMasterData };
   }
 
   const cleaned = items
@@ -144,7 +147,7 @@ export async function saveMasterDataList(
   for (const i of cleaned) {
     const key = i.code.toLowerCase();
     if (seen.has(key)) {
-      return { error: `El ID "${i.code}" está repetido.` };
+      return { error: dictionary.masterDataActions.duplicateId.replace("{id}", i.code) };
     }
     seen.add(key);
   }
@@ -163,7 +166,7 @@ export async function saveMasterDataList(
     let current: (typeof i) | undefined = i;
     while (current?.parentClientKey) {
       if (visited.has(current.clientKey)) {
-        return { error: `La jerarquía de "${i.code}" tiene un ciclo.` };
+        return { error: dictionary.masterDataActions.hierarchyCycle.replace("{id}", i.code) };
       }
       visited.add(current.clientKey);
       current = byKey.get(current.parentClientKey);
@@ -232,11 +235,12 @@ export async function clearMasterDataTable(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (!scope.isSuperAdmin) {
-    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+    return { error: dictionary.masterDataActions.onlySuperAdminDeleteFullTable };
   }
   if (!targetClientId) {
-    return { error: "Selecciona el cliente cuya tabla vas a borrar." };
+    return { error: dictionary.masterDataActions.selectClientToClearMasterData };
   }
 
   type DeleteDelegate = {

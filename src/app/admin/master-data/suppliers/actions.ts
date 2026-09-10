@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { hashPassword } from "@/lib/auth";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type SupplierDirectoryStatus = "ACTIVE" | "INACTIVE";
 
@@ -28,18 +29,19 @@ export async function saveSupplierRow(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true; id: string }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    return { error: "No tenés permiso para editar el directorio de proveedores." };
+    return { error: dictionary.suppliersActions.noPermissionSuppliers };
   }
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
   if (!clientId) {
-    return { error: "Selecciona el cliente cuyos proveedores vas a editar." };
+    return { error: dictionary.suppliersActions.selectClientForSuppliers };
   }
 
   const code = item.code.trim();
   const companyName = item.companyName.trim();
   if (!code || !companyName) {
-    return { error: "Código y empresa son obligatorios." };
+    return { error: dictionary.suppliersActions.codeAndCompanyRequired };
   }
 
   const existing = await prisma.supplierDirectory.findUnique({
@@ -55,7 +57,7 @@ export async function saveSupplierRow(
     },
   });
   if (dupe) {
-    return { error: `El código de proveedor "${code}" está repetido.` };
+    return { error: dictionary.suppliersActions.duplicateSupplierCode.replace("{code}", code) };
   }
 
   const data = {
@@ -85,12 +87,13 @@ export async function saveSupplierDirectory(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    return { error: "No tenés permiso para editar el directorio de proveedores." };
+    return { error: dictionary.suppliersActions.noPermissionSuppliers };
   }
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
   if (!clientId) {
-    return { error: "Selecciona el cliente cuyos proveedores vas a editar." };
+    return { error: dictionary.suppliersActions.selectClientForSuppliers };
   }
 
   const cleaned = items
@@ -111,7 +114,7 @@ export async function saveSupplierDirectory(
   for (const i of cleaned) {
     const key = i.code.toLowerCase();
     if (seen.has(key)) {
-      return { error: `El código de proveedor "${i.code}" está repetido.` };
+      return { error: dictionary.suppliersActions.duplicateSupplierCode.replace("{code}", i.code) };
     }
     seen.add(key);
   }
@@ -170,11 +173,12 @@ export async function clearSupplierDirectory(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (!scope.isSuperAdmin) {
-    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+    return { error: dictionary.suppliersActions.onlySuperAdminDeleteFullTable };
   }
   if (!targetClientId) {
-    return { error: "Selecciona el cliente cuyos proveedores vas a borrar." };
+    return { error: dictionary.suppliersActions.selectClientToClearSuppliers };
   }
   await prisma.supplierDirectory.deleteMany({ where: { clientId: targetClientId } });
   revalidatePath("/admin/master-data/suppliers");
@@ -194,16 +198,17 @@ export async function saveSupplierUsers(
   items: SupplierUserItemInput[],
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    return { error: "No tenés permiso para editar usuarios de proveedor." };
+    return { error: dictionary.suppliersActions.noPermissionSupplierUsers };
   }
 
   const directory = await prisma.supplierDirectory.findUnique({
     where: { id: supplierDirectoryId },
   });
-  if (!directory) return { error: "Proveedor no encontrado." };
+  if (!directory) return { error: dictionary.suppliersActions.supplierNotFound };
   if (!scope.isSuperAdmin && directory.clientId !== scope.user.clientId) {
-    return { error: "No podés editar proveedores de otro cliente." };
+    return { error: dictionary.suppliersActions.cannotEditOtherClientSuppliers };
   }
 
   const cleaned = items
@@ -219,7 +224,7 @@ export async function saveSupplierUsers(
   const seen = new Set<string>();
   for (const i of cleaned) {
     if (seen.has(i.email)) {
-      return { error: `El correo "${i.email}" está repetido.` };
+      return { error: dictionary.suppliersActions.duplicateEmail.replace("{email}", i.email) };
     }
     seen.add(i.email);
   }
@@ -251,14 +256,14 @@ export async function saveSupplierUsers(
     } else {
       if (!i.password) {
         return {
-          error: `Ingresa una contraseña para el nuevo usuario "${i.email}".`,
+          error: dictionary.suppliersActions.passwordRequiredForNewUser.replace("{email}", i.email),
         };
       }
       const emailTaken = await prisma.supplierUser.findUnique({
         where: { email: i.email },
       });
       if (emailTaken) {
-        return { error: `Ya existe un usuario de proveedor con el correo "${i.email}".` };
+        return { error: dictionary.suppliersActions.emailAlreadyTaken.replace("{email}", i.email) };
       }
       await prisma.supplierUser.create({
         data: {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type ApproverMode = "USERS" | "GROUP";
 export type ApprovalStageKind = "PUBLISH" | "AWARD";
@@ -62,9 +63,10 @@ export async function createApprovalWorkflow(
   targetClientId?: string,
 ): Promise<{ error: string } | never> {
   const scope = await requireApprovalsScope();
-  if (!input.name.trim()) return { error: "El nombre es obligatorio." };
+  const dictionary = getDictionary(scope.user.language);
+  if (!input.name.trim()) return { error: dictionary.approvalsActions.nameRequired };
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
-  if (!clientId) return { error: "Selecciona el cliente de este proceso." };
+  if (!clientId) return { error: dictionary.approvalsActions.selectClientForWorkflow };
 
   const workflow = await prisma.approvalWorkflow.create({
     data: {
@@ -90,12 +92,13 @@ export async function updateApprovalWorkflow(
   input: ApprovalWorkflowInput,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireApprovalsScope();
-  if (!input.name.trim()) return { error: "El nombre es obligatorio." };
+  const dictionary = getDictionary(scope.user.language);
+  if (!input.name.trim()) return { error: dictionary.approvalsActions.nameRequired };
 
   const existing = await prisma.approvalWorkflow.findUnique({ where: { id } });
-  if (!existing) return { error: "Proceso no encontrado." };
+  if (!existing) return { error: dictionary.approvalsActions.workflowNotFound };
   if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
-    return { error: "No podés editar un proceso de otro cliente." };
+    return { error: dictionary.approvalsActions.cannotEditOtherClientWorkflow };
   }
   const clientId = existing.clientId;
 

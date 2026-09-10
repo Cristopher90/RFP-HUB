@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
+import { getDictionary } from "@/i18n/getDictionary";
 import type { ApprovalStageKind, ApproverMode } from "@/generated/prisma/enums";
 
 export type LevelConfig = {
@@ -28,6 +29,7 @@ type ApprovalRow = {
 // limit across every group they belong to.
 type DeciderUser = {
   id: string;
+  language: string;
   groups: { approvalGroupId: string; limit: number }[];
 };
 
@@ -39,6 +41,7 @@ async function loadDeciderUser(userId: string): Promise<DeciderUser | null> {
   if (!user) return null;
   return {
     id: user.id,
+    language: user.language,
     groups: user.approvalGroups.map((g) => ({
       approvalGroupId: g.approvalGroupId,
       limit: g.limit,
@@ -236,21 +239,22 @@ export async function recordDecision(input: {
   const { rfpId, stage, userId, decision, reason } = input;
 
   const user = await loadDeciderUser(userId);
-  if (!user) return { ok: false, error: "Usuario no encontrado." };
+  if (!user) return { ok: false, error: getDictionary("es").approvalEngineErrors.userNotFound };
+  const dictionary = getDictionary(user.language);
 
   const { active, rejected } = await getActiveApproval(rfpId, stage);
-  if (rejected) return { ok: false, error: "Esta etapa ya fue rechazada." };
-  if (!active) return { ok: false, error: "No hay ningún nivel pendiente de aprobación." };
+  if (rejected) return { ok: false, error: dictionary.approvalEngineErrors.stageAlreadyRejected };
+  if (!active) return { ok: false, error: dictionary.approvalEngineErrors.noPendingLevel };
   if (!(await canDecide(active, user))) {
-    return { ok: false, error: "No tienes permiso para decidir sobre este nivel." };
+    return { ok: false, error: dictionary.approvalEngineErrors.noPermissionToDecide };
   }
   if (await hasAlreadyDecided(active.id, userId)) {
-    return { ok: false, error: "Ya registraste una decisión para este nivel." };
+    return { ok: false, error: dictionary.approvalEngineErrors.alreadyDecided };
   }
 
   if (decision === "REJECTED") {
     if (!reason || !reason.trim()) {
-      return { ok: false, error: "Debes indicar un motivo de rechazo." };
+      return { ok: false, error: dictionary.approvalEngineErrors.rejectReasonRequired };
     }
     await prisma.rfpApprovalDecision.create({
       data: {
@@ -318,11 +322,13 @@ export async function recordDecision(input: {
 // popover can show "recordatorio enviado hace X".
 export async function sendReminder(
   approvalId: string,
+  language: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const dictionary = getDictionary(language);
   const approval = await prisma.rfpApproval.findUnique({ where: { id: approvalId } });
-  if (!approval) return { ok: false, error: "Nivel no encontrado." };
+  if (!approval) return { ok: false, error: dictionary.approvalEngineErrors.levelNotFound };
   if (approval.status !== "PENDING") {
-    return { ok: false, error: "Este nivel ya no está pendiente." };
+    return { ok: false, error: dictionary.approvalEngineErrors.levelNotPending };
   }
   await prisma.rfpApproval.update({
     where: { id: approvalId },

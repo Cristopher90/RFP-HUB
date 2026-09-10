@@ -13,6 +13,7 @@ import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approval
 import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -236,9 +237,10 @@ function shapeSuppliers(suppliers: NewSupplierInput[]) {
 // persistence.
 export async function validateAndShapeRfp(
   input: CreateRfpInput,
-  user: { role: import("@/generated/prisma/enums").UserRole },
+  user: { role: import("@/generated/prisma/enums").UserRole; language: string },
   clientId: string,
 ): Promise<{ error: string } | ShapedRfpInput> {
+  const dictionary = getDictionary(user.language);
   const estimatedPrice = input.estimatedPrice.trim()
     ? Number(input.estimatedPrice)
     : null;
@@ -265,7 +267,9 @@ export async function validateAndShapeRfp(
         !templateItem.lockRoles.includes(user.role);
       if (locked && !submittedItemSourceIds.has(templateItem.id)) {
         return {
-          error: `No puedes quitar el artículo obligatorio "${templateItem.name}" (plantilla: ${template.name}).`,
+          error: dictionary.rfpActions.cannotRemoveRequiredItem
+            .replace("{item}", templateItem.name)
+            .replace("{template}", template.name),
         };
       }
     }
@@ -275,7 +279,9 @@ export async function validateAndShapeRfp(
         !templateQuestion.lockRoles.includes(user.role);
       if (locked && !submittedQuestionSourceIds.has(templateQuestion.id)) {
         return {
-          error: `No puedes quitar la pregunta obligatoria "${templateQuestion.text}" (plantilla: ${template.name}).`,
+          error: dictionary.rfpActions.cannotRemoveRequiredQuestion
+            .replace("{question}", templateQuestion.text)
+            .replace("{template}", template.name),
         };
       }
     }
@@ -283,7 +289,7 @@ export async function validateAndShapeRfp(
 
   const items = shapeItems(input.items);
   if (items.length === 0) {
-    return { error: "Agrega al menos un artículo a la RFP." };
+    return { error: dictionary.rfpActions.addAtLeastOneItem };
   }
   const questions = shapeQuestions(input.questions);
   const suppliers = shapeSuppliers(input.suppliers);
@@ -295,23 +301,24 @@ export async function createRfp(
   input: CreateRfpInput,
 ): Promise<{ error: string } | never> {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   if (user.role === "APPROVER") {
-    return { error: "Tu usuario solo puede aprobar RFPs, no crearlas." };
+    return { error: dictionary.rfpActions.approverCannotCreate };
   }
 
   const title = input.title.trim();
   const buyerName = input.buyerName.trim();
-  if (!title) return { error: "El título de la RFP es obligatorio." };
-  if (!buyerName) return { error: "El nombre del comprador es obligatorio." };
-  if (!input.deadlineAt) return { error: "La fecha de cierre es obligatoria." };
+  if (!title) return { error: dictionary.rfpActions.titleRequired };
+  if (!buyerName) return { error: dictionary.rfpActions.buyerNameRequired };
+  if (!input.deadlineAt) return { error: dictionary.rfpActions.deadlineRequired };
 
   const clientId = user.role === "ADMIN" ? input.clientId : user.clientId;
   if (!clientId) {
     return {
       error:
         user.role === "ADMIN"
-          ? "Selecciona el cliente de esta RFP."
-          : "Tu usuario no tiene un cliente asignado.",
+          ? dictionary.rfpActions.selectClientForRfp
+          : dictionary.rfpActions.noClientAssigned,
     };
   }
 

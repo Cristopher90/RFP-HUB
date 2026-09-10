@@ -22,6 +22,7 @@ import {
 } from "@/lib/templateMatch";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -32,11 +33,13 @@ export async function inviteSupplier(
     supplierDirectoryId?: string | null;
   },
 ) {
+  const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const name = input.name.trim();
   const email = input.email.trim();
   const company = input.company.trim();
   if (!name || !email) {
-    return { error: "Nombre y correo son obligatorios." };
+    return { error: dictionary.rfpIdActions.nameAndEmailRequired };
   }
 
   const rfp = await prisma.rfp.findUniqueOrThrow({
@@ -123,10 +126,11 @@ export async function setBuyerAnswer(
 // Solo se puede eliminar (soft-delete) una RFP en borrador — los datos
 // quedan en la base, solo cambia de estado.
 export async function deleteRfpDraft(rfpId: string) {
-  await requireUser();
+  const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "DRAFT") {
-    return { error: "Solo se pueden eliminar RFPs en borrador." };
+    return { error: dictionary.rfpIdActions.onlyDraftCanBeDeleted };
   }
   await prisma.rfp.update({ where: { id: rfpId }, data: { status: "DELETED" } });
   revalidatePath("/");
@@ -138,9 +142,10 @@ export async function deleteRfpDraft(rfpId: string) {
 // PENDING_PUBLISH_APPROVAL.
 export async function publishRfp(rfpId: string) {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "DRAFT") {
-    return { error: "Solo se puede publicar una RFP en borrador." };
+    return { error: dictionary.rfpIdActions.onlyDraftCanBePublished };
   }
 
   const [allTemplates, commodities, regions] = await Promise.all([
@@ -198,6 +203,7 @@ export async function updateRfp(
   input: CreateRfpInput,
 ): Promise<{ error: string } | never> {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
 
   const existing = await prisma.rfp.findUnique({
     where: { id: rfpId },
@@ -207,16 +213,16 @@ export async function updateRfp(
       invitations: true,
     },
   });
-  if (!existing) return { error: "RFP no encontrada." };
+  if (!existing) return { error: dictionary.rfpIdActions.rfpNotFound };
   if (existing.status !== "DRAFT") {
-    return { error: "Solo se puede editar una RFP en estado borrador." };
+    return { error: dictionary.rfpIdActions.onlyDraftCanBeEdited };
   }
 
   const title = input.title.trim();
   const buyerName = input.buyerName.trim();
-  if (!title) return { error: "El título de la RFP es obligatorio." };
-  if (!buyerName) return { error: "El nombre del comprador es obligatorio." };
-  if (!input.deadlineAt) return { error: "La fecha de cierre es obligatoria." };
+  if (!title) return { error: dictionary.rfpActions.titleRequired };
+  if (!buyerName) return { error: dictionary.rfpActions.buyerNameRequired };
+  if (!input.deadlineAt) return { error: dictionary.rfpActions.deadlineRequired };
 
   const clientId = existing.clientId;
   const shaped = await validateAndShapeRfp(input, user, clientId);
@@ -391,9 +397,10 @@ export async function updateRfp(
 
 export async function approvePublish(rfpId: string) {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "PENDING_PUBLISH_APPROVAL") {
-    return { error: "Esta RFP no está pendiente de aprobación." };
+    return { error: dictionary.rfpIdActions.notPendingApproval };
   }
   const result = await recordDecision({
     rfpId,
@@ -413,9 +420,10 @@ export async function approvePublish(rfpId: string) {
 
 export async function rejectPublish(rfpId: string, reason: string) {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "PENDING_PUBLISH_APPROVAL") {
-    return { error: "Esta RFP no está pendiente de aprobación." };
+    return { error: dictionary.rfpIdActions.notPendingApproval };
   }
   const result = await recordDecision({
     rfpId,
@@ -430,8 +438,8 @@ export async function rejectPublish(rfpId: string, reason: string) {
 }
 
 export async function sendApprovalReminder(rfpId: string, approvalId: string) {
-  await requireUser();
-  const result = await sendReminder(approvalId);
+  const user = await requireUser();
+  const result = await sendReminder(approvalId, user.language);
   if (!result.ok) return { error: result.error };
   revalidatePath(`/rfps/${rfpId}`);
   return { error: null };

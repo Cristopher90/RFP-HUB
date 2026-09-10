@@ -7,8 +7,12 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { computeAutoScore } from "@/lib/questionScoring";
+import { getViewerPreferences } from "@/lib/preferences";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export async function submitResponse(token: string, formData: FormData) {
+  const preferences = await getViewerPreferences();
+  const dictionary = getDictionary(preferences.language);
   const invitation = await prisma.invitation.findUnique({
     where: { token },
     include: {
@@ -22,11 +26,11 @@ export async function submitResponse(token: string, formData: FormData) {
     },
   });
 
-  if (!invitation) return { error: "Invitación no encontrada." };
+  if (!invitation) return { error: dictionary.respondActions.invitationNotFound };
   if (invitation.response)
-    return { error: "Esta invitación ya fue respondida." };
+    return { error: dictionary.respondActions.alreadyResponded };
   if (invitation.rfp.status !== "OPEN")
-    return { error: "Esta RFP no está abierta para recibir cotizaciones." };
+    return { error: dictionary.respondActions.rfpNotOpen };
 
   const itemPrices: {
     itemId: string;
@@ -37,7 +41,7 @@ export async function submitResponse(token: string, formData: FormData) {
     const raw = formData.get(`item-${item.id}`);
     const value = raw ? Number(raw) : NaN;
     if (Number.isNaN(value) || value < 0) {
-      return { error: `Ingresa un precio válido para "${item.name}".` };
+      return { error: dictionary.respondActions.invalidPriceFor.replace("{item}", item.name) };
     }
     itemPrices.push({ itemId: item.id, unitPrice: value, notes: null });
   }
@@ -65,7 +69,7 @@ export async function submitResponse(token: string, formData: FormData) {
       const raw = formData.get(`question-${question.id}`);
       if (raw !== "on" && raw !== "true") {
         return {
-          error: `Debes aceptar "${question.text}" para poder participar.`,
+          error: dictionary.respondActions.mustAcceptToParticipate.replace("{question}", question.text),
         };
       }
       answers.push({ questionId: question.id, value: "Aceptado", score: null });
@@ -86,14 +90,14 @@ export async function submitResponse(token: string, formData: FormData) {
           score: null,
         });
       } else if (question.required) {
-        return { error: `Adjunta un archivo para "${question.text}".` };
+        return { error: dictionary.respondActions.attachFileFor.replace("{question}", question.text) };
       }
       continue;
     }
 
     const value = rawValues[question.id] ?? "";
     if (question.required && !value) {
-      return { error: `La pregunta "${question.text}" es obligatoria.` };
+      return { error: dictionary.respondActions.questionRequired.replace("{question}", question.text) };
     }
     if (
       value &&
@@ -107,7 +111,10 @@ export async function submitResponse(token: string, formData: FormData) {
         (question.numberMax !== null && numeric > question.numberMax)
       ) {
         return {
-          error: `"${question.text}" debe estar entre ${question.numberMin ?? "-∞"} y ${question.numberMax ?? "∞"}.`,
+          error: dictionary.respondActions.numberOutOfRange
+            .replace("{question}", question.text)
+            .replace("{min}", String(question.numberMin ?? "-∞"))
+            .replace("{max}", String(question.numberMax ?? "∞")),
         };
       }
     }

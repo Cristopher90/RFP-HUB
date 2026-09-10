@@ -4,21 +4,24 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSessionCookie, verifyPassword } from "@/lib/auth";
 import { createSupplierSessionCookie } from "@/lib/supplierAuth";
+import { getViewerPreferences } from "@/lib/preferences";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export async function login(
   _prevState: { error: string | null },
   formData: FormData,
 ): Promise<{ error: string | null }> {
+  const dictionary = getDictionary((await getViewerPreferences()).language);
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
   const password = formData.get("password") as string | null;
 
   if (!email || !password) {
-    return { error: "Ingresa correo y contraseña." };
+    return { error: dictionary.loginActions.enterEmailAndPassword };
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    return { error: "Credenciales inválidas." };
+    return { error: dictionary.loginActions.invalidCredentials };
   }
 
   await createSessionCookie(user.id);
@@ -29,16 +32,17 @@ export async function loginSupplier(
   _prevState: { error: string | null },
   formData: FormData,
 ): Promise<{ error: string | null }> {
+  const dictionary = getDictionary((await getViewerPreferences()).language);
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
   const password = formData.get("password") as string | null;
 
   if (!email || !password) {
-    return { error: "Ingresa correo y contraseña." };
+    return { error: dictionary.loginActions.enterEmailAndPassword };
   }
 
   const supplierUser = await prisma.supplierUser.findUnique({ where: { email } });
   if (!supplierUser || !verifyPassword(password, supplierUser.passwordHash)) {
-    return { error: "Credenciales inválidas." };
+    return { error: dictionary.loginActions.invalidCredentials };
   }
 
   await createSupplierSessionCookie(supplierUser.id);

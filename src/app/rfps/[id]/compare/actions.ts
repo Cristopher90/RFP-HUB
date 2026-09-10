@@ -16,6 +16,7 @@ import {
   sendReminder,
 } from "@/lib/approvalEngine";
 import { addAwardedItemsToCatalog } from "@/lib/itemCatalog";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -40,17 +41,18 @@ export async function awardInvitation(
   priceWeightPct: number,
 ) {
   const user = await requireUser();
+  const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({
     where: { id: rfpId },
     include: { items: true },
   });
-  if (!rfp) return { error: "RFP no encontrada." };
+  if (!rfp) return { error: dictionary.compareActions.rfpNotFound };
 
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
     include: { response: { include: { itemPrices: true } } },
   });
-  if (!invitation?.response) return { error: "Invitación no encontrada." };
+  if (!invitation?.response) return { error: dictionary.compareActions.invitationNotFound };
 
   // "El valor que se adjudicó": el total cotizado por el proveedor propuesto.
   const awardedValue = rfp.items.reduce((sum, item) => {
@@ -123,7 +125,7 @@ export async function approveAward(rfpId: string) {
   const user = await requireUser();
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp?.pendingAwardInvitationId) {
-    return { error: "No hay una adjudicación pendiente de aprobación." };
+    return { error: getDictionary(user.language).compareActions.noPendingAwardApproval };
   }
   const result = await recordDecision({
     rfpId,
@@ -155,7 +157,7 @@ export async function rejectAward(rfpId: string, reason: string) {
   const user = await requireUser();
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp?.pendingAwardInvitationId) {
-    return { error: "No hay una adjudicación pendiente de aprobación." };
+    return { error: getDictionary(user.language).compareActions.noPendingAwardApproval };
   }
   const result = await recordDecision({
     rfpId,
@@ -184,8 +186,8 @@ export async function revokeAward(rfpId: string) {
 }
 
 export async function sendApprovalReminder(rfpId: string, approvalId: string) {
-  await requireUser();
-  const result = await sendReminder(approvalId);
+  const user = await requireUser();
+  const result = await sendReminder(approvalId, user.language);
   if (!result.ok) return { error: result.error };
   revalidatePath(`/rfps/${rfpId}/compare`);
   return { error: null };
@@ -196,8 +198,8 @@ export async function confirmAddToCatalog(
   invitationId: string,
   catalogName: string,
 ) {
-  await requireUser();
-  const result = await addAwardedItemsToCatalog(rfpId, invitationId, catalogName);
+  const user = await requireUser();
+  const result = await addAwardedItemsToCatalog(rfpId, invitationId, catalogName, user.language);
   if ("error" in result) return result;
   revalidatePath("/rfps/new");
   return result;

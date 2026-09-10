@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { serializeScoringConfig } from "@/lib/questionScoring";
+import { getDictionary } from "@/i18n/getDictionary";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type TemplateItemInput = {
@@ -81,26 +82,27 @@ export async function saveTemplate(
   targetClientId?: string,
 ): Promise<{ error: string } | never> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
     redirect("/");
   }
 
   const name = input.name.trim();
-  if (!name) return { error: "El nombre de la plantilla es obligatorio." };
+  if (!name) return { error: dictionary.templatesActions.templateNameRequired };
 
   let clientId: string;
   if (templateId) {
     const existing = await prisma.rfpTemplate.findUnique({
       where: { id: templateId },
     });
-    if (!existing) return { error: "Plantilla no encontrada." };
+    if (!existing) return { error: dictionary.templatesActions.templateNotFound };
     if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
-      return { error: "No podés editar una plantilla de otro cliente." };
+      return { error: dictionary.templatesActions.cannotEditOtherClientTemplate };
     }
     clientId = existing.clientId;
   } else {
     const resolved = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
-    if (!resolved) return { error: "Selecciona el cliente de esta plantilla." };
+    if (!resolved) return { error: dictionary.templatesActions.selectClientForTemplate };
     clientId = resolved;
   }
 
@@ -158,13 +160,13 @@ export async function saveTemplate(
   const matchPriceMin = input.matchPriceMin.trim() ? Number(input.matchPriceMin) : null;
   const matchPriceMax = input.matchPriceMax.trim() ? Number(input.matchPriceMax) : null;
   if (input.matchPriceCondition === "BETWEEN" && (matchPriceMin === null || matchPriceMax === null)) {
-    return { error: "Indica el rango completo (mínimo y máximo) para la condición de precio." };
+    return { error: dictionary.templatesActions.priceRangeRequired };
   }
   if (input.matchPriceCondition === "GREATER_THAN" && matchPriceMin === null) {
-    return { error: "Indica el valor mínimo para la condición de precio." };
+    return { error: dictionary.templatesActions.priceMinRequired };
   }
   if (input.matchPriceCondition === "LESS_THAN" && matchPriceMax === null) {
-    return { error: "Indica el valor máximo para la condición de precio." };
+    return { error: dictionary.templatesActions.priceMaxRequired };
   }
 
   const data = {

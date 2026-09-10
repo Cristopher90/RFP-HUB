@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export type ItemCatalogItemInput = {
   clientKey: string;
@@ -20,12 +21,13 @@ export async function saveItemCatalog(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    return { error: "No tenés permiso para editar el catálogo de artículos." };
+    return { error: dictionary.itemCatalogAdminActions.noPermissionItemCatalog };
   }
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
   if (!clientId) {
-    return { error: "Selecciona el cliente cuyo catálogo vas a editar." };
+    return { error: dictionary.itemCatalogAdminActions.selectClientForCatalog };
   }
 
   const cleaned = items
@@ -45,7 +47,9 @@ export async function saveItemCatalog(
     const key = `${i.catalogName.toLowerCase()}::${i.code.toLowerCase()}`;
     if (seen.has(key)) {
       return {
-        error: `El código "${i.code}" está repetido en el catálogo "${i.catalogName}".`,
+        error: dictionary.itemCatalogAdminActions.duplicateCatalogCode
+          .replace("{code}", i.code)
+          .replace("{catalog}", i.catalogName),
       };
     }
     seen.add(key);
@@ -95,11 +99,12 @@ export async function clearItemCatalog(
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
   if (!scope.isSuperAdmin) {
-    return { error: "Solo un Super Administrador puede borrar la tabla completa." };
+    return { error: dictionary.itemCatalogAdminActions.onlySuperAdminDeleteFullTable };
   }
   if (!targetClientId) {
-    return { error: "Selecciona el cliente cuyo catálogo vas a borrar." };
+    return { error: dictionary.itemCatalogAdminActions.selectClientToClearCatalog };
   }
   await prisma.itemCatalogEntry.deleteMany({ where: { clientId: targetClientId } });
   revalidatePath("/admin/master-data/items");
