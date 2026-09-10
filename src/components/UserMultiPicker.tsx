@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type PickableUser = {
   id: string;
@@ -17,13 +18,14 @@ export function UserMultiPicker({
   users,
   selectedIds,
   onChange,
-  placeholder = "Buscar por nombre, apellido o correo...",
+  placeholder,
 }: {
   users: PickableUser[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   placeholder?: string;
 }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -59,7 +61,7 @@ export function UserMultiPicker({
               .join(", ")}
           </span>
         ) : (
-          <span className="text-slate-400">Buscar usuario...</span>
+          <span className="text-slate-400">{t("userMultiPicker.trigger")}</span>
         )}
       </button>
 
@@ -76,14 +78,14 @@ export function UserMultiPicker({
               <input
                 autoFocus
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                placeholder={placeholder}
+                placeholder={placeholder ?? t("userMultiPicker.defaultPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
             <div className="max-h-80 overflow-y-auto p-2">
               {results.length === 0 ? (
-                <p className="p-4 text-sm text-slate-400">Sin resultados.</p>
+                <p className="p-4 text-sm text-slate-400">{t("userMultiPicker.noResults")}</p>
               ) : (
                 results.map((u) => (
                   <label
@@ -107,15 +109,17 @@ export function UserMultiPicker({
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 p-3">
               <span className="text-xs text-slate-500">
-                {selectedIds.length} seleccionado
-                {selectedIds.length === 1 ? "" : "s"}
+                {selectedIds.length}{" "}
+                {selectedIds.length === 1
+                  ? t("userMultiPicker.selectedSingular")
+                  : t("userMultiPicker.selectedPlural")}
               </span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 className="rounded-md bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
               >
-                Listo
+                {t("userMultiPicker.done")}
               </button>
             </div>
           </div>

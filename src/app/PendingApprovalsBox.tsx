@@ -61,18 +61,17 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
       <div className="flex items-center justify-between gap-4 border-b border-amber-200 bg-amber-50 px-5 py-3">
         <div>
           <h2 className="text-sm font-semibold text-amber-900">
-            RFPs pendientes de validar
+            {dictionary.pendingApprovalsBox.title}
           </h2>
           <p className="mt-0.5 text-xs text-amber-700">
-            Solicitudes que esperan tu aprobación de publicación o
-            adjudicación.
+            {dictionary.pendingApprovalsBox.subtitle}
           </p>
         </div>
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por ID o título..."
+          placeholder={dictionary.pendingApprovalsBox.searchPlaceholder}
           className="w-56 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
         />
       </div>
@@ -84,20 +83,20 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
               className="cursor-pointer select-none px-5 py-2"
               onClick={() => toggleSort("id")}
             >
-              RFP{sortIndicator("id")}
+              {dictionary.pendingApprovalsBox.rfpHeader}{sortIndicator("id")}
             </th>
             <th
               className="cursor-pointer select-none px-5 py-2"
               onClick={() => toggleSort("title")}
             >
-              Título{sortIndicator("title")}
+              {dictionary.pendingApprovalsBox.titleHeader}{sortIndicator("title")}
             </th>
-            <th className="px-5 py-2">Etapa</th>
+            <th className="px-5 py-2">{dictionary.pendingApprovalsBox.stageHeader}</th>
             <th
               className="cursor-pointer select-none px-5 py-2"
               onClick={() => toggleSort("date")}
             >
-              Fecha{sortIndicator("date")}
+              {dictionary.pendingApprovalsBox.dateHeader}{sortIndicator("date")}
             </th>
             <th className="px-5 py-2" />
           </tr>
@@ -106,7 +105,7 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
           {visible.length === 0 ? (
             <tr>
               <td colSpan={5} className="px-5 py-4 text-center text-amber-700">
-                No hay resultados.
+                {dictionary.pendingApprovalsBox.noResults}
               </td>
             </tr>
           ) : (
@@ -131,7 +130,7 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
                     }
                     className="text-sm font-medium text-violet-600 hover:text-violet-700"
                   >
-                    Revisar &rarr;
+                    {dictionary.pendingApprovalsBox.review}
                   </Link>
                 </td>
               </tr>

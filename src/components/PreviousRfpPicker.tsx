@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { searchPreviousRfps, type PreviousRfpResult } from "@/app/rfps/rfpActions";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import { statusLabel } from "@/i18n/labels";
 
 function selectClass() {
   return "rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -15,7 +17,7 @@ export function PreviousRfpPicker({
   creators,
   excludeRfpId,
   onSelect,
-  triggerLabel = "Buscar RFP anterior...",
+  triggerLabel,
 }: {
   commodities: string[];
   regions: string[];
@@ -24,6 +26,7 @@ export function PreviousRfpPicker({
   onSelect: (rfp: PreviousRfpResult) => void;
   triggerLabel?: string;
 }) {
+  const { t, dictionary } = usePreferences();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [all, setAll] = useState<PreviousRfpResult[]>([]);
@@ -60,7 +63,7 @@ export function PreviousRfpPicker({
         onClick={() => setOpen(true)}
         className="w-full rounded-md border border-slate-300 px-3 py-2 text-left text-sm text-slate-400 shadow-sm hover:border-violet-400 hover:bg-slate-50"
       >
-        {triggerLabel}
+        {triggerLabel ?? t("previousRfpPicker.defaultTrigger")}
       </button>
 
       {open && (
@@ -76,7 +79,7 @@ export function PreviousRfpPicker({
               <input
                 autoFocus
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                placeholder="Buscar por título..."
+                placeholder={t("previousRfpPicker.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -86,7 +89,7 @@ export function PreviousRfpPicker({
                   value={commodity}
                   onChange={(e) => setCommodity(e.target.value)}
                 >
-                  <option value="">Todos los commodities</option>
+                  <option value="">{t("previousRfpPicker.allCommodities")}</option>
                   {commodities.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -98,7 +101,7 @@ export function PreviousRfpPicker({
                   value={region}
                   onChange={(e) => setRegion(e.target.value)}
                 >
-                  <option value="">Todas las regiones</option>
+                  <option value="">{t("previousRfpPicker.allRegions")}</option>
                   {regions.map((r) => (
                     <option key={r} value={r}>
                       {r}
@@ -110,7 +113,7 @@ export function PreviousRfpPicker({
                   value={creatorId}
                   onChange={(e) => setCreatorId(e.target.value)}
                 >
-                  <option value="">Todos los creadores</option>
+                  <option value="">{t("previousRfpPicker.allCreators")}</option>
                   {creators.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}
@@ -121,18 +124,18 @@ export function PreviousRfpPicker({
             </div>
             <div className="max-h-80 overflow-y-auto">
               {loading ? (
-                <p className="p-4 text-sm text-slate-400">Buscando...</p>
+                <p className="p-4 text-sm text-slate-400">{t("previousRfpPicker.searching")}</p>
               ) : results.length === 0 ? (
-                <p className="p-4 text-sm text-slate-400">Sin resultados.</p>
+                <p className="p-4 text-sm text-slate-400">{t("previousRfpPicker.noResults")}</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-2">RFP</th>
-                      <th className="px-4 py-2">Commodity</th>
-                      <th className="px-4 py-2">Región</th>
-                      <th className="px-4 py-2">Creador</th>
-                      <th className="px-4 py-2">Estado</th>
+                      <th className="px-4 py-2">{t("previousRfpPicker.rfpHeader")}</th>
+                      <th className="px-4 py-2">{t("previousRfpPicker.commodityHeader")}</th>
+                      <th className="px-4 py-2">{t("previousRfpPicker.regionHeader")}</th>
+                      <th className="px-4 py-2">{t("previousRfpPicker.creatorHeader")}</th>
+                      <th className="px-4 py-2">{t("previousRfpPicker.statusHeader")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -150,7 +153,7 @@ export function PreviousRfpPicker({
                           {r.label}
                           {r.awarded && (
                             <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                              adjudicada
+                              {t("previousRfpPicker.awardedBadge")}
                             </span>
                           )}
                         </td>
@@ -163,7 +166,7 @@ export function PreviousRfpPicker({
                         <td className="px-4 py-2 text-slate-500">
                           {r.creatorName}
                         </td>
-                        <td className="px-4 py-2 text-slate-500">{r.status}</td>
+                        <td className="px-4 py-2 text-slate-500">{statusLabel(dictionary, r.status)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -176,7 +179,7 @@ export function PreviousRfpPicker({
                 onClick={() => setOpen(false)}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Cerrar
+                {t("previousRfpPicker.close")}
               </button>
             </div>
           </div>

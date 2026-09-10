@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type TreePickerNode = {
   id: string;
@@ -70,7 +71,7 @@ export function TreePickerField({
   valueId,
   onChangeId,
   placeholder,
-  clearLabel = "— Ninguno —",
+  clearLabel,
 }: {
   nodes: TreePickerNode[];
   valueId: string | null;
@@ -78,6 +79,7 @@ export function TreePickerField({
   placeholder: string;
   clearLabel?: string;
 }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -160,7 +162,7 @@ export function TreePickerField({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar por código o nombre..."
+                placeholder={t("treePickerField.searchPlaceholder")}
                 className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
               <button
@@ -168,22 +170,22 @@ export function TreePickerField({
                 onClick={() => selectAndClose(null)}
                 className="shrink-0 text-sm font-medium whitespace-nowrap text-violet-600 hover:text-violet-700"
               >
-                {clearLabel}
+                {clearLabel ?? t("treePickerField.noneOption")}
               </button>
             </div>
             <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-2">Nombre</th>
-                    <th className="w-28 px-4 py-2">ID</th>
+                    <th className="px-4 py-2">{t("treePickerField.nameHeader")}</th>
+                    <th className="w-28 px-4 py-2">{t("treePickerField.idHeader")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.length === 0 && (
                     <tr>
                       <td colSpan={2} className="px-4 py-3 text-slate-400">
-                        {searching ? "Sin resultados." : "Sin opciones."}
+                        {searching ? t("treePickerField.noResults") : t("treePickerField.noOptions")}
                       </td>
                     </tr>
                   )}
@@ -220,8 +222,8 @@ export function TreePickerField({
                                 }}
                                 aria-label={
                                   expanded.has(node.id)
-                                    ? "Contraer"
-                                    : "Expandir"
+                                    ? t("treePickerField.collapse")
+                                    : t("treePickerField.expand")
                                 }
                                 className="flex h-4 w-4 shrink-0 items-center justify-center text-slate-400 hover:text-violet-600"
                               >
@@ -252,7 +254,7 @@ export function TreePickerField({
                               }
                             >
                               {node.label}
-                              {!selectable && " (categoría)"}
+                              {!selectable && t("treePickerField.categorySuffix")}
                             </span>
                           </div>
                         </td>
@@ -271,7 +273,7 @@ export function TreePickerField({
                 onClick={() => setOpen(false)}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Cerrar
+                {t("treePickerField.close")}
               </button>
             </div>
           </div>

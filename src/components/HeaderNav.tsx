@@ -33,7 +33,7 @@ export async function HeaderNav() {
           <form action={logoutSupplier}>
             <button
               type="submit"
-              title="Cerrar sesión"
+              title={dictionary.nav.logoutTooltip}
               className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
             >
               {dictionary.nav.logout}
@@ -48,7 +48,7 @@ export async function HeaderNav() {
           href="/login"
           className="rounded-lg bg-violet-600 px-4 py-2 text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
         >
-          Iniciar sesión
+          {dictionary.login.signIn}
         </Link>
       </nav>
     );
@@ -78,7 +78,7 @@ export async function HeaderNav() {
         <form action={logout}>
           <button
             type="submit"
-            title="Cerrar sesión"
+            title={dictionary.nav.logoutTooltip}
             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
           >
             {dictionary.nav.logout}
