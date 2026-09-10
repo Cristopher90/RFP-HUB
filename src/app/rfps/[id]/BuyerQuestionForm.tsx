@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { setBuyerAnswer } from "./actions";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type Question = {
   id: string;
@@ -24,6 +25,7 @@ export function BuyerQuestionForm({
   rfpId: string;
   question: Question;
 }) {
+  const { t } = usePreferences();
   const [pending, startTransition] = useTransition();
   const action = setBuyerAnswer.bind(null, rfpId, question.id);
 
@@ -50,7 +52,7 @@ export function BuyerQuestionForm({
                 rel="noreferrer"
                 className="text-xs text-violet-600 underline"
               >
-                {filename ?? "archivo actual"}
+                {filename ?? t("buyerQuestionForm.currentFile")}
               </a>
             );
           })()}
@@ -60,7 +62,7 @@ export function BuyerQuestionForm({
           disabled={pending}
           className="shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar"}
+          {pending ? t("common.saving") : t("buyerQuestionForm.save")}
         </button>
       </form>
     );
@@ -104,7 +106,7 @@ export function BuyerQuestionForm({
         disabled={pending}
         className="shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
       >
-        {pending ? "Guardando..." : "Guardar"}
+        {pending ? t("common.saving") : t("buyerQuestionForm.save")}
       </button>
     </form>
   );

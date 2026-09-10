@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
 import { buildItemsFromSourceRfp } from "../rfpActions";
+import { getDictionary } from "@/i18n/getDictionary";
 import { RfpForm, type RfpInitialData } from "./RfpForm";
 
 export default async function NewRfpPage({
@@ -11,6 +12,7 @@ export default async function NewRfpPage({
   const scope = await requireClientScope();
   const { user } = scope;
   if (user.role === "APPROVER") redirect("/");
+  const dictionary = getDictionary(user.language);
   const sp = await searchParams;
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
   const copyMode =
@@ -104,10 +106,9 @@ export default async function NewRfpPage({
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight">Nueva RFP</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{dictionary.newRfpPage.title}</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Define los artículos, las preguntas para los proveedores y a quién
-        invitar a cotizar.
+        {dictionary.newRfpPage.subtitle}
       </p>
       <div className="mt-8">
         <RfpForm

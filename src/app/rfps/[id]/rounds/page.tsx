@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { getViewerPreferences } from "@/lib/preferences";
 import { localeForLanguage } from "@/i18n/locale";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function RfpRoundsPage({
   params,
@@ -16,6 +17,7 @@ export default async function RfpRoundsPage({
   const locale = localeForLanguage(preferences.language);
   const dateOptions = { locale, timeZone: preferences.timeZone };
   const currencyOptions = { locale, currency: preferences.currency };
+  const dictionary = getDictionary(preferences.language);
 
   const rfp = await prisma.rfp.findUnique({
     where: { id },
@@ -46,13 +48,13 @@ export default async function RfpRoundsPage({
         href={`/rfps/${id}`}
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Volver a la RFP
+        {dictionary.roundsPage.backToRfp}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Rondas de negociación
+        {dictionary.roundsPage.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Compara los precios totales que cotizó cada proveedor en cada ronda.
+        {dictionary.roundsPage.subtitle}
       </p>
 
       <div className="mt-8 space-y-6">
@@ -92,11 +94,11 @@ export default async function RfpRoundsPage({
                     href={`/rfps/${round.id}`}
                     className="font-medium text-slate-900 hover:text-violet-600"
                   >
-                    Ronda {round.roundNumber} — {formatRfpNumber(round.number)}{" "}
+                    {dictionary.roundsPage.roundPrefix} {round.roundNumber} — {formatRfpNumber(round.number)}{" "}
                     {round.title}
                   </Link>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Cierra: {formatDate(round.deadlineAt, dateOptions)}
+                    {dictionary.roundsPage.closes}: {formatDate(round.deadlineAt, dateOptions)}
                   </p>
                 </div>
                 <StatusBadge status={round.status} language={preferences.language} />
@@ -104,14 +106,14 @@ export default async function RfpRoundsPage({
 
               {totals.length === 0 ? (
                 <p className="mt-4 text-sm text-slate-400">
-                  Todavía no hay respuestas de proveedores en esta ronda.
+                  {dictionary.roundsPage.noResponsesYet}
                 </p>
               ) : (
                 <table className="mt-4 w-full text-sm">
                   <thead className="text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="py-2 pr-4">Proveedor</th>
-                      <th className="py-2 pr-4">Precio total</th>
+                      <th className="py-2 pr-4">{dictionary.roundsPage.supplier}</th>
+                      <th className="py-2 pr-4">{dictionary.roundsPage.totalPrice}</th>
                       <th className="py-2" />
                     </tr>
                   </thead>
@@ -128,14 +130,14 @@ export default async function RfpRoundsPage({
                           {formatCurrency(t.total, currencyOptions)}
                           {bestTotal !== null && t.total === bestTotal && (
                             <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                              Mejor
+                              {dictionary.roundsPage.best}
                             </span>
                           )}
                         </td>
                         <td className="py-2 text-right">
                           {t.awarded && (
                             <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
-                              Adjudicada
+                              {dictionary.roundsPage.awarded}
                             </span>
                           )}
                         </td>

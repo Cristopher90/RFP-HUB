@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import type { ApprovalLevelView } from "@/lib/approvalEngine";
 import { ApprovalFlowBanner } from "./ApprovalFlowBanner";
 import { approvePublish, rejectPublish, sendApprovalReminder } from "./actions";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export function PublishApprovalSection({
   rfpId,
@@ -14,11 +15,12 @@ export function PublishApprovalSection({
   levels: ApprovalLevelView[];
   canDecide: boolean;
 }) {
+  const { t } = usePreferences();
   const [pending, startTransition] = useTransition();
 
   return (
     <ApprovalFlowBanner
-      title="Pendiente de aprobación para publicar"
+      title={t("publishApprovalSection.title")}
       levels={levels}
       canDecide={canDecide}
       pending={pending}

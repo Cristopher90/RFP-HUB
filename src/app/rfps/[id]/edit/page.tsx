@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
+import { getDictionary } from "@/i18n/getDictionary";
 import type {
   NewItemInput,
   NewQuestionInput,
@@ -28,6 +29,7 @@ export default async function EditRfpPage({
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
   if (rfp.status !== "DRAFT") redirect(`/rfps/${rfp.id}`);
+  const dictionary = getDictionary(user.language);
 
   const rfpWhere = { clientId: rfp.clientId };
   const [templates, commodities, regions, origins, supplierDirectory, itemCatalog, creators] =
@@ -155,10 +157,10 @@ export default async function EditRfpPage({
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">
-        Editar {formatRfpNumber(rfp.number)}
+        {dictionary.editRfpPage.editPrefix} {formatRfpNumber(rfp.number)}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Solo se puede editar mientras la RFP esté en borrador.
+        {dictionary.editRfpPage.subtitle}
       </p>
       <div className="mt-8">
         <RfpForm

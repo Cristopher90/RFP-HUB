@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { prisma } from "@/lib/prisma";
+import { getViewerPreferences } from "@/lib/preferences";
+import { getDictionary } from "@/i18n/getDictionary";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
@@ -11,6 +13,7 @@ export default async function LoginPage() {
   ]);
   if (user) redirect("/");
   if (supplierUser) redirect("/supplier");
+  const dictionary = getDictionary((await getViewerPreferences()).language);
 
   const [users, supplierUsers] = await Promise.all([
     prisma.user.findMany({
@@ -32,7 +35,7 @@ export default async function LoginPage() {
         <h1 className="text-xl font-semibold tracking-tight text-slate-900">
           <span className="text-violet-600">RFP.HUB</span>
         </h1>
-        <p className="text-sm text-slate-500">Inicia sesión para continuar</p>
+        <p className="text-sm text-slate-500">{dictionary.login.subtitle}</p>
       </div>
       <LoginForm
         users={users.map((u) => ({
