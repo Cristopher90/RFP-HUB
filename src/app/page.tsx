@@ -7,6 +7,7 @@ import { RfpTable, type RfpRow } from "@/components/RfpTable";
 import { findPendingApprovalsForUser, findDecidedRfpIdsForUser } from "@/lib/approvalEngine";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { PendingApprovalsBox } from "./PendingApprovalsBox";
+import { getDictionary } from "@/i18n/getDictionary";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
 export default async function Home({
@@ -15,6 +16,7 @@ export default async function Home({
   const scope = await requireClientScope();
   const { user } = scope;
   const sp = await searchParams;
+  const dictionary = getDictionary(user.language);
 
   // ADMIN sees every client's RFPs on "Todas"; CLIENT_ADMIN sees every RFP
   // within their own client; everyone else only ever sees "Mis RFPs".
@@ -120,12 +122,12 @@ export default async function Home({
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {isApprover ? "RFPs asignadas para tu aprobación" : "Solicitudes de cotización (RFP)"}
+            {isApprover ? dictionary.home.titleApprover : dictionary.home.title}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             {isApprover
-              ? "Solo ves las RFPs en las que participás como aprobador."
-              : "Crea una RFP, invita proveedores y compara sus respuestas en un solo lugar."}
+              ? dictionary.home.subtitleApprover
+              : dictionary.home.subtitle}
           </p>
         </div>
         {!isApprover && (
@@ -133,7 +135,7 @@ export default async function Home({
             href="/rfps/new"
             className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
           >
-            + Nueva RFP
+            {dictionary.home.newRfp}
           </Link>
         )}
       </div>
@@ -162,7 +164,7 @@ export default async function Home({
                   : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
-              Mis RFPs
+              {dictionary.home.myRfps}
             </Link>
             {canSeeAll && (
               <Link
@@ -173,7 +175,7 @@ export default async function Home({
                     : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                Todas las RFPs
+                {dictionary.home.allRfps}
               </Link>
             )}
           </nav>
@@ -201,15 +203,15 @@ export default async function Home({
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <p className="text-slate-500">
             {isApprover
-              ? "No tenés RFPs asignadas por el momento."
-              : "No hay RFPs que coincidan con estos filtros."}
+              ? dictionary.home.emptyApprover
+              : dictionary.home.emptyDefault}
           </p>
           {!isApprover && (
             <Link
               href="/rfps/new"
               className="mt-4 inline-block rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
             >
-              Crear la primera RFP
+              {dictionary.home.createFirst}
             </Link>
           )}
         </div>

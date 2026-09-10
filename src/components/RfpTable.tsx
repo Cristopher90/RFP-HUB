@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatRfpNumber } from "@/lib/format";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import type { Dictionary } from "@/i18n/getDictionary";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useColumnPrefs, type ColumnDef } from "@/lib/useColumnPrefs";
 import { ColumnSettingsMenu, ResizableTh } from "@/components/ColumnSettingsMenu";
@@ -34,17 +35,19 @@ type ColumnKey =
   | "respuestas"
   | "cierre";
 
-const ALL_COLUMN_DEFS: ColumnDef<ColumnKey>[] = [
-  { key: "cliente", label: "Cliente", defaultWidth: 160, minWidth: 100 },
-  { key: "estado", label: "Estado", defaultWidth: 140, minWidth: 100 },
-  { key: "commodity", label: "Commodity", defaultWidth: 200, minWidth: 100 },
-  { key: "region", label: "Región", defaultWidth: 140, minWidth: 90 },
-  { key: "creador", label: "Creador", defaultWidth: 170, minWidth: 100 },
-  { key: "articulos", label: "Artículos", defaultWidth: 100, minWidth: 80 },
-  { key: "proveedores", label: "Proveedores", defaultWidth: 120, minWidth: 90 },
-  { key: "respuestas", label: "Respuestas", defaultWidth: 120, minWidth: 90 },
-  { key: "cierre", label: "Cierre", defaultWidth: 130, minWidth: 100 },
-];
+function allColumnDefs(dictionary: Dictionary): ColumnDef<ColumnKey>[] {
+  return [
+    { key: "cliente", label: dictionary.rfpTable.cliente, defaultWidth: 160, minWidth: 100 },
+    { key: "estado", label: dictionary.rfpTable.estado, defaultWidth: 140, minWidth: 100 },
+    { key: "commodity", label: dictionary.rfpTable.commodity, defaultWidth: 200, minWidth: 100 },
+    { key: "region", label: dictionary.rfpTable.region, defaultWidth: 140, minWidth: 90 },
+    { key: "creador", label: dictionary.rfpTable.creador, defaultWidth: 170, minWidth: 100 },
+    { key: "articulos", label: dictionary.rfpTable.articulos, defaultWidth: 100, minWidth: 80 },
+    { key: "proveedores", label: dictionary.rfpTable.proveedores, defaultWidth: 120, minWidth: 90 },
+    { key: "respuestas", label: dictionary.rfpTable.respuestas, defaultWidth: 120, minWidth: 90 },
+    { key: "cierre", label: dictionary.rfpTable.cierre, defaultWidth: 130, minWidth: 100 },
+  ];
+}
 
 export function RfpTable({
   rfps,
@@ -53,10 +56,11 @@ export function RfpTable({
   rfps: RfpRow[];
   showClientColumn: boolean;
 }) {
-  const { formatDate, language } = usePreferences();
+  const { formatDate, language, dictionary } = usePreferences();
+  const allColumns = allColumnDefs(dictionary);
   const defs = showClientColumn
-    ? ALL_COLUMN_DEFS
-    : ALL_COLUMN_DEFS.filter((d) => d.key !== "cliente");
+    ? allColumns
+    : allColumns.filter((d) => d.key !== "cliente");
   const columnPrefs = useColumnPrefs("rfp-list-columns", defs);
 
   function cellContent(def: ColumnDef<ColumnKey>, rfp: RfpRow) {
@@ -98,7 +102,7 @@ export function RfpTable({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-5 py-3">RFP</th>
+              <th className="px-5 py-3">{dictionary.rfpTable.rfpColumn}</th>
               {columnPrefs.visibleOrderedDefs.map((def) => (
                 <ResizableTh
                   key={def.key}
@@ -138,7 +142,7 @@ export function RfpTable({
                     href={`/rfps/${rfp.id}`}
                     className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
                   >
-                    Ver &rarr;
+                    {dictionary.rfpTable.view}
                   </Link>
                 </td>
               </tr>

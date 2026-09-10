@@ -276,7 +276,7 @@ export function RfpForm({
   rfpId?: string;
   initial?: RfpInitialData;
 }) {
-  const { dictionary } = usePreferences();
+  const { t, dictionary } = usePreferences();
   const idBase = useId();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -546,7 +546,7 @@ export function RfpForm({
         await parseRfpExcelFile(file);
       if (importedItems.length === 0 && importedQuestions.length === 0) {
         setImportError(
-          "No se encontraron filas en las hojas 'Articulos' o 'Preguntas'.",
+          t("rfpForm.noRowsFoundError"),
         );
         return;
       }
@@ -557,7 +557,7 @@ export function RfpForm({
         });
       } else if (importedItems.length > 0) {
         setImportError(
-          "Se importaron las preguntas. Los artículos del Excel se omitieron porque tu usuario solo puede agregar artículos desde el catálogo.",
+          t("rfpForm.questionsImportedItemsSkipped"),
         );
       }
       const importedSupplier = importedQuestions.filter(
@@ -576,7 +576,7 @@ export function RfpForm({
       });
     } catch {
       setImportError(
-        "No se pudo leer el archivo. Verifica que sea un .xlsx exportado desde esta herramienta.",
+        t("rfpForm.importReadError"),
       );
     } finally {
       setImporting(false);
@@ -789,8 +789,8 @@ export function RfpForm({
     ]);
 
   const allQuestionsForConditions = [
-    ...questions.map((q) => ({ ...q, area: "proveedor" as const })),
-    ...internalQuestions.map((q) => ({ ...q, area: "interna" as const })),
+    ...questions.map((q) => ({ ...q, area: t("rfpForm.areaSupplier") })),
+    ...internalQuestions.map((q) => ({ ...q, area: t("rfpForm.areaInternal") })),
   ];
 
   function conditionSelect(
@@ -831,9 +831,9 @@ export function RfpForm({
           }
         }}
       >
-        <option value="">Sin condición</option>
-        <option value="header:commodity">Commodity de la RFP</option>
-        <option value="header:region">Región de la RFP</option>
+        <option value="">{t("rfpForm.noCondition")}</option>
+        <option value="header:commodity">{t("rfpForm.rfpCommodity")}</option>
+        <option value="header:region">{t("rfpForm.rfpRegion")}</option>
         {allQuestionsForConditions
           .filter(
             (other) => other.clientKey !== q.clientKey && other.text.trim(),
@@ -843,7 +843,7 @@ export function RfpForm({
               key={other.clientKey}
               value={`question:${other.clientKey}`}
             >
-              Pregunta ({other.area}): {other.text.slice(0, 40)}
+              {t("rfpForm.questionPrefix")} ({other.area}): {other.text.slice(0, 40)}
             </option>
           ))}
       </select>
@@ -857,7 +857,7 @@ export function RfpForm({
     if (q.type === "ATTACHMENT") {
       return (
         <p className="text-xs text-slate-400">
-          El adjunto se agrega después de crear la RFP, desde el detalle.
+          {t("rfpForm.attachmentHint")}
         </p>
       );
     }
@@ -868,7 +868,7 @@ export function RfpForm({
           value={q.buyerAnswerValue}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">Selecciona una opción</option>
+          <option value="">{t("rfpForm.selectOption")}</option>
           {q.options.map((o) => (
             <option key={o} value={o}>
               {o}
@@ -884,7 +884,7 @@ export function RfpForm({
           value={q.buyerAnswerValue}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">Selecciona una opción</option>
+          <option value="">{t("rfpForm.selectOption")}</option>
           <option value="Sí">Sí</option>
           <option value="No">No</option>
         </select>
@@ -898,7 +898,7 @@ export function RfpForm({
           min={q.numberMin ?? undefined}
           max={q.numberMax ?? undefined}
           className={smallInputClass()}
-          placeholder="Respuesta"
+          placeholder={t("rfpForm.answerLabel")}
           value={q.buyerAnswerValue}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -920,7 +920,7 @@ export function RfpForm({
     return (
       <input
         className={smallInputClass()}
-        placeholder="Respuesta"
+        placeholder={t("rfpForm.answerLabel")}
         value={q.buyerAnswerValue}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -1018,7 +1018,7 @@ export function RfpForm({
       )}
 
       <CollapsibleSection
-        title="Detalles de la RFP"
+        title={t("rfpForm.detailsTitle")}
         storageKey="rfp-new-details"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1027,12 +1027,12 @@ export function RfpForm({
               htmlFor={`${idBase}-title`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Título <span className="text-red-500">*</span>
+              {t("rfpForm.titleLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-title`}
               className={inputClass()}
-              placeholder="Ej. Compra de laptops para el área de ventas"
+              placeholder={t("rfpForm.titlePlaceholder")}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -1043,13 +1043,13 @@ export function RfpForm({
               htmlFor={`${idBase}-description`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Descripción / alcance
+              {t("rfpForm.descriptionLabel")}
             </label>
             <textarea
               id={`${idBase}-description`}
               className={inputClass()}
               rows={3}
-              placeholder="Describe el contexto, requisitos generales y condiciones de entrega."
+              placeholder={t("rfpForm.descriptionPlaceholder")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -1059,12 +1059,12 @@ export function RfpForm({
               htmlFor={`${idBase}-buyer`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Comprador / área <span className="text-red-500">*</span>
+              {t("rfpForm.buyerLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-buyer`}
               className={inputClass()}
-              placeholder="Ej. Departamento de Compras"
+              placeholder={t("rfpForm.buyerPlaceholder")}
               value={buyerName}
               onChange={(e) => setBuyerName(e.target.value)}
               required
@@ -1075,7 +1075,7 @@ export function RfpForm({
               htmlFor={`${idBase}-deadline`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Fecha límite de respuesta <span className="text-red-500">*</span>
+              {t("rfpForm.deadlineLabel")} <span className="text-red-500">*</span>
             </label>
             <input
               id={`${idBase}-deadline`}
@@ -1088,7 +1088,7 @@ export function RfpForm({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Commodity
+              {t("rfpForm.commodityLabel")}
             </label>
             <TreePickerField
               nodes={commodities.map((c) => ({
@@ -1106,13 +1106,13 @@ export function RfpForm({
                 const node = commodities.find((c) => c.id === id);
                 handleCommodityChange(node?.description ?? "");
               }}
-              placeholder="Selecciona un commodity"
-              clearLabel="— Ninguno —"
+              placeholder={t("rfpForm.selectCommodity")}
+              clearLabel={t("rfpForm.noneOptionMasculine")}
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Región
+              {t("rfpForm.regionLabel")}
             </label>
             <TreePickerField
               nodes={regions.map((r) => ({
@@ -1128,8 +1128,8 @@ export function RfpForm({
                 const node = regions.find((r) => r.id === id);
                 handleRegionChange(node?.description ?? "");
               }}
-              placeholder="Selecciona una región"
-              clearLabel="— Ninguna —"
+              placeholder={t("rfpForm.selectRegion")}
+              clearLabel={t("rfpForm.noneOptionFeminine")}
             />
           </div>
           <div>
@@ -1137,7 +1137,7 @@ export function RfpForm({
               htmlFor={`${idBase}-start`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Fecha de inicio
+              {t("rfpForm.startDateLabel")}
             </label>
             <input
               id={`${idBase}-start`}
@@ -1152,7 +1152,7 @@ export function RfpForm({
               htmlFor={`${idBase}-estimated`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Precio estimado (USD)
+              {t("rfpForm.estimatedPriceLabel")}
             </label>
             <input
               id={`${idBase}-estimated`}
@@ -1160,16 +1160,16 @@ export function RfpForm({
               min={0}
               step="any"
               className={inputClass()}
-              placeholder="Ej. 30000"
+              placeholder={t("rfpForm.estimatedPricePlaceholder")}
               value={estimatedPrice}
               onChange={(e) => handleEstimatedPriceChange(e.target.value)}
             />
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Origen{" "}
+              {t("rfpForm.originLabel")}{" "}
               <span className="font-normal text-slate-400">
-                (no visible para el proveedor)
+                {t("rfpForm.notVisibleToSupplier")}
               </span>
             </label>
             <TreePickerField
@@ -1186,8 +1186,8 @@ export function RfpForm({
                 const node = origins.find((o) => o.id === id);
                 setOrigin(node?.description ?? "");
               }}
-              placeholder="Selecciona un origen"
-              clearLabel="— Ninguno —"
+              placeholder={t("rfpForm.selectOrigin")}
+              clearLabel={t("rfpForm.noneOptionMasculine")}
             />
           </div>
           <div>
@@ -1195,25 +1195,24 @@ export function RfpForm({
               htmlFor={`${idBase}-predecessor`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Documento predecesor{" "}
+              {t("rfpForm.predecessorLabel")}{" "}
               <span className="font-normal text-slate-400">
-                (no visible para el proveedor)
+                {t("rfpForm.notVisibleToSupplier")}
               </span>
             </label>
             <input
               id={`${idBase}-predecessor`}
               className={inputClass()}
-              placeholder="Ej. RFP-2025-014"
+              placeholder={t("rfpForm.predecessorPlaceholder")}
               value={predecessorDocument}
               onChange={(e) => setPredecessorDocument(e.target.value)}
             />
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Basar en una RFP anterior{" "}
+              {t("rfpForm.basedOnLabel")}{" "}
               <span className="font-normal text-slate-400">
-                (trae el precio ganador de cada artículo como precio
-                histórico)
+                {t("rfpForm.basedOnHint")}
               </span>
             </label>
             {basedOnRfpId && basedOnRfpLabel ? (
@@ -1224,7 +1223,7 @@ export function RfpForm({
                   rel="noreferrer"
                   className="font-medium text-violet-700 hover:underline"
                 >
-                  RFP anterior: {basedOnRfpLabel} →
+                  {t("rfpForm.previousRfpPrefix")}: {basedOnRfpLabel} →
                 </a>
                 <button
                   type="button"
@@ -1234,7 +1233,7 @@ export function RfpForm({
                   }}
                   className="ml-auto text-xs text-slate-400 hover:text-red-600"
                 >
-                  Quitar
+                  {t("rfpForm.remove")}
                 </button>
               </div>
             ) : (
@@ -1246,15 +1245,15 @@ export function RfpForm({
                 onSelect={(rfp) => handleBasedOnSelect(rfp)}
                 triggerLabel={
                   loadingBasedOn
-                    ? "Cargando..."
-                    : "Buscar RFP anterior..."
+                    ? t("common.loading")
+                    : t("rfpForm.searchPreviousRfp")
                 }
               />
             )}
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Plantilla
+              {t("rfpForm.templateLabel")}
             </label>
             <TemplatePicker
               templates={splitConditionalTemplates(
@@ -1284,7 +1283,7 @@ export function RfpForm({
                   setWeightingQuestionsEnabled(e.target.checked)
                 }
               />
-              Ponderar preguntas
+              {t("rfpForm.weightQuestions")}
             </label>
           </div>
         </div>
@@ -1292,9 +1291,9 @@ export function RfpForm({
 
       {!readyForContent && (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-          Completa el título, comprador, fecha límite y commodity de la
-          cabecera{conditionalMatchCount > 1 ? " y selecciona una plantilla" : ""}{" "}
-          para continuar con los artículos y las preguntas de esta RFP.
+          {t("rfpForm.gateMessage")}
+          {conditionalMatchCount > 1 ? t("rfpForm.gateMessageTemplateSuffix") : ""}
+          {t("rfpForm.gateMessageSuffix")}
         </div>
       )}
 
@@ -1303,13 +1302,10 @@ export function RfpForm({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
           <p className="text-sm font-medium text-slate-700">
-            Cargar artículos y preguntas desde Excel
+            {t("rfpForm.excelBoxTitle")}
           </p>
           <p className="text-xs text-slate-400">
-            Exporta un ejemplo con lo que ya armaste (o una plantilla en
-            blanco), complétalo en Excel y vuelve a subirlo (hojas
-            &quot;Articulos&quot; y &quot;Preguntas&quot;). Al importar se
-            agrega a lo que ya tengas.
+            {t("rfpForm.excelBoxHint")}
           </p>
           {importError && (
             <p className="mt-1 text-xs text-red-600">{importError}</p>
@@ -1321,7 +1317,7 @@ export function RfpForm({
             onClick={handleExportExcel}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Exportar ejemplo
+            {t("rfpForm.exportExample")}
           </button>
           <input
             ref={importInputRef}
@@ -1336,14 +1332,14 @@ export function RfpForm({
             onClick={() => importInputRef.current?.click()}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {importing ? "Importando..." : "Importar Excel"}
+            {importing ? t("rfpForm.importing") : t("rfpForm.importExcel")}
           </button>
         </div>
       </div>
 
       <CollapsibleSection
-        title="Preguntas internas"
-        subtitle="Las respondes tú directamente; nunca se envían al proveedor."
+        title={t("rfpForm.internalQuestionsTitle")}
+        subtitle={t("rfpForm.internalQuestionsSubtitle")}
         storageKey="rfp-new-internal-questions"
         right={
           <div className="flex items-center gap-4">
@@ -1352,7 +1348,7 @@ export function RfpForm({
               onClick={addInternalQuestionSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             <button
               type="button"
@@ -1365,7 +1361,7 @@ export function RfpForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar pregunta
+              {t("rfpForm.addQuestion")}
             </button>
             <button
               type="button"
@@ -1378,7 +1374,7 @@ export function RfpForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar texto
+              {t("rfpForm.addText")}
             </button>
           </div>
         }
@@ -1389,11 +1385,11 @@ export function RfpForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameInternalQuestionSection(
@@ -1420,8 +1416,8 @@ export function RfpForm({
                             className={inputClass()}
                             placeholder={
                               q.type === "INFO"
-                                ? "Texto informativo a mostrar (sin respuesta)"
-                                : "Ej. Verificar antecedentes legales del proveedor"
+                                ? t("rfpForm.infoTextPlaceholder")
+                                : t("rfpForm.internalQuestionPlaceholder")
                             }
                             value={q.text}
                             onChange={(e) =>
@@ -1461,7 +1457,7 @@ export function RfpForm({
                                 })
                               }
                             />
-                            Obligatoria
+                            {t("rfpForm.required")}
                           </label>
                         </div>
                       )}
@@ -1471,7 +1467,7 @@ export function RfpForm({
                           onClick={() =>
                             toggleExpandedInternalQuestion(index)
                           }
-                          title="Configurar pregunta"
+                          title={t("rfpForm.configureQuestion")}
                         />
                         <button
                           type="button"
@@ -1480,11 +1476,11 @@ export function RfpForm({
                           }
                           disabled={q.locked}
                           title={
-                            q.locked ? "Bloqueada por plantilla" : undefined
+                            q.locked ? t("rfpForm.lockedByTemplate") : undefined
                           }
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -1492,7 +1488,7 @@ export function RfpForm({
                     {q.type !== "INFO" && (
                       <div className="mt-2 pl-11">
                         <label className="mb-1 block text-xs font-medium text-slate-500">
-                          Respuesta
+                          {t("rfpForm.answerLabel")}
                         </label>
                         {answerField(q, (value) =>
                           updateInternalQuestion(index, {
@@ -1507,11 +1503,11 @@ export function RfpForm({
                         {q.type === "SELECT" && (
                           <div className="sm:col-span-12">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Opciones (separadas por coma)
+                              {t("rfpForm.optionsLabel")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí, No, En proceso"
+                              placeholder={t("rfpForm.optionsPlaceholder")}
                               value={q.options.join(", ")}
                               onChange={(e) =>
                                 updateInternalQuestion(index, {
@@ -1527,7 +1523,7 @@ export function RfpForm({
                           <>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Mínimo permitido
+                                {t("rfpForm.minAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1546,7 +1542,7 @@ export function RfpForm({
                             </div>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Máximo permitido
+                                {t("rfpForm.maxAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1568,7 +1564,7 @@ export function RfpForm({
                         {weightingQuestionsEnabled && (
                           <div className="sm:col-span-2">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Peso
+                              {t("rfpForm.weightLabel")}
                             </label>
                             <input
                               type="number"
@@ -1585,12 +1581,11 @@ export function RfpForm({
                           </div>
                         )}
                         <p className="text-xs text-slate-400 sm:col-span-12">
-                          Una pregunta condicionada solo aparece (y solo es
-                          obligatoria) cuando se cumple la condición.
+                          {t("rfpForm.conditionalHintInternal")}
                         </p>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Condicionada a
+                            {t("rfpForm.conditionedOn")}
                           </label>
                           {conditionSelect(q, (patch) =>
                             updateInternalQuestion(index, patch),
@@ -1600,11 +1595,11 @@ export function RfpForm({
                           q.dependsOnQuestionKey !== null) && (
                           <div className="sm:col-span-4">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Valor requerido para mostrarla
+                              {t("rfpForm.requiredValueToShow")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí"
+                              placeholder={t("rfpForm.exampleYes")}
                               value={q.dependsOnValue}
                               onChange={(e) =>
                                 updateInternalQuestion(index, {
@@ -1631,7 +1626,7 @@ export function RfpForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar pregunta en esta sección
+                    {t("rfpForm.addQuestionInSection")}
                   </button>
                 </div>
               )}
@@ -1641,7 +1636,7 @@ export function RfpForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Preguntas para los proveedores"
+        title={t("rfpForm.supplierQuestionsTitle")}
         storageKey="rfp-new-supplier-questions"
         right={
           <div className="flex items-center gap-4">
@@ -1650,7 +1645,7 @@ export function RfpForm({
               onClick={addQuestionSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             <button
               type="button"
@@ -1662,7 +1657,7 @@ export function RfpForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar pregunta
+              {t("rfpForm.addQuestion")}
             </button>
             <button
               type="button"
@@ -1674,7 +1669,7 @@ export function RfpForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar texto
+              {t("rfpForm.addText")}
             </button>
           </div>
         }
@@ -1685,11 +1680,11 @@ export function RfpForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameQuestionSection(group.name!, e.target.value)
@@ -1713,8 +1708,8 @@ export function RfpForm({
                             className={inputClass()}
                             placeholder={
                               q.type === "INFO"
-                                ? "Texto informativo a mostrar (sin respuesta)"
-                                : "Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                                ? t("rfpForm.infoTextPlaceholder")
+                                : t("rfpForm.supplierQuestionPlaceholder")
                             }
                             value={q.text}
                             disabled={q.locked}
@@ -1725,8 +1720,7 @@ export function RfpForm({
                         </div>
                         {q.locked && (
                           <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-amber-600">
-                            🔒 Bloqueada por plantilla (no editable ni
-                            removible)
+                            🔒 {t("rfpForm.lockedByTemplateFull")}
                           </span>
                         )}
                       </div>
@@ -1761,7 +1755,7 @@ export function RfpForm({
                                 })
                               }
                             />
-                            Obligatoria
+                            {t("rfpForm.required")}
                           </label>
                         </div>
                       )}
@@ -1769,18 +1763,18 @@ export function RfpForm({
                         <GearButton
                           active={expandedQuestions.has(index)}
                           onClick={() => toggleExpandedQuestion(index)}
-                          title="Configurar pregunta"
+                          title={t("rfpForm.configureQuestion")}
                         />
                         <button
                           type="button"
                           onClick={() => removeQuestionAt(index, q.clientKey)}
                           disabled={q.locked}
                           title={
-                            q.locked ? "Bloqueada por plantilla" : undefined
+                            q.locked ? t("rfpForm.lockedByTemplate") : undefined
                           }
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -1790,11 +1784,11 @@ export function RfpForm({
                         {q.type === "SELECT" && (
                           <div className="sm:col-span-12">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Opciones (separadas por coma)
+                              {t("rfpForm.optionsLabel")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí, No, En proceso"
+                              placeholder={t("rfpForm.optionsPlaceholder")}
                               value={q.options.join(", ")}
                               disabled={q.locked}
                               onChange={(e) =>
@@ -1811,7 +1805,7 @@ export function RfpForm({
                           <>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Mínimo permitido
+                                {t("rfpForm.minAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1831,7 +1825,7 @@ export function RfpForm({
                             </div>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Máximo permitido
+                                {t("rfpForm.maxAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1854,7 +1848,7 @@ export function RfpForm({
                         {weightingQuestionsEnabled && (
                           <div className="sm:col-span-2">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Peso
+                              {t("rfpForm.weightLabel")}
                             </label>
                             <input
                               type="number"
@@ -1883,7 +1877,7 @@ export function RfpForm({
                         )}
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Requiere respuesta
+                            {t("rfpForm.requiresAnswerFieldLabel")}
                           </label>
                           <select
                             className={smallInputClass()}
@@ -1921,14 +1915,14 @@ export function RfpForm({
                                   })
                                 }
                               />
-                              Es prerrequisito (debe aceptarla)
+                              {t("rfpForm.prerequisiteLabel")}
                             </label>
                           </div>
                         )}
                         {q.respondedBy === "BUYER" && q.type !== "INFO" && (
                           <div className="sm:col-span-12">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Respuesta
+                              {t("rfpForm.answerLabel")}
                             </label>
                             {answerField(q, (value) =>
                               updateQuestion(index, { buyerAnswerValue: value }),
@@ -1936,13 +1930,11 @@ export function RfpForm({
                           </div>
                         )}
                         <p className="text-xs text-slate-400 sm:col-span-12">
-                          Una pregunta condicionada solo aparece (y solo es
-                          obligatoria) cuando se cumple la condición, aunque
-                          sea obligatoria o prerrequisito.
+                          {t("rfpForm.conditionalHintSupplier")}
                         </p>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Condicionada a
+                            {t("rfpForm.conditionedOn")}
                           </label>
                           {conditionSelect(q, (patch) =>
                             updateQuestion(index, patch),
@@ -1952,11 +1944,11 @@ export function RfpForm({
                           q.dependsOnQuestionKey !== null) && (
                           <div className="sm:col-span-4">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Valor requerido para mostrarla
+                              {t("rfpForm.requiredValueToShow")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí"
+                              placeholder={t("rfpForm.exampleYes")}
                               value={q.dependsOnValue}
                               disabled={q.locked}
                               onChange={(e) =>
@@ -1984,7 +1976,7 @@ export function RfpForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar pregunta en esta sección
+                    {t("rfpForm.addQuestionInSection")}
                   </button>
                 </div>
               )}
@@ -1994,7 +1986,7 @@ export function RfpForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Artículos solicitados"
+        title={t("rfpForm.itemsTitle")}
         storageKey="rfp-new-items"
         right={
           <div className="flex items-center gap-4">
@@ -2003,7 +1995,7 @@ export function RfpForm({
               onClick={addItemSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             {allowFreeTextItems && (
               <button
@@ -2019,7 +2011,7 @@ export function RfpForm({
                 }
                 className="text-sm font-medium text-violet-600 hover:text-violet-700"
               >
-                + Agregar artículo
+                {t("rfpForm.addItem")}
               </button>
             )}
             <ItemCatalogPicker
@@ -2050,11 +2042,11 @@ export function RfpForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameItemSection(group.name!, e.target.value)
@@ -2076,7 +2068,7 @@ export function RfpForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Código"
+                            placeholder={t("rfpForm.codePlaceholder")}
                             value={item.code ?? ""}
                             disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
                             onChange={(e) =>
@@ -2086,19 +2078,19 @@ export function RfpForm({
                         </div>
                         {item.locked && (
                           <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-amber-600">
-                            🔒 Bloqueado por plantilla
+                            🔒 {t("rfpForm.lockedByTemplateItem")}
                           </span>
                         )}
                         {item.sourceItemCatalogEntryId && (
                           <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-violet-600">
-                            🔒 Desde catálogo
+                            🔒 {t("rfpForm.fromCatalog")}
                           </span>
                         )}
                       </div>
                       <div className="sm:col-span-3">
                         <input
                           className={inputClass()}
-                          placeholder="Nombre del artículo"
+                          placeholder={t("rfpForm.itemNamePlaceholder")}
                           value={item.name}
                           disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
                           onChange={(e) =>
@@ -2109,7 +2101,7 @@ export function RfpForm({
                       <div className="sm:col-span-2">
                         <input
                           className={inputClass()}
-                          placeholder="Descripción / especificaciones"
+                          placeholder={t("rfpForm.itemDescriptionPlaceholder")}
                           value={item.description}
                           disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
                           onChange={(e) =>
@@ -2123,7 +2115,7 @@ export function RfpForm({
                           min={0}
                           step="any"
                           className={inputClass()}
-                          placeholder="Cantidad"
+                          placeholder={t("rfpForm.quantityPlaceholder")}
                           value={item.quantity}
                           onChange={(e) =>
                             updateItem(index, {
@@ -2135,7 +2127,7 @@ export function RfpForm({
                       <div className="sm:col-span-1">
                         <input
                           className={inputClass()}
-                          placeholder="Unidad"
+                          placeholder={t("rfpForm.unitPlaceholder")}
                           value={item.unit}
                           disabled={Boolean(item.sourceItemCatalogEntryId)}
                           onChange={(e) =>
@@ -2147,7 +2139,7 @@ export function RfpForm({
                         <GearButton
                           active={expandedItems.has(index)}
                           onClick={() => toggleExpandedItem(index)}
-                          title="Configurar artículo"
+                          title={t("rfpForm.configureItem")}
                         />
                         <button
                           type="button"
@@ -2158,11 +2150,11 @@ export function RfpForm({
                           }
                           disabled={item.locked}
                           title={
-                            item.locked ? "Bloqueado por plantilla" : undefined
+                            item.locked ? t("rfpForm.lockedByTemplateItem") : undefined
                           }
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -2171,7 +2163,7 @@ export function RfpForm({
                       <div className="mt-3 max-w-xl space-y-3 border-t border-slate-200 pt-3">
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Decimales del precio
+                            {t("rfpForm.decimalsLabel")}
                           </label>
                           <input
                             type="number"
@@ -2188,9 +2180,9 @@ export function RfpForm({
                         </div>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Precio histórico{" "}
+                            {t("rfpForm.historicalPriceLabel")}{" "}
                             <span className="font-normal text-slate-400">
-                              (no visible p/ proveedor)
+                              {t("rfpForm.notVisibleShort")}
                             </span>
                           </label>
                           <input
@@ -2211,11 +2203,11 @@ export function RfpForm({
                         </div>
                         <div>
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Commodity de la línea
+                            {t("rfpForm.lineCommodityLabel")}
                           </label>
                           {item.sourceItemCatalogEntryId ? (
                             <p className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500">
-                              {item.commodity || "— Sin commodity específico —"}
+                              {item.commodity || t("rfpForm.noSpecificCommodity")}
                             </p>
                           ) : (
                             <TreePickerField
@@ -2237,15 +2229,15 @@ export function RfpForm({
                                   commodity: node?.description ?? null,
                                 });
                               }}
-                              placeholder="— Sin commodity específico —"
-                              clearLabel="— Sin commodity específico —"
+                              placeholder={t("rfpForm.noSpecificCommodity")}
+                              clearLabel={t("rfpForm.noSpecificCommodity")}
                             />
                           )}
                         </div>
                         <div>
                           <div className="mb-1 flex items-center justify-between">
                             <label className="text-xs font-medium text-slate-500">
-                              Campos adicionales (adhoc)
+                              {t("rfpForm.additionalFieldsLabel")}
                             </label>
                             <button
                               type="button"
@@ -2259,7 +2251,7 @@ export function RfpForm({
                               }
                               className="text-xs font-medium text-violet-600 hover:text-violet-700"
                             >
-                              + Agregar campo
+                              {t("rfpForm.addField")}
                             </button>
                           </div>
                           <div className="space-y-1.5">
@@ -2267,7 +2259,7 @@ export function RfpForm({
                               <div key={fieldIndex} className="flex gap-1.5">
                                 <input
                                   className={smallInputClass()}
-                                  placeholder="Nombre (ej. Color)"
+                                  placeholder={t("rfpForm.fieldNamePlaceholder")}
                                   value={field.label}
                                   onChange={(e) =>
                                     updateCustomField(index, fieldIndex, {
@@ -2277,7 +2269,7 @@ export function RfpForm({
                                 />
                                 <input
                                   className={smallInputClass()}
-                                  placeholder="Valor (ej. Negro)"
+                                  placeholder={t("rfpForm.fieldValuePlaceholder")}
                                   value={field.value}
                                   onChange={(e) =>
                                     updateCustomField(index, fieldIndex, {
@@ -2319,7 +2311,7 @@ export function RfpForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar artículo en esta sección
+                    {t("rfpForm.addItemInSection")}
                   </button>
                 </div>
               )}
@@ -2329,8 +2321,8 @@ export function RfpForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Invitar proveedores"
-        subtitle="Se generará un link único por proveedor para que respondan la RFP sin necesidad de crear una cuenta. También puedes invitar proveedores más adelante desde el detalle de la RFP."
+        title={t("rfpForm.inviteSuppliersTitle")}
+        subtitle={t("rfpForm.inviteSuppliersSubtitle")}
         storageKey="rfp-new-suppliers"
         right={
           <button
@@ -2338,14 +2330,13 @@ export function RfpForm({
             onClick={() => setSuppliers((prev) => [...prev, emptySupplier()])}
             className="text-sm font-medium text-violet-600 hover:text-violet-700"
           >
-            + Agregar proveedor
+            {t("rfpForm.addSupplier")}
           </button>
         }
       >
         {supplierDirectory.length === 0 && (
           <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            No hay proveedores activos en Configuración → Datos maestros →
-            Proveedores. Agrega alguno ahí para poder invitarlos.
+            {t("rfpForm.noActiveSuppliers")}
           </p>
         )}
         <div className="space-y-3">
@@ -2398,7 +2389,7 @@ export function RfpForm({
                     disabled={suppliers.length === 1}
                     className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                   >
-                    Quitar
+                    {t("rfpForm.remove")}
                   </button>
                 </div>
               </div>
@@ -2414,7 +2405,7 @@ export function RfpForm({
           disabled={pending}
           className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar borrador"}
+          {pending ? t("common.saving") : t("rfpForm.saveDraft")}
         </button>
         <button
           type="button"
@@ -2424,9 +2415,9 @@ export function RfpForm({
         >
           {pending
             ? mode === "edit"
-              ? "Guardando..."
-              : "Creando RFP..."
-            : "Publicar RFP"}
+              ? t("common.saving")
+              : t("rfpForm.creatingRfp")
+            : t("rfpForm.publishRfp")}
         </button>
       </div>
         </>

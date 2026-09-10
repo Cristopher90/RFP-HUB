@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type SupplierContact = { id: string; name: string; email: string };
 
@@ -29,13 +30,14 @@ export function SupplierSearchPicker({
   suppliers,
   selectedLabel,
   onConfirm,
-  placeholder = "Buscar proveedor por código, CIF, empresa, contacto, correo o teléfono...",
+  placeholder,
 }: {
   suppliers: SupplierDirectoryEntry[];
   selectedLabel: string | null;
   onConfirm: (supplier: SupplierDirectoryEntry, contacts: PickedContact[]) => void;
   placeholder?: string;
 }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [pickedDir, setPickedDir] = useState<SupplierDirectoryEntry | null>(
@@ -115,7 +117,7 @@ export function SupplierSearchPicker({
         {selectedLabel ? (
           <span className="text-slate-800">{selectedLabel}</span>
         ) : (
-          <span className="text-slate-400">Buscar proveedor...</span>
+          <span className="text-slate-400">{t("supplierSearchPicker.trigger")}</span>
         )}
       </button>
 
@@ -135,7 +137,7 @@ export function SupplierSearchPicker({
                     {pickedDir.companyName}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Elige a quién enviarle la RFP.
+                    {t("supplierSearchPicker.chooseWhoToSend")}
                   </p>
                 </div>
                 <div className="max-h-80 overflow-y-auto p-2">
@@ -158,7 +160,7 @@ export function SupplierSearchPicker({
                         </span>
                         {c.id === "primary" && (
                           <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
-                            Contacto principal
+                            {t("supplierSearchPicker.mainContact")}
                           </span>
                         )}
                       </span>
@@ -174,7 +176,7 @@ export function SupplierSearchPicker({
                     }}
                     className="text-sm text-slate-500 hover:text-slate-700"
                   >
-                    &larr; Cambiar proveedor
+                    {t("supplierSearchPicker.changeSupplier")}
                   </button>
                   <button
                     type="button"
@@ -182,7 +184,7 @@ export function SupplierSearchPicker({
                     onClick={handleConfirm}
                     className="rounded-md bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-40"
                   >
-                    Confirmar ({checkedEmails.size})
+                    {t("supplierSearchPicker.confirm")} ({checkedEmails.size})
                   </button>
                 </div>
               </>
@@ -192,7 +194,7 @@ export function SupplierSearchPicker({
                   <input
                     autoFocus
                     className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder={placeholder}
+                    placeholder={placeholder ?? t("supplierSearchPicker.searchPlaceholder")}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -200,17 +202,17 @@ export function SupplierSearchPicker({
                 <div className="max-h-80 overflow-y-auto">
                   {results.length === 0 ? (
                     <p className="p-4 text-sm text-slate-400">
-                      Sin resultados.
+                      {t("supplierSearchPicker.noResults")}
                     </p>
                   ) : (
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                         <tr>
-                          <th className="px-4 py-2">Código</th>
-                          <th className="px-4 py-2">Empresa</th>
-                          <th className="px-4 py-2">Contacto</th>
-                          <th className="px-4 py-2">Correo</th>
-                          <th className="px-4 py-2">Teléfono</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.code")}</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.company")}</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.contact")}</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.email")}</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.phone")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -247,7 +249,7 @@ export function SupplierSearchPicker({
                     onClick={close}
                     className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
                   >
-                    Cerrar
+                    {t("supplierSearchPicker.close")}
                   </button>
                 </div>
               </>

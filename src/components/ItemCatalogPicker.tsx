@@ -26,7 +26,7 @@ export function ItemCatalogPicker({
   items: ItemCatalogEntry[];
   onPick: (entry: ItemCatalogEntry) => void;
 }) {
-  const { formatCurrency } = usePreferences();
+  const { formatCurrency, t } = usePreferences();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("");
@@ -56,7 +56,7 @@ export function ItemCatalogPicker({
         onClick={() => setOpen(true)}
         className="text-sm font-medium text-violet-600 hover:text-violet-700"
       >
-        + Agregar del catálogo
+        {t("itemCatalogPicker.addFromCatalog")}
       </button>
 
       {open && (
@@ -74,7 +74,7 @@ export function ItemCatalogPicker({
                 onChange={(e) => setCatalogFilter(e.target.value)}
                 className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 sm:w-56"
               >
-                <option value="">Todos los catálogos</option>
+                <option value="">{t("itemCatalogPicker.allCatalogs")}</option>
                 {catalogNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -84,7 +84,7 @@ export function ItemCatalogPicker({
               <input
                 autoFocus
                 className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                placeholder="Buscar por código, artículo, descripción, unidad o commodity..."
+                placeholder={t("itemCatalogPicker.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -93,19 +93,19 @@ export function ItemCatalogPicker({
               {results.length === 0 ? (
                 <p className="p-4 text-sm text-slate-400">
                   {items.length === 0
-                    ? "El catálogo está vacío todavía."
-                    : "Sin resultados."}
+                    ? t("itemCatalogPicker.emptyCatalog")
+                    : t("itemCatalogPicker.noResults")}
                 </p>
               ) : (
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-2">Catálogo</th>
-                      <th className="px-4 py-2">Código</th>
-                      <th className="px-4 py-2">Artículo</th>
-                      <th className="px-4 py-2">Descripción</th>
-                      <th className="px-4 py-2">Unidad</th>
-                      <th className="px-4 py-2">Último precio</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.catalog")}</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.code")}</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.item")}</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.description")}</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.unit")}</th>
+                      <th className="px-4 py-2">{t("itemCatalogPicker.lastPrice")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -143,7 +143,7 @@ export function ItemCatalogPicker({
                 onClick={() => setOpen(false)}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Cerrar
+                {t("itemCatalogPicker.close")}
               </button>
             </div>
           </div>
