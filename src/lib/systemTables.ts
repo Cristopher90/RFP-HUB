@@ -58,9 +58,12 @@ export async function loadSystemTableRows(table: (typeof SYSTEM_TABLES)[number])
   return { rows, columns, total, truncated: total > rows.length };
 }
 
-export function formatCellValue(value: unknown): string {
+export function formatCellValue(
+  value: unknown,
+  yesNo: { yes: string; no: string },
+): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (typeof value === "boolean") return value ? yesNo.yes : yesNo.no;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);

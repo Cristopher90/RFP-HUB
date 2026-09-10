@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function AdminPage() {
   const scope = await requireClientScope();
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
     redirect("/");
   }
+  const dictionary = getDictionary(scope.user.language);
 
   const templates = await prisma.rfpTemplate.findMany({
     where: scope.where,
@@ -20,17 +22,16 @@ export default async function AdminPage() {
     <div className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Configuración
+          {dictionary.adminDashboard.title}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Datos maestros, plantillas, procesos de aprobación y usuarios de la
-          organización.
+          {dictionary.adminDashboard.subtitle}
         </p>
       </div>
 
       <CollapsibleSection
-        title="Datos maestros"
-        subtitle="Valores permitidos para los desplegables de Commodity y Región en las RFPs y plantillas, y el directorio de proveedores."
+        title={dictionary.adminDashboard.masterDataTitle}
+        subtitle={dictionary.adminDashboard.masterDataSubtitle}
         storageKey="admin-hub-master-data"
         className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -39,52 +40,52 @@ export default async function AdminPage() {
             href="/admin/master-data/commodities"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Commodities
+            {dictionary.adminDashboard.commodities}
           </Link>
           <Link
             href="/admin/master-data/regions"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Regiones
+            {dictionary.adminDashboard.regions}
           </Link>
           <Link
             href="/admin/master-data/suppliers"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Proveedores
+            {dictionary.adminDashboard.suppliers}
           </Link>
           <Link
             href="/admin/master-data/origins"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Orígenes
+            {dictionary.adminDashboard.origins}
           </Link>
           <Link
             href="/admin/master-data/approval-groups"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Grupos de aprobación
+            {dictionary.adminDashboard.approvalGroups}
           </Link>
           <Link
             href="/admin/master-data/items"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Catálogo de artículos
+            {dictionary.adminDashboard.itemCatalog}
           </Link>
           {scope.isSuperAdmin && (
             <Link
               href="/admin/master-data/clients"
               className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
             >
-              Clientes
+              {dictionary.adminDashboard.clients}
             </Link>
           )}
         </div>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Procesos de aprobación"
-        subtitle="Aprobación en 2 etapas (publicar y adjudicar), asignable a una o varias plantillas."
+        title={dictionary.adminDashboard.approvalsTitle}
+        subtitle={dictionary.adminDashboard.approvalsSubtitle}
         storageKey="admin-hub-approvals"
         className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -93,14 +94,14 @@ export default async function AdminPage() {
             href="/admin/approvals"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Procesos de aprobación
+            {dictionary.adminDashboard.approvalsTitle}
           </Link>
         </div>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Usuarios"
-        subtitle="Cuentas de la organización y su grupo (Comprador, Comprador Senior, Administrador)."
+        title={dictionary.adminDashboard.usersTitle}
+        subtitle={dictionary.adminDashboard.usersSubtitle}
         storageKey="admin-hub-users"
         className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -109,14 +110,14 @@ export default async function AdminPage() {
             href="/admin/users"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Usuarios
+            {dictionary.adminDashboard.usersLink}
           </Link>
         </div>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Plantillas"
-        subtitle="Define artículos y preguntas por defecto que se aplican automáticamente a las RFPs que coincidan con sus condiciones."
+        title={dictionary.adminDashboard.templatesTitle}
+        subtitle={dictionary.adminDashboard.templatesSubtitle}
         storageKey="admin-hub-templates"
         className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         right={
@@ -124,13 +125,13 @@ export default async function AdminPage() {
             href="/admin/templates/new"
             className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
           >
-            + Nueva plantilla
+            {dictionary.adminDashboard.newTemplate}
           </Link>
         }
       >
       {templates.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-          Todavía no hay plantillas configuradas.
+          {dictionary.adminDashboard.noTemplatesConfigured}
         </div>
       ) : (
         <div className="-mx-6 -mb-6 overflow-hidden">
@@ -138,12 +139,12 @@ export default async function AdminPage() {
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-5 py-3">Plantilla</th>
-                <th className="px-5 py-3">Cliente</th>
-                <th className="px-5 py-3">Condición</th>
-                <th className="px-5 py-3">Artículos</th>
-                <th className="px-5 py-3">Preguntas</th>
-                <th className="px-5 py-3">Estado</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.templateHeader}</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.clientHeader}</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.conditionHeader}</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.itemsHeader}</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.questionsHeader}</th>
+                <th className="px-5 py-3">{dictionary.adminDashboard.statusHeader}</th>
                 <th className="px-5 py-3" />
               </tr>
             </thead>
@@ -172,15 +173,15 @@ export default async function AdminPage() {
                       <>
                         {t.matchCommodity && (
                           <span className="mr-2">
-                            Commodity: {t.matchCommodity}
+                            {dictionary.adminDashboard.commodityPrefix} {t.matchCommodity}
                           </span>
                         )}
                         {t.matchRegion && (
-                          <span>Región: {t.matchRegion}</span>
+                          <span>{dictionary.adminDashboard.regionPrefix} {t.matchRegion}</span>
                         )}
                       </>
                     ) : (
-                      <span className="text-slate-400">Cualquier RFP</span>
+                      <span className="text-slate-400">{dictionary.adminDashboard.anyRfp}</span>
                     )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
@@ -197,7 +198,7 @@ export default async function AdminPage() {
                           : "bg-slate-100 text-slate-500"
                       }`}
                     >
-                      {t.active ? "Activa" : "Inactiva"}
+                      {t.active ? dictionary.adminDashboard.active : dictionary.adminDashboard.inactive}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
@@ -205,7 +206,7 @@ export default async function AdminPage() {
                       href={`/admin/templates/${t.id}`}
                       className="text-sm font-medium text-violet-600 hover:text-violet-700"
                     >
-                      Editar &rarr;
+                      {dictionary.adminDashboard.edit}
                     </Link>
                   </td>
                 </tr>

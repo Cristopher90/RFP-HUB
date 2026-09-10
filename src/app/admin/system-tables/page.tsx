@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { requireClientScope } from "@/lib/clientScope";
 import { prisma } from "@/lib/prisma";
 import { SYSTEM_TABLES } from "@/lib/systemTables";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function SystemTablesPage() {
   const scope = await requireClientScope();
   if (!scope.isSuperAdmin) redirect("/");
+  const dictionary = getDictionary(scope.user.language);
 
   const counts = await Promise.all(
     SYSTEM_TABLES.map(async (t) => {
@@ -23,21 +25,20 @@ export default async function SystemTablesPage() {
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.systemTablesPage.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Tablas del sistema
+        {dictionary.systemTablesPage.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Vista de solo lectura de cada tabla de la base de datos, sin
-        distinción de cliente. Solo el Super Administrador la ve.
+        {dictionary.systemTablesPage.subtitle}
       </p>
       <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-5 py-3">Tabla</th>
-              <th className="px-5 py-3">Filas</th>
+              <th className="px-5 py-3">{dictionary.systemTablesPage.tableHeader}</th>
+              <th className="px-5 py-3">{dictionary.systemTablesPage.rowsHeader}</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
@@ -53,7 +54,7 @@ export default async function SystemTablesPage() {
                     href={`/admin/system-tables/${t.key}`}
                     className="text-sm font-medium text-violet-600 hover:text-violet-700"
                   >
-                    Ver &rarr;
+                    {dictionary.systemTablesPage.view}
                   </Link>
                 </td>
               </tr>

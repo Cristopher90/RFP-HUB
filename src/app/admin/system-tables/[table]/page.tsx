@@ -6,12 +6,14 @@ import {
   loadSystemTableRows,
   formatCellValue,
 } from "@/lib/systemTables";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function SystemTablePage({
   params,
 }: PageProps<"/admin/system-tables/[table]">) {
   const scope = await requireClientScope();
   if (!scope.isSuperAdmin) redirect("/");
+  const dictionary = getDictionary(scope.user.language);
 
   const { table: tableKey } = await params;
   const table = findSystemTable(tableKey);
@@ -25,18 +27,24 @@ export default async function SystemTablePage({
         href="/admin/system-tables"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Tablas del sistema
+        {dictionary.systemTablePage.backToList}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
         {table.label}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        {total} fila{total === 1 ? "" : "s"} en total
-        {truncated ? ` — mostrando las primeras ${rows.length}` : ""}.
+        {total}{" "}
+        {total === 1
+          ? dictionary.systemTablePage.rowSingular
+          : dictionary.systemTablePage.rowPlural}
+        {truncated
+          ? ` ${dictionary.systemTablePage.showingFirst} ${rows.length}`
+          : ""}
+        .
       </p>
       <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {rows.length === 0 ? (
-          <p className="p-6 text-sm text-slate-400">Esta tabla está vacía.</p>
+          <p className="p-6 text-sm text-slate-400">{dictionary.systemTablePage.emptyTable}</p>
         ) : (
           <table className="min-w-full divide-y divide-slate-200 text-xs">
             <thead className="bg-slate-50 text-left font-medium uppercase tracking-wide text-slate-500">
@@ -52,7 +60,7 @@ export default async function SystemTablePage({
               {rows.map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50">
                   {columns.map((c) => {
-                    const value = formatCellValue(row[c]);
+                    const value = formatCellValue(row[c], dictionary.common);
                     return (
                       <td
                         key={c}

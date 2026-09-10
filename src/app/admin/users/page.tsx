@@ -47,15 +47,15 @@ export default async function UsersPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.usersPage.backToSettings}
       </Link>
       <div className="mt-1 flex items-end justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Usuarios</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{dictionary.usersPage.title}</h1>
         <Link
           href="/admin/users/new"
           className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
         >
-          + Nuevo usuario
+          {dictionary.usersPage.newUser}
         </Link>
       </div>
 
@@ -68,13 +68,13 @@ export default async function UsersPage({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-5 py-3">Nombre</th>
-              <th className="px-5 py-3">Cliente</th>
-              <th className="px-5 py-3">Correo</th>
-              <th className="px-5 py-3">Sociedad</th>
-              <th className="px-5 py-3">Centro</th>
-              <th className="px-5 py-3">Centro de coste</th>
-              <th className="px-5 py-3">Grupo</th>
+              <th className="px-5 py-3">{dictionary.usersPage.name}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.client}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.email}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.company}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.plant}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.costCenter}</th>
+              <th className="px-5 py-3">{dictionary.usersPage.group}</th>
               <th className="px-5 py-3" />
             </tr>
           </thead>
@@ -105,7 +105,7 @@ export default async function UsersPage({
                     href={`/admin/users/${u.id}`}
                     className="text-sm font-medium text-violet-600 hover:text-violet-700"
                   >
-                    Editar &rarr;
+                    {dictionary.usersPage.edit}
                   </Link>
                 </td>
               </tr>
@@ -116,7 +116,7 @@ export default async function UsersPage({
                   colSpan={8}
                   className="px-5 py-8 text-center text-slate-500"
                 >
-                  No hay usuarios que coincidan con la búsqueda.
+                  {dictionary.usersPage.noMatches}
                 </td>
               </tr>
             )}
