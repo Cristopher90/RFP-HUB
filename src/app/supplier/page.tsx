@@ -4,12 +4,14 @@ import { formatDate, formatDateTime, formatRfpNumber } from "@/lib/format";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { getViewerPreferences } from "@/lib/preferences";
 import { localeForLanguage } from "@/i18n/locale";
+import { getDictionary } from "@/i18n/getDictionary";
 import { SupplierRfpTable } from "./SupplierRfpTable";
 
 export default async function SupplierHomePage() {
   const supplierUser = await requireSupplierUser();
   const preferences = await getViewerPreferences();
   const dateOptions = { locale: localeForLanguage(preferences.language), timeZone: preferences.timeZone };
+  const dictionary = getDictionary(preferences.language);
 
   await sweepAwaitingStart({
     invitations: {
@@ -51,16 +53,15 @@ export default async function SupplierHomePage() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">
-        RFP recibidas &middot; {supplierUser.supplierDirectory.companyName}
+        {dictionary.supplierPortal.titlePrefix} &middot; {supplierUser.supplierDirectory.companyName}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Solicitudes de cotización que te enviaron, con su estado y si ya
-        participaste.
+        {dictionary.supplierPortal.subtitle}
       </p>
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-          Todavía no recibiste ninguna RFP.
+          {dictionary.supplierPortal.noRfpsYet}
         </div>
       ) : (
         <SupplierRfpTable invitations={rows} />
