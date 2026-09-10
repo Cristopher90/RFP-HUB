@@ -2,12 +2,18 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { syncAwaitingStart } from "@/lib/rfpStatus";
+import { getViewerPreferences } from "@/lib/preferences";
+import { localeForLanguage } from "@/i18n/locale";
 import { ResponseForm } from "./ResponseForm";
 
 export default async function RespondPage({
   params,
 }: PageProps<"/respond/[token]">) {
   const { token } = await params;
+  const preferences = await getViewerPreferences();
+  const locale = localeForLanguage(preferences.language);
+  const dateOptions = { locale, timeZone: preferences.timeZone };
+  const currencyOptions = { locale, currency: preferences.currency };
 
   const invitation = await prisma.invitation.findUnique({
     where: { token },
@@ -83,14 +89,14 @@ export default async function RespondPage({
         <p className="mt-2 text-sm text-slate-500">{rfp.description}</p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-500">
           <span>Comprador: {rfp.buyerName}</span>
-          <span>Fecha límite: {formatDate(rfp.deadlineAt)}</span>
+          <span>Fecha límite: {formatDate(rfp.deadlineAt, dateOptions)}</span>
           <span>
             Proveedor: {supplier.name} ({supplier.company})
           </span>
           {rfp.commodity && <span>Commodity: {rfp.commodity}</span>}
           {rfp.region && <span>Región: {rfp.region}</span>}
           {rfp.startDate && (
-            <span>Inicio: {formatDateTime(rfp.startDate)}</span>
+            <span>Inicio: {formatDateTime(rfp.startDate, dateOptions)}</span>
           )}
         </div>
       </div>
@@ -99,7 +105,7 @@ export default async function RespondPage({
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
           <h2 className="text-base font-semibold text-emerald-800">
             ¡Gracias! Tu cotización fue enviada el{" "}
-            {formatDateTime(response.submittedAt)}.
+            {formatDateTime(response.submittedAt, dateOptions)}.
           </h2>
           <div className="mt-4 overflow-hidden rounded-lg border border-emerald-100 bg-white">
             <div className="overflow-x-auto">
@@ -119,7 +125,7 @@ export default async function RespondPage({
                     <tr key={item.id}>
                       <td className="px-4 py-2">{item.name}</td>
                       <td className="px-4 py-2">
-                        {price ? formatCurrency(price.unitPrice) : "—"}
+                        {price ? formatCurrency(price.unitPrice, currencyOptions) : "—"}
                       </td>
                     </tr>
                   );
@@ -156,7 +162,7 @@ export default async function RespondPage({
                     <p className="font-medium">{q.text}</p>
                     <p className="text-slate-500">
                       {q.type === "MONEY"
-                        ? formatCurrency(Number(answer.value))
+                        ? formatCurrency(Number(answer.value), currencyOptions)
                         : answer.value}
                     </p>
                   </div>
@@ -178,7 +184,7 @@ export default async function RespondPage({
       ) : isAwaitingStart ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Esta RFP todavía no comienza. Podrás enviar tu cotización a partir
-          del {formatDateTime(rfp.startDate!)}.
+          del {formatDateTime(rfp.startDate!, dateOptions)}.
         </div>
       ) : (
         <ResponseForm

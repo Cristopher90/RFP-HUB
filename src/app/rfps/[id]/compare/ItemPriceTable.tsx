@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatCurrency } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type SupplierCol = { id: string; name: string; company: string; color: string };
 
@@ -27,6 +27,7 @@ export function ItemPriceTable({
   totals: { invId: string; total: number }[];
   bestTotal: number | null;
 }) {
+  const { formatCurrency } = usePreferences();
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();

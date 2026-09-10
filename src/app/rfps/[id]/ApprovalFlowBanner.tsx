@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { formatDateTime } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 import type { ApprovalLevelView } from "@/lib/approvalEngine";
 
 function chipClass(level: ApprovalLevelView) {
@@ -20,6 +20,7 @@ function LevelPopover({
   onSendReminder?: (approvalId: string) => void;
   reminderPending: boolean;
 }) {
+  const { formatDateTime } = usePreferences();
   return (
     <div className="absolute left-0 top-full z-10 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left shadow-lg">
       {level.status === "REJECTED" && (

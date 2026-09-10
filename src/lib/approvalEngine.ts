@@ -413,6 +413,7 @@ export type ApprovalLevelView = {
 export async function describeApprovals(
   rfpId: string,
   stage: ApprovalStageKind,
+  currencyOptions?: { locale?: string; currency?: string },
 ): Promise<ApprovalLevelView[]> {
   const approvals = await prisma.rfpApproval.findMany({
     where: { rfpId, stage },
@@ -470,7 +471,7 @@ export async function describeApprovals(
         : `${groupNameById.get(a.approvalGroupId ?? "") ?? "Grupo"}${
             a.cumulative
               ? " (acumulativo)"
-              : ` (hasta ${formatCurrency(a.requiredValue)})`
+              : ` (hasta ${formatCurrency(a.requiredValue, currencyOptions)})`
           }`;
     const active = !blocked && a.status === "PENDING" && !rejectedStage;
     if (a.status !== "APPROVED") blocked = true;

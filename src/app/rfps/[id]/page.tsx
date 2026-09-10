@@ -26,6 +26,7 @@ import { PublishApprovalSection } from "./PublishApprovalSection";
 import { CountdownTimer } from "./CountdownTimer";
 import { closeRfp, reopenRfp } from "./actions";
 import { syncAwaitingStart } from "@/lib/rfpStatus";
+import { localeForLanguage } from "@/i18n/locale";
 
 const TYPE_LABEL: Record<string, string> = {
   SELECT: "Opción múltiple",
@@ -62,6 +63,9 @@ export default async function RfpDetailPage({
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
   const user = scope.user;
   rfp.status = await syncAwaitingStart(rfp);
+  const locale = localeForLanguage(user.language);
+  const dateOptions = { locale, timeZone: user.timezone };
+  const currencyOptions = { locale, currency: user.currency };
 
   const supplierDirectoryRaw = await prisma.supplierDirectory.findMany({
     where: { status: "ACTIVE", clientId: rfp.clientId },
@@ -79,7 +83,7 @@ export default async function RfpDetailPage({
 
   const publishLevels =
     rfp.status === "PENDING_PUBLISH_APPROVAL"
-      ? await describeApprovals(rfp.id, "PUBLISH")
+      ? await describeApprovals(rfp.id, "PUBLISH", currencyOptions)
       : [];
   const canDecidePublish =
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
@@ -174,8 +178,8 @@ export default async function RfpDetailPage({
             >
               Ronda {rfp.roundNumber}
             </Link>
-            {rfp.publishedAt && <span>Abre: {formatDateTime(rfp.publishedAt)}</span>}
-            <span>Cierra: {formatDateTime(rfp.deadlineAt)}</span>
+            {rfp.publishedAt && <span>Abre: {formatDateTime(rfp.publishedAt, dateOptions)}</span>}
+            <span>Cierra: {formatDateTime(rfp.deadlineAt, dateOptions)}</span>
             {rfp.status === "OPEN" && (
               <CountdownTimer deadline={rfp.deadlineAt.toISOString()} />
             )}
@@ -272,14 +276,14 @@ export default async function RfpDetailPage({
         <div>
           <p className="text-xs text-slate-400">Inicio</p>
           <p className="font-medium text-slate-700">
-            {rfp.startDate ? formatDateTime(rfp.startDate) : "—"}
+            {rfp.startDate ? formatDateTime(rfp.startDate, dateOptions) : "—"}
           </p>
         </div>
         <div>
           <p className="text-xs text-slate-400">Precio estimado</p>
           <p className="font-medium text-slate-700">
             {rfp.estimatedPrice != null
-              ? formatCurrency(rfp.estimatedPrice)
+              ? formatCurrency(rfp.estimatedPrice, currencyOptions)
               : "—"}
           </p>
         </div>
@@ -354,7 +358,7 @@ export default async function RfpDetailPage({
                               <>
                                 {" "}
                                 &middot; precio histórico:{" "}
-                                {formatCurrency(item.historicalPrice)}
+                                {formatCurrency(item.historicalPrice, currencyOptions)}
                               </>
                             )}
                           </p>
@@ -535,7 +539,7 @@ export default async function RfpDetailPage({
                         <StatusBadge status={inv.status} />
                       </td>
                       <td className="px-6 py-3 text-slate-500">
-                        {formatDateTime(inv.invitedAt)}
+                        {formatDateTime(inv.invitedAt, dateOptions)}
                       </td>
                       <td className="px-6 py-3 text-right">
                         <CopyLinkButton path={`/respond/${inv.token}`} />
@@ -573,7 +577,7 @@ export default async function RfpDetailPage({
                 )}
               </span>
               <span className="shrink-0 text-xs text-slate-500">
-                {formatDateTime(h.date)}
+                {formatDateTime(h.date, dateOptions)}
               </span>
             </li>
           ))}

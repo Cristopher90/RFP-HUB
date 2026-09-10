@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { formatCurrency, formatDateTime, formatRfpNumber } from "@/lib/format";
+import { formatRfpNumber } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 import { BarChart } from "@/components/BarChart";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { ApprovalFlowBanner } from "../ApprovalFlowBanner";
@@ -72,6 +73,7 @@ export function AwardPanel({
   awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
 }) {
+  const { formatCurrency, formatDateTime } = usePreferences();
   const [answerScores, setAnswerScores] = useState<Record<string, number | null>>(
     () =>
       Object.fromEntries(

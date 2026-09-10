@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatCurrency } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type ItemCatalogEntry = {
   id: string;
@@ -26,6 +26,7 @@ export function ItemCatalogPicker({
   items: ItemCatalogEntry[];
   onPick: (entry: ItemCatalogEntry) => void;
 }) {
+  const { formatCurrency } = usePreferences();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("");

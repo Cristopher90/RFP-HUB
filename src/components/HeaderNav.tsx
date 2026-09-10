@@ -3,9 +3,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { logout, logoutSupplier } from "@/lib/authActions";
 import { ROLE_LABEL } from "@/lib/roleLabels";
+import { getViewerPreferences } from "@/lib/preferences";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export async function HeaderNav() {
   const user = await getCurrentUser();
+  const preferences = await getViewerPreferences();
+  const dictionary = getDictionary(preferences.language);
 
   if (!user) {
     const supplierUser = await getCurrentSupplierUser();
@@ -20,13 +24,19 @@ export async function HeaderNav() {
               {supplierUser.supplierDirectory.companyName}
             </p>
           </div>
+          <Link
+            href="/profile"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+          >
+            {dictionary.nav.myProfile}
+          </Link>
           <form action={logoutSupplier}>
             <button
               type="submit"
               title="Cerrar sesión"
               className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
             >
-              Salir
+              {dictionary.nav.logout}
             </button>
           </form>
         </nav>
@@ -59,13 +69,19 @@ export async function HeaderNav() {
           <p className="text-sm font-medium text-slate-800">{user.name}</p>
           <p className="text-xs text-slate-400">{ROLE_LABEL[user.role]}</p>
         </div>
+        <Link
+          href="/profile"
+          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+        >
+          {dictionary.nav.myProfile}
+        </Link>
         <form action={logout}>
           <button
             type="submit"
             title="Cerrar sesión"
             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
           >
-            Salir
+            {dictionary.nav.logout}
           </button>
         </form>
       </div>

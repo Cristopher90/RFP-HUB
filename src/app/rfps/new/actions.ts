@@ -12,6 +12,7 @@ import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
+import { zonedTimeToUtc } from "@/lib/timezone";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -323,7 +324,9 @@ export async function createRfp(
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
-  const startDateValue = input.startDate ? new Date(input.startDate) : null;
+  const startDateValue = input.startDate
+    ? zonedTimeToUtc(input.startDate, user.timezone)
+    : null;
   const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" | "AWAITING_START" = input.saveAsDraft
     ? "DRAFT"
     : publishLevels.length === 0
@@ -350,7 +353,7 @@ export async function createRfp(
       title,
       description: input.description.trim(),
       buyerName,
-      deadlineAt: new Date(input.deadlineAt),
+      deadlineAt: zonedTimeToUtc(input.deadlineAt, user.timezone),
       status,
       publishedAt:
         status === "OPEN" || status === "AWAITING_START" ? new Date() : null,

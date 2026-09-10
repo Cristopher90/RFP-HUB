@@ -4,12 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatCurrency, formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
+import { getViewerPreferences } from "@/lib/preferences";
+import { localeForLanguage } from "@/i18n/locale";
 
 export default async function RfpRoundsPage({
   params,
 }: PageProps<"/rfps/[id]/rounds">) {
   const scope = await requireClientScope();
   const { id } = await params;
+  const preferences = await getViewerPreferences();
+  const locale = localeForLanguage(preferences.language);
+  const dateOptions = { locale, timeZone: preferences.timeZone };
+  const currencyOptions = { locale, currency: preferences.currency };
 
   const rfp = await prisma.rfp.findUnique({
     where: { id },
@@ -90,7 +96,7 @@ export default async function RfpRoundsPage({
                     {round.title}
                   </Link>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    Cierra: {formatDate(round.deadlineAt)}
+                    Cierra: {formatDate(round.deadlineAt, dateOptions)}
                   </p>
                 </div>
                 <StatusBadge status={round.status} />
@@ -119,7 +125,7 @@ export default async function RfpRoundsPage({
                           </span>
                         </td>
                         <td className="py-2 pr-4 font-medium text-slate-800">
-                          {formatCurrency(t.total)}
+                          {formatCurrency(t.total, currencyOptions)}
                           {bestTotal !== null && t.total === bestTotal && (
                             <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                               Mejor

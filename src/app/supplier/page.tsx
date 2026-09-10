@@ -2,10 +2,14 @@ import { requireSupplierUser } from "@/lib/supplierAuth";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatDateTime, formatRfpNumber } from "@/lib/format";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
+import { getViewerPreferences } from "@/lib/preferences";
+import { localeForLanguage } from "@/i18n/locale";
 import { SupplierRfpTable } from "./SupplierRfpTable";
 
 export default async function SupplierHomePage() {
   const supplierUser = await requireSupplierUser();
+  const preferences = await getViewerPreferences();
+  const dateOptions = { locale: localeForLanguage(preferences.language), timeZone: preferences.timeZone };
 
   await sweepAwaitingStart({
     invitations: {
@@ -37,10 +41,10 @@ export default async function SupplierHomePage() {
     rfpTitle: inv.rfp.title,
     rfpDescription: inv.rfp.description,
     status: inv.rfp.status,
-    invitedAtLabel: formatDate(inv.invitedAt),
+    invitedAtLabel: formatDate(inv.invitedAt, dateOptions),
     responded: Boolean(inv.response),
     responseLabel: inv.response
-      ? formatDateTime(inv.response.submittedAt)
+      ? formatDateTime(inv.response.submittedAt, dateOptions)
       : null,
   }));
 

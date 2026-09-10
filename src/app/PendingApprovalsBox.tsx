@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { formatDate, formatRfpNumber } from "@/lib/format";
+import { formatRfpNumber } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type PendingApprovalRow = {
   rfpId: string;
@@ -21,6 +22,7 @@ const STAGE_LABEL: Record<PendingApprovalRow["stage"], string> = {
 };
 
 export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) {
+  const { formatDate } = usePreferences();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");

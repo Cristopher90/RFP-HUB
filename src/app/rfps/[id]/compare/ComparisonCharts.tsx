@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BarChart, type BarChartDatum } from "@/components/BarChart";
-import { formatCurrency } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type SupplierTotal = BarChartDatum & { supplierId: string };
 
@@ -21,6 +21,7 @@ export function ComparisonCharts({
   totals: SupplierTotal[];
   items: ItemChartData[];
 }) {
+  const { formatCurrency } = usePreferences();
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? "");
   const [itemQuery, setItemQuery] = useState("");
 

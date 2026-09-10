@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatCurrency } from "@/lib/format";
+import { localeForLanguage } from "@/i18n/locale";
 import { colorForIndex } from "@/lib/chartColors";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
@@ -36,6 +37,9 @@ export default async function ComparePage({
 
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
+
+  const locale = localeForLanguage(user.language);
+  const currencyOptions = { locale, currency: user.currency };
 
   const responded = rfp.invitations.filter((inv) => inv.response);
 
@@ -180,7 +184,7 @@ export default async function ComparePage({
     .filter((r): r is NonNullable<typeof r> => r !== null);
 
   const awardLevels = rfp.pendingAwardInvitationId
-    ? await describeApprovals(rfp.id, "AWARD")
+    ? await describeApprovals(rfp.id, "AWARD", currencyOptions)
     : [];
   const canDecideAward =
     Boolean(rfp.pendingAwardInvitationId) &&
@@ -231,7 +235,7 @@ export default async function ComparePage({
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="font-semibold text-emerald-700">
-                    {formatCurrency(m.best.price)}
+                    {formatCurrency(m.best.price, currencyOptions)}
                   </span>
                   <Link
                     href={`/rfps/${m.best.rfpId}`}
@@ -337,7 +341,7 @@ export default async function ComparePage({
                                   );
                                 })()
                               ) : q.type === "MONEY" ? (
-                                formatCurrency(Number(answer.value))
+                                formatCurrency(Number(answer.value), currencyOptions)
                               ) : (
                                 answer.value
                               )}

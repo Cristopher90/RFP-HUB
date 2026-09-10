@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatDate, formatRfpNumber } from "@/lib/format";
+import { formatRfpNumber } from "@/lib/format";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useColumnPrefs, type ColumnDef } from "@/lib/useColumnPrefs";
 import { ColumnSettingsMenu, ResizableTh } from "@/components/ColumnSettingsMenu";
@@ -52,6 +53,7 @@ export function RfpTable({
   rfps: RfpRow[];
   showClientColumn: boolean;
 }) {
+  const { formatDate } = usePreferences();
   const defs = showClientColumn
     ? ALL_COLUMN_DEFS
     : ALL_COLUMN_DEFS.filter((d) => d.key !== "cliente");

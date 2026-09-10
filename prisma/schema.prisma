@@ -135,6 +135,9 @@ model User {
   createdAt          DateTime  @default(now())
   lastLoginAt        DateTime? // fecha y hora del login más reciente, mostrado en el pie de página
   allowFreeTextItems Boolean   @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
+  timezone           String    @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
+  currency           String    @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
+  language           String    @default("es") // idioma de la interfaz ("es" o "en")
 
   approvalGroups UserApprovalGroup[]
 
@@ -275,6 +278,9 @@ model SupplierUser {
   passwordHash        String
   createdAt           DateTime          @default(now())
   lastLoginAt         DateTime? // fecha y hora del login más reciente, mostrado en el pie de página
+  timezone            String            @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
+  currency            String            @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
+  language            String            @default("es") // idioma de la interfaz ("es" o "en")
 }
 
 // Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa

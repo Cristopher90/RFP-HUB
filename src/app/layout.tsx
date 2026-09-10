@@ -6,6 +6,10 @@ import { Sidebar } from "@/components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { formatDateTime } from "@/lib/format";
+import { getViewerPreferences } from "@/lib/preferences";
+import { getDictionary } from "@/i18n/getDictionary";
+import { localeForLanguage } from "@/i18n/locale";
+import { PreferencesProvider } from "@/i18n/PreferencesProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,14 +38,18 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const sessionName = activeSession
     ? `${activeSession.name} ${activeSession.lastName ?? ""}`.trim()
     : null;
+
+  const preferences = await getViewerPreferences();
+  const dictionary = getDictionary(preferences.language);
+  const locale = localeForLanguage(preferences.language);
   const sessionLoginLabel =
     activeSession?.lastLoginAt != null
-      ? formatDateTime(activeSession.lastLoginAt)
+      ? formatDateTime(activeSession.lastLoginAt, { locale, timeZone: preferences.timeZone })
       : null;
 
   return (
     <html
-      lang="es"
+      lang={preferences.language}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
@@ -65,16 +73,28 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <div className="flex flex-1">
           <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
+          <main className="min-w-0 flex-1">
+            <PreferencesProvider
+              language={preferences.language}
+              timeZone={preferences.timeZone}
+              currency={preferences.currency}
+              dictionary={dictionary}
+            >
+              {children}
+            </PreferencesProvider>
+          </main>
         </div>
         <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
-          RFP.HUB &middot; herramienta de compras y sourcing &middot; datos de demostración
+          {dictionary.footer.tagline}
           {sessionName && (
             <>
               {" "}
               &middot; {sessionName}
               {sessionLoginLabel && (
-                <> &middot; Sesión iniciada: {sessionLoginLabel}</>
+                <>
+                  {" "}
+                  &middot; {dictionary.footer.sessionStarted}: {sessionLoginLabel}
+                </>
               )}
             </>
           )}
