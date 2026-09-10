@@ -204,7 +204,7 @@ export function TemplateForm({
     questions: TemplateQuestionInput[];
   };
 }) {
-  const { dictionary } = usePreferences();
+  const { t, dictionary } = usePreferences();
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -452,8 +452,8 @@ export function TemplateForm({
     ]);
 
   const allQuestionsForConditions = [
-    ...questions.map((q) => ({ ...q, area: "proveedor" as const })),
-    ...internalQuestions.map((q) => ({ ...q, area: "interna" as const })),
+    ...questions.map((q) => ({ ...q, area: t("rfpForm.areaSupplier") })),
+    ...internalQuestions.map((q) => ({ ...q, area: t("rfpForm.areaInternal") })),
   ];
 
   function conditionSelect(
@@ -493,9 +493,9 @@ export function TemplateForm({
           }
         }}
       >
-        <option value="">Sin condición</option>
-        <option value="header:commodity">Commodity de la RFP</option>
-        <option value="header:region">Región de la RFP</option>
+        <option value="">{t("rfpForm.noCondition")}</option>
+        <option value="header:commodity">{t("rfpForm.rfpCommodity")}</option>
+        <option value="header:region">{t("rfpForm.rfpRegion")}</option>
         {allQuestionsForConditions
           .filter(
             (other) => other.clientKey !== q.clientKey && other.text.trim(),
@@ -505,7 +505,7 @@ export function TemplateForm({
               key={other.clientKey}
               value={`question:${other.clientKey}`}
             >
-              Pregunta ({other.area}): {other.text.slice(0, 40)}
+              {t("rfpForm.questionPrefix")} ({other.area}): {other.text.slice(0, 40)}
             </option>
           ))}
       </select>
@@ -545,7 +545,7 @@ export function TemplateForm({
       )}
 
       <CollapsibleSection
-        title="Detalles de la plantilla"
+        title={t("templateForm.detailsTitle")}
         storageKey="template-details"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -554,12 +554,12 @@ export function TemplateForm({
               htmlFor={`${idBase}-name`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Nombre
+              {t("templateForm.nameLabel")}
             </label>
             <input
               id={`${idBase}-name`}
               className={inputClass()}
-              placeholder="Ej. Estándar Hardware / IT"
+              placeholder={t("templateForm.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -570,7 +570,7 @@ export function TemplateForm({
               htmlFor={`${idBase}-description`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Descripción
+              {t("templateForm.descriptionLabel")}
             </label>
             <textarea
               id={`${idBase}-description`}
@@ -582,7 +582,7 @@ export function TemplateForm({
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Aplica cuando el Commodity sea
+              {t("templateForm.appliesWhenCommodity")}
             </label>
             <TreePickerField
               nodes={commodities.map((c) => ({
@@ -599,8 +599,8 @@ export function TemplateForm({
                 const node = commodities.find((c) => c.id === id);
                 setMatchCommodity(node?.description ?? "");
               }}
-              placeholder="Cualquiera"
-              clearLabel="Cualquiera"
+              placeholder={t("templateForm.any")}
+              clearLabel={t("templateForm.any")}
             />
             {matchCommodity && (
               <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-600">
@@ -611,13 +611,13 @@ export function TemplateForm({
                     setMatchCommodityIncludeDescendants(e.target.checked)
                   }
                 />
-                También aplica a los niveles debajo de este
+                {t("templateForm.includeDescendants")}
               </label>
             )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Aplica cuando la Región sea
+              {t("templateForm.appliesWhenRegion")}
             </label>
             <TreePickerField
               nodes={regions.map((r) => ({
@@ -634,8 +634,8 @@ export function TemplateForm({
                 const node = regions.find((r) => r.id === id);
                 setMatchRegion(node?.description ?? "");
               }}
-              placeholder="Cualquiera"
-              clearLabel="Cualquiera"
+              placeholder={t("templateForm.any")}
+              clearLabel={t("templateForm.any")}
             />
             {matchRegion && (
               <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-600">
@@ -646,13 +646,13 @@ export function TemplateForm({
                     setMatchRegionIncludeDescendants(e.target.checked)
                   }
                 />
-                También aplica a los niveles debajo de este
+                {t("templateForm.includeDescendants")}
               </label>
             )}
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Aplica cuando el Precio estimado sea
+              {t("templateForm.appliesWhenPrice")}
             </label>
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -665,7 +665,7 @@ export function TemplateForm({
                   )
                 }
               >
-                <option value="">Cualquiera</option>
+                <option value="">{t("templateForm.any")}</option>
                 {ALL_PRICE_CONDITIONS.map((v) => (
                   <option key={v} value={v}>
                     {priceConditionLabel(dictionary, v)}
@@ -677,7 +677,7 @@ export function TemplateForm({
                 <input
                   type="number"
                   step="any"
-                  placeholder={matchPriceCondition === "BETWEEN" ? "Mínimo" : "Valor"}
+                  placeholder={matchPriceCondition === "BETWEEN" ? t("templateForm.min") : t("templateForm.value")}
                   className={inputClass()}
                   style={{ maxWidth: "10rem" }}
                   value={matchPriceMin}
@@ -685,14 +685,14 @@ export function TemplateForm({
                 />
               )}
               {matchPriceCondition === "BETWEEN" && (
-                <span className="text-sm text-slate-400">y</span>
+                <span className="text-sm text-slate-400">{t("templateForm.and")}</span>
               )}
               {(matchPriceCondition === "LESS_THAN" ||
                 matchPriceCondition === "BETWEEN") && (
                 <input
                   type="number"
                   step="any"
-                  placeholder={matchPriceCondition === "BETWEEN" ? "Máximo" : "Valor"}
+                  placeholder={matchPriceCondition === "BETWEEN" ? t("templateForm.max") : t("templateForm.value")}
                   className={inputClass()}
                   style={{ maxWidth: "10rem" }}
                   value={matchPriceMax}
@@ -708,7 +708,7 @@ export function TemplateForm({
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
               />
-              Plantilla activa (se aplica a nuevas RFPs que coincidan)
+              {t("templateForm.activeLabel")}
             </label>
           </div>
           <div className="sm:col-span-2">
@@ -718,15 +718,14 @@ export function TemplateForm({
                 checked={hideResponsesUntilClosed}
                 onChange={(e) => setHideResponsesUntilClosed(e.target.checked)}
               />
-              No mostrar respuestas de proveedores hasta el cierre (oferta a
-              ciegas)
+              {t("templateForm.blindOfferLabel")}
             </label>
           </div>
         </div>
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Artículos por defecto"
+        title={t("templateForm.defaultItemsTitle")}
         storageKey="template-items"
         right={
           <div className="flex items-center gap-4">
@@ -735,7 +734,7 @@ export function TemplateForm({
               onClick={addItemSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             <button
               type="button"
@@ -750,7 +749,7 @@ export function TemplateForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar artículo
+              {t("rfpForm.addItem")}
             </button>
           </div>
         }
@@ -761,11 +760,11 @@ export function TemplateForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameItemSection(group.name!, e.target.value)
@@ -787,7 +786,7 @@ export function TemplateForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Nombre del artículo"
+                            placeholder={t("rfpForm.itemNamePlaceholder")}
                             value={item.name}
                             onChange={(e) =>
                               updateItem(index, { name: e.target.value })
@@ -798,7 +797,7 @@ export function TemplateForm({
                       <div className="sm:col-span-3">
                         <input
                           className={inputClass()}
-                          placeholder="Descripción"
+                          placeholder={t("templateForm.descriptionLabel")}
                           value={item.description}
                           onChange={(e) =>
                             updateItem(index, { description: e.target.value })
@@ -811,7 +810,7 @@ export function TemplateForm({
                           min={0}
                           step="any"
                           className={inputClass()}
-                          placeholder="Cantidad"
+                          placeholder={t("rfpForm.quantityPlaceholder")}
                           value={item.quantity}
                           onChange={(e) =>
                             updateItem(index, {
@@ -823,7 +822,7 @@ export function TemplateForm({
                       <div className="sm:col-span-1">
                         <input
                           className={inputClass()}
-                          placeholder="Unidad"
+                          placeholder={t("rfpForm.unitPlaceholder")}
                           value={item.unit}
                           onChange={(e) =>
                             updateItem(index, { unit: e.target.value })
@@ -834,7 +833,7 @@ export function TemplateForm({
                         <GearButton
                           active={expandedItems.has(index)}
                           onClick={() => toggleExpandedItem(index)}
-                          title="Configurar artículo"
+                          title={t("rfpForm.configureItem")}
                         />
                         <button
                           type="button"
@@ -846,7 +845,7 @@ export function TemplateForm({
                           disabled={items.length === 1}
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -855,7 +854,7 @@ export function TemplateForm({
                       <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200 pt-3 sm:grid-cols-12">
                         <div className="sm:col-span-3">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Peso (para puntaje)
+                            {t("templateForm.itemWeightLabel")}
                           </label>
                           <input
                             type="number"
@@ -872,7 +871,7 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-3">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Decimales del precio
+                            {t("rfpForm.decimalsLabel")}
                           </label>
                           <input
                             type="number"
@@ -889,19 +888,19 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-6">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Editable/excluible por grupo
+                            {t("templateForm.lockRolesLabel")}
                           </label>
                           {lockRolesField(item.lockRoles, (lockRoles) =>
                             updateItem(index, { lockRoles }),
                           dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
-                            Sin marcar = cualquiera puede editarlo o quitarlo.
+                            {t("templateForm.unmarkedMeansAnyoneItem")}
                           </p>
                         </div>
                         <div className="sm:col-span-12">
                           <div className="mb-1 flex items-center justify-between">
                             <label className="text-xs font-medium text-slate-500">
-                              Campos adicionales (adhoc)
+                              {t("rfpForm.additionalFieldsLabel")}
                             </label>
                             <button
                               type="button"
@@ -915,7 +914,7 @@ export function TemplateForm({
                               }
                               className="text-xs font-medium text-violet-600 hover:text-violet-700"
                             >
-                              + Agregar campo
+                              {t("rfpForm.addField")}
                             </button>
                           </div>
                           <div className="space-y-1.5">
@@ -923,7 +922,7 @@ export function TemplateForm({
                               <div key={fieldIndex} className="flex gap-1.5">
                                 <input
                                   className={smallInputClass()}
-                                  placeholder="Nombre (ej. Color)"
+                                  placeholder={t("rfpForm.fieldNamePlaceholder")}
                                   value={field.label}
                                   onChange={(e) =>
                                     updateItem(index, {
@@ -938,7 +937,7 @@ export function TemplateForm({
                                 />
                                 <input
                                   className={smallInputClass()}
-                                  placeholder="Valor"
+                                  placeholder={t("templateForm.fieldValuePlaceholder")}
                                   value={field.value}
                                   onChange={(e) =>
                                     updateItem(index, {
@@ -985,7 +984,7 @@ export function TemplateForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar artículo en esta sección
+                    {t("rfpForm.addItemInSection")}
                   </button>
                 </div>
               )}
@@ -995,8 +994,8 @@ export function TemplateForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Contenido Interno"
-        subtitle="Las responde el comprador directamente; nunca se envían al proveedor."
+        title={t("templateForm.internalContentTitle")}
+        subtitle={t("templateForm.internalContentSubtitle")}
         storageKey="template-internal-questions"
         right={
           <div className="flex items-center gap-4">
@@ -1005,7 +1004,7 @@ export function TemplateForm({
               onClick={addInternalQuestionSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             <button
               type="button"
@@ -1018,7 +1017,7 @@ export function TemplateForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar pregunta
+              {t("rfpForm.addQuestion")}
             </button>
             <button
               type="button"
@@ -1031,7 +1030,7 @@ export function TemplateForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar texto
+              {t("rfpForm.addText")}
             </button>
           </div>
         }
@@ -1042,11 +1041,11 @@ export function TemplateForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameInternalQuestionSection(
@@ -1071,7 +1070,7 @@ export function TemplateForm({
                           </span>
                           <input
                             className={inputClass()}
-                            placeholder="Ej. Verificar antecedentes legales del proveedor"
+                            placeholder={t("rfpForm.internalQuestionPlaceholder")}
                             value={q.text}
                             onChange={(e) =>
                               updateInternalQuestion(index, {
@@ -1109,7 +1108,7 @@ export function TemplateForm({
                               })
                             }
                           />
-                          Obligatoria
+                          {t("rfpForm.required")}
                         </label>
                       </div>
                       <div className="flex justify-end gap-2 sm:col-span-3">
@@ -1118,7 +1117,7 @@ export function TemplateForm({
                           onClick={() =>
                             toggleExpandedInternalQuestion(index)
                           }
-                          title="Configurar pregunta"
+                          title={t("rfpForm.configureQuestion")}
                         />
                         <button
                           type="button"
@@ -1128,7 +1127,7 @@ export function TemplateForm({
                           disabled={internalQuestions.length === 1}
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -1138,11 +1137,11 @@ export function TemplateForm({
                         {q.type === "SELECT" && (
                           <div className="sm:col-span-12">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Opciones (separadas por coma)
+                              {t("rfpForm.optionsLabel")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí, No, En proceso"
+                              placeholder={t("rfpForm.optionsPlaceholder")}
                               value={q.options.join(", ")}
                               onChange={(e) =>
                                 updateInternalQuestion(index, {
@@ -1158,7 +1157,7 @@ export function TemplateForm({
                           <>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Mínimo permitido
+                                {t("rfpForm.minAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1177,7 +1176,7 @@ export function TemplateForm({
                             </div>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Máximo permitido
+                                {t("rfpForm.maxAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1198,7 +1197,7 @@ export function TemplateForm({
                         )}
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Peso
+                            {t("rfpForm.weightLabel")}
                           </label>
                           <input
                             type="number"
@@ -1215,22 +1214,21 @@ export function TemplateForm({
                         </div>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Editable/excluible por grupo
+                            {t("templateForm.lockRolesLabel")}
                           </label>
                           {lockRolesField(q.lockRoles, (lockRoles) =>
                             updateInternalQuestion(index, { lockRoles }),
                           dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
-                            Sin marcar = cualquiera puede editarla o quitarla.
+                            {t("templateForm.unmarkedMeansAnyoneQuestion")}
                           </p>
                         </div>
                         <p className="text-xs text-slate-400 sm:col-span-12">
-                          Una pregunta condicionada solo aparece (y solo es
-                          obligatoria) cuando se cumple la condición.
+                          {t("rfpForm.conditionalHintInternal")}
                         </p>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Condicionada a
+                            {t("rfpForm.conditionedOn")}
                           </label>
                           {conditionSelect(q, (patch) =>
                             updateInternalQuestion(index, patch),
@@ -1240,11 +1238,11 @@ export function TemplateForm({
                           q.dependsOnQuestionKey !== null) && (
                           <div className="sm:col-span-4">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Valor requerido para mostrarla
+                              {t("rfpForm.requiredValueToShow")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí"
+                              placeholder={t("rfpForm.exampleYes")}
                               value={q.dependsOnValue}
                               onChange={(e) =>
                                 updateInternalQuestion(index, {
@@ -1271,7 +1269,7 @@ export function TemplateForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar pregunta en esta sección
+                    {t("rfpForm.addQuestionInSection")}
                   </button>
                 </div>
               )}
@@ -1281,7 +1279,7 @@ export function TemplateForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Contenido Externo"
+        title={t("templateForm.externalContentTitle")}
         storageKey="template-supplier-questions"
         right={
           <div className="flex items-center gap-4">
@@ -1290,7 +1288,7 @@ export function TemplateForm({
               onClick={addQuestionSection}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar sección
+              {t("rfpForm.addSection")}
             </button>
             <button
               type="button"
@@ -1302,7 +1300,7 @@ export function TemplateForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar pregunta
+              {t("rfpForm.addQuestion")}
             </button>
             <button
               type="button"
@@ -1314,7 +1312,7 @@ export function TemplateForm({
               }
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar texto
+              {t("rfpForm.addText")}
             </button>
           </div>
         }
@@ -1325,11 +1323,11 @@ export function TemplateForm({
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
                   <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
+                    {t("rfpForm.sectionPrefix")} {group.sectionNumber}
                   </span>
                   <input
                     className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
+                    placeholder={t("rfpForm.sectionNamePlaceholder")}
                     value={group.name}
                     onChange={(e) =>
                       renameQuestionSection(group.name!, e.target.value)
@@ -1353,8 +1351,8 @@ export function TemplateForm({
                             className={inputClass()}
                             placeholder={
                               q.type === "INFO"
-                                ? "Texto informativo a mostrar (sin respuesta)"
-                                : "Ej. ¿Cuál es tu tiempo de entrega estimado?"
+                                ? t("rfpForm.infoTextPlaceholder")
+                                : t("rfpForm.supplierQuestionPlaceholder")
                             }
                             value={q.text}
                             onChange={(e) =>
@@ -1393,7 +1391,7 @@ export function TemplateForm({
                                 })
                               }
                             />
-                            Obligatoria
+                            {t("rfpForm.required")}
                           </label>
                         </div>
                       )}
@@ -1401,7 +1399,7 @@ export function TemplateForm({
                         <GearButton
                           active={expandedQuestions.has(index)}
                           onClick={() => toggleExpandedQuestion(index)}
-                          title="Configurar pregunta"
+                          title={t("rfpForm.configureQuestion")}
                         />
                         <button
                           type="button"
@@ -1409,7 +1407,7 @@ export function TemplateForm({
                           disabled={questions.length === 1}
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("rfpForm.remove")}
                         </button>
                       </div>
                     </div>
@@ -1419,11 +1417,11 @@ export function TemplateForm({
                         {q.type === "SELECT" && (
                           <div className="sm:col-span-12">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Opciones (separadas por coma)
+                              {t("rfpForm.optionsLabel")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí, No, En proceso"
+                              placeholder={t("rfpForm.optionsPlaceholder")}
                               value={q.options.join(", ")}
                               onChange={(e) =>
                                 updateQuestion(index, {
@@ -1439,7 +1437,7 @@ export function TemplateForm({
                           <>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Mínimo permitido
+                                {t("rfpForm.minAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1458,7 +1456,7 @@ export function TemplateForm({
                             </div>
                             <div className="sm:col-span-2">
                               <label className="mb-1 block text-xs font-medium text-slate-500">
-                                Máximo permitido
+                                {t("rfpForm.maxAllowed")}
                               </label>
                               <input
                                 type="number"
@@ -1479,7 +1477,7 @@ export function TemplateForm({
                         )}
                         <div className="sm:col-span-2">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Peso
+                            {t("rfpForm.weightLabel")}
                           </label>
                           <input
                             type="number"
@@ -1506,18 +1504,18 @@ export function TemplateForm({
                         )}
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Editable/excluible por grupo
+                            {t("templateForm.lockRolesLabel")}
                           </label>
                           {lockRolesField(q.lockRoles, (lockRoles) =>
                             updateQuestion(index, { lockRoles }),
                           dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
-                            Sin marcar = cualquiera puede editarla o quitarla.
+                            {t("templateForm.unmarkedMeansAnyoneQuestion")}
                           </p>
                         </div>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Requiere respuesta
+                            {t("rfpForm.requiresAnswerFieldLabel")}
                           </label>
                           <select
                             className={smallInputClass()}
@@ -1554,25 +1552,21 @@ export function TemplateForm({
                                   })
                                 }
                               />
-                              Es prerrequisito (debe aceptarla)
+                              {t("rfpForm.prerequisiteLabel")}
                             </label>
                           </div>
                         )}
                         {q.respondedBy === "BUYER" && (
                           <p className="text-xs text-slate-400 sm:col-span-12">
-                            El comprador la responderá desde el detalle de
-                            cada RFP creada con esta plantilla, antes de
-                            publicarla.
+                            {t("templateForm.buyerAnswersLater")}
                           </p>
                         )}
                         <p className="text-xs text-slate-400 sm:col-span-12">
-                          Una pregunta condicionada solo aparece (y solo es
-                          obligatoria) cuando se cumple la condición, aunque
-                          sea obligatoria o prerrequisito.
+                          {t("rfpForm.conditionalHintSupplier")}
                         </p>
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Condicionada a
+                            {t("rfpForm.conditionedOn")}
                           </label>
                           {conditionSelect(q, (patch) =>
                             updateQuestion(index, patch),
@@ -1582,11 +1576,11 @@ export function TemplateForm({
                           q.dependsOnQuestionKey !== null) && (
                           <div className="sm:col-span-4">
                             <label className="mb-1 block text-xs font-medium text-slate-500">
-                              Valor requerido para mostrarla
+                              {t("rfpForm.requiredValueToShow")}
                             </label>
                             <input
                               className={smallInputClass()}
-                              placeholder="Ej. Sí"
+                              placeholder={t("rfpForm.exampleYes")}
                               value={q.dependsOnValue}
                               onChange={(e) =>
                                 updateQuestion(index, {
@@ -1613,7 +1607,7 @@ export function TemplateForm({
                     }
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
-                    + Agregar pregunta en esta sección
+                    {t("rfpForm.addQuestionInSection")}
                   </button>
                 </div>
               )}
@@ -1628,7 +1622,7 @@ export function TemplateForm({
           disabled={pending}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar plantilla"}
+          {pending ? t("common.saving") : t("templateForm.saveTemplate")}
         </button>
       </div>
     </form>
