@@ -20,6 +20,7 @@ import {
 } from "@/components/ColumnSettingsMenu";
 import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type ColumnKey =
   | "code"
@@ -31,16 +32,18 @@ type ColumnKey =
   | "phone"
   | "status";
 
-const COLUMN_DEFS: ColumnDef<ColumnKey>[] = [
-  { key: "code", label: "Código", defaultWidth: 110, minWidth: 80 },
-  { key: "taxId", label: "CIF", defaultWidth: 110, minWidth: 80 },
-  { key: "companyName", label: "Empresa", defaultWidth: 220, minWidth: 120 },
-  { key: "contactFirstName", label: "Nombre", defaultWidth: 130, minWidth: 90 },
-  { key: "contactLastName", label: "Apellido", defaultWidth: 130, minWidth: 90 },
-  { key: "email", label: "Correo", defaultWidth: 200, minWidth: 120 },
-  { key: "phone", label: "Teléfono", defaultWidth: 140, minWidth: 100 },
-  { key: "status", label: "Estado", defaultWidth: 110, minWidth: 90 },
-];
+function columnDefs(t: (key: string) => string): ColumnDef<ColumnKey>[] {
+  return [
+    { key: "code", label: t("supplierDirectoryForm.code"), defaultWidth: 110, minWidth: 80 },
+    { key: "taxId", label: t("supplierDirectoryForm.taxId"), defaultWidth: 110, minWidth: 80 },
+    { key: "companyName", label: t("supplierDirectoryForm.companyName"), defaultWidth: 220, minWidth: 120 },
+    { key: "contactFirstName", label: t("supplierDirectoryForm.firstName"), defaultWidth: 130, minWidth: 90 },
+    { key: "contactLastName", label: t("supplierDirectoryForm.lastName"), defaultWidth: 130, minWidth: 90 },
+    { key: "email", label: t("supplierDirectoryForm.email"), defaultWidth: 200, minWidth: 120 },
+    { key: "phone", label: t("supplierDirectoryForm.phone"), defaultWidth: 140, minWidth: 100 },
+    { key: "status", label: t("supplierDirectoryForm.status"), defaultWidth: 110, minWidth: 90 },
+  ];
+}
 
 function emptyRow(): SupplierDirectoryItemInput {
   return {
@@ -75,6 +78,7 @@ export function SupplierDirectoryForm({
   supplierUsersByDirectoryId?: Record<string, SupplierUserItemInput[]>;
   isSuperAdmin?: boolean;
 }) {
+  const { t } = usePreferences();
   const [rows, setRows] = useState<SupplierDirectoryItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
   );
@@ -108,7 +112,8 @@ export function SupplierDirectoryForm({
     clearSupplierDirectory(targetClientId),
   );
 
-  const columnPrefs = useColumnPrefs("masterdata-columns-suppliers", COLUMN_DEFS);
+  const defs = columnDefs(t);
+  const columnPrefs = useColumnPrefs("masterdata-columns-suppliers", defs);
 
   function updateRow(
     clientKey: string,
@@ -210,9 +215,7 @@ export function SupplierDirectoryForm({
     try {
       const imported = await parseSupplierDirectoryExcelFile(file);
       if (imported.length === 0) {
-        setImportError(
-          "No se encontraron filas con las columnas esperadas.",
-        );
+        setImportError(t("supplierDirectoryForm.noRowsFoundError"));
         return;
       }
       setSuccess(false);
@@ -224,7 +227,7 @@ export function SupplierDirectoryForm({
         return [...kept, ...imported];
       });
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("supplierDirectoryForm.readFileError"));
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -244,7 +247,7 @@ export function SupplierDirectoryForm({
     try {
       const imported = await parseSupplierDirectoryExcelFile(file);
       if (imported.length === 0) {
-        setImportError("No se encontraron filas con las columnas esperadas.");
+        setImportError(t("supplierDirectoryForm.noRowsFoundError"));
         return;
       }
       const codesToDelete = new Set(
@@ -258,7 +261,7 @@ export function SupplierDirectoryForm({
         ),
       );
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("supplierDirectoryForm.readFileError"));
     } finally {
       setDeleteImporting(false);
       if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
@@ -290,7 +293,7 @@ export function SupplierDirectoryForm({
       r.contactLastName.toLowerCase().includes(q) ||
       r.email.toLowerCase().includes(q) ||
       r.phone.toLowerCase().includes(q) ||
-      (r.status === "ACTIVE" ? "activo" : "inactivo").includes(q)
+      (r.status === "ACTIVE" ? t("supplierDirectoryForm.active") : t("supplierDirectoryForm.inactive")).toLowerCase().includes(q)
     );
   });
   const pagination = usePagination(filteredRows.length);
@@ -308,7 +311,7 @@ export function SupplierDirectoryForm({
       )}
       {success && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Cambios guardados.
+          {t("supplierDirectoryForm.savedChanges")}
         </div>
       )}
       {clearTable.error && (
@@ -320,11 +323,10 @@ export function SupplierDirectoryForm({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
           <p className="text-sm font-medium text-slate-700">
-            Cargar proveedores desde Excel
+            {t("supplierDirectoryForm.loadSuppliersFromExcel")}
           </p>
           <p className="text-xs text-slate-400">
-            Columnas: CodigoProveedor, CIF, Empresa, Nombre, Apellido,
-            Correo, Telefono, Estado. Se agrega a lo que ya tengas.
+            {t("supplierDirectoryForm.excelColumnsHint")}
           </p>
           {importError && (
             <p className="mt-1 text-xs text-red-600">{importError}</p>
@@ -338,7 +340,7 @@ export function SupplierDirectoryForm({
             }
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Exportar Excel
+            {t("supplierDirectoryForm.exportExcel")}
           </button>
           <input
             ref={importInputRef}
@@ -353,7 +355,7 @@ export function SupplierDirectoryForm({
             onClick={() => importInputRef.current?.click()}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {importing ? "Importando..." : "Importar Excel"}
+            {importing ? t("supplierDirectoryForm.importing") : t("supplierDirectoryForm.importExcel")}
           </button>
           <input
             ref={deleteImportInputRef}
@@ -368,18 +370,18 @@ export function SupplierDirectoryForm({
             onClick={() => deleteImportInputRef.current?.click()}
             className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
           >
-            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+            {deleteImporting ? t("supplierDirectoryForm.deleting") : t("supplierDirectoryForm.importToDelete")}
           </button>
         </div>
       </div>
 
       <CollapsibleSection
-        title="Proveedores"
+        title={t("supplierDirectoryForm.title")}
         storageKey="masterdata-section-suppliers"
         right={
           <div className="flex items-center gap-3">
             <ColumnSettingsMenu
-              defs={COLUMN_DEFS}
+              defs={defs}
               order={columnPrefs.order}
               hidden={columnPrefs.hidden}
               toggleVisible={columnPrefs.toggleVisible}
@@ -392,7 +394,7 @@ export function SupplierDirectoryForm({
                 onClick={() => removeRows(selectedKeys)}
                 className="text-sm font-medium text-red-600 hover:text-red-700"
               >
-                Borrar seleccionados ({selectedKeys.size})
+                {t("supplierDirectoryForm.deleteSelected")} ({selectedKeys.size})
               </button>
             )}
             {isSuperAdmin && (
@@ -401,7 +403,7 @@ export function SupplierDirectoryForm({
                 disabled={clearTable.pending}
                 onClick={() =>
                   clearTable.run(
-                    "Esto borra TODOS los proveedores de este cliente (y sus usuarios de portal) de forma permanente. ¿Continuar?",
+                    t("supplierDirectoryForm.deleteAllConfirm"),
                     () => {
                       setRows([emptyRow()]);
                       setSelectedKeys(new Set());
@@ -411,7 +413,7 @@ export function SupplierDirectoryForm({
                 }
                 className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
               >
-                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+                {clearTable.pending ? t("supplierDirectoryForm.deleting") : t("supplierDirectoryForm.deleteTable")}
               </button>
             )}
             <button
@@ -423,7 +425,7 @@ export function SupplierDirectoryForm({
               }}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar
+              {t("supplierDirectoryForm.add")}
             </button>
           </div>
         }
@@ -431,7 +433,7 @@ export function SupplierDirectoryForm({
         <div>
           <input
             className={inputClass()}
-            placeholder="Buscar por código, CIF, empresa, contacto, correo, teléfono o estado..."
+            placeholder={t("supplierDirectoryForm.searchPlaceholder")}
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
           />
@@ -496,8 +498,8 @@ export function SupplierDirectoryForm({
                                 })
                               }
                             >
-                              <option value="ACTIVE">Activo</option>
-                              <option value="INACTIVE">Inactivo</option>
+                              <option value="ACTIVE">{t("supplierDirectoryForm.active")}</option>
+                              <option value="INACTIVE">{t("supplierDirectoryForm.inactive")}</option>
                             </select>
                           ) : (
                             <span
@@ -507,7 +509,7 @@ export function SupplierDirectoryForm({
                                   : "rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600"
                               }
                             >
-                              {row.status === "ACTIVE" ? "Activo" : "Inactivo"}
+                              {row.status === "ACTIVE" ? t("supplierDirectoryForm.active") : t("supplierDirectoryForm.inactive")}
                             </span>
                           )
                         ) : isEditing ? (
@@ -538,8 +540,8 @@ export function SupplierDirectoryForm({
                             className="text-sm font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
                           >
                             {rowSavingKeys.has(row.clientKey)
-                              ? "Guardando..."
-                              : "Guardar"}
+                              ? t("common.saving")
+                              : t("supplierDirectoryForm.save")}
                           </button>
                         )}
                         <button
@@ -547,7 +549,7 @@ export function SupplierDirectoryForm({
                           onClick={() => toggleEditing(row.clientKey)}
                           className="text-sm font-medium text-violet-600 hover:text-violet-700"
                         >
-                          {isEditing ? "Listo" : "Editar"}
+                          {isEditing ? t("supplierDirectoryForm.done") : t("supplierDirectoryForm.edit")}
                         </button>
                         <button
                           type="button"
@@ -555,7 +557,7 @@ export function SupplierDirectoryForm({
                           disabled={rows.length === 1}
                           className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                         >
-                          Quitar
+                          {t("supplierDirectoryForm.remove")}
                         </button>
                       </div>
                       {rowSaveErrors[row.clientKey] && (
@@ -581,19 +583,19 @@ export function SupplierDirectoryForm({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Usuarios de proveedor"
-        subtitle="Contactos con acceso al portal de proveedor (correo y contraseña) para el proveedor seleccionado."
+        title={t("supplierDirectoryForm.supplierUsersTitle")}
+        subtitle={t("supplierDirectoryForm.supplierUsersSubtitle")}
         storageKey="masterdata-section-supplier-users"
       >
         {rows.filter((r) => savedKeys.has(r.clientKey)).length === 0 ? (
           <p className="text-sm text-slate-500">
-            Guarda al menos un proveedor para poder darle usuarios de portal.
+            {t("supplierDirectoryForm.saveAtLeastOneSupplier")}
           </p>
         ) : (
           <>
             <div className="max-w-md">
               <label className="mb-1 block text-xs font-medium text-slate-500">
-                Proveedor
+                {t("supplierDirectoryForm.supplier")}
               </label>
               <select
                 className={inputClass()}
@@ -628,7 +630,7 @@ export function SupplierDirectoryForm({
           disabled={pending}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar cambios"}
+          {pending ? t("common.saving") : t("supplierDirectoryForm.saveChanges")}
         </button>
       </div>
     </form>

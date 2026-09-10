@@ -12,6 +12,7 @@ import { parseItemCatalogExcelFile } from "./itemCatalogImport";
 import { downloadItemCatalogExcel } from "./itemCatalogExport";
 import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 function emptyRow(): ItemCatalogItemInput {
   return {
@@ -50,6 +51,7 @@ export function ItemCatalogForm({
     description: string;
   }[];
 }) {
+  const { t } = usePreferences();
   const [rows, setRows] = useState<ItemCatalogItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
   );
@@ -102,7 +104,7 @@ export function ItemCatalogForm({
     try {
       const imported = await parseItemCatalogExcelFile(file);
       if (imported.length === 0) {
-        setImportError("No se encontraron filas con las columnas esperadas.");
+        setImportError(t("itemCatalogForm.noRowsFoundError"));
         return;
       }
       setSuccess(false);
@@ -126,7 +128,7 @@ export function ItemCatalogForm({
         return [...kept, ...resolved];
       });
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("itemCatalogForm.readFileError"));
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -147,7 +149,7 @@ export function ItemCatalogForm({
     try {
       const imported = await parseItemCatalogExcelFile(file);
       if (imported.length === 0) {
-        setImportError("No se encontraron filas con las columnas esperadas.");
+        setImportError(t("itemCatalogForm.noRowsFoundError"));
         return;
       }
       const keysToDelete = new Set(
@@ -167,7 +169,7 @@ export function ItemCatalogForm({
         ),
       );
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("itemCatalogForm.readFileError"));
     } finally {
       setDeleteImporting(false);
       if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
@@ -222,7 +224,7 @@ export function ItemCatalogForm({
       )}
       {success && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Cambios guardados.
+          {t("itemCatalogForm.savedChanges")}
         </div>
       )}
       {clearTable.error && (
@@ -234,11 +236,10 @@ export function ItemCatalogForm({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
           <p className="text-sm font-medium text-slate-700">
-            Cargar catálogo desde Excel
+            {t("itemCatalogForm.loadCatalogFromExcel")}
           </p>
           <p className="text-xs text-slate-400">
-            Columnas: Catalogo, Codigo, Articulo, Descripcion, Unidad,
-            Commodity, UltimoPrecio. Se agrega a lo que ya tengas.
+            {t("itemCatalogForm.excelColumnsHint")}
           </p>
           {importError && (
             <p className="mt-1 text-xs text-red-600">{importError}</p>
@@ -250,7 +251,7 @@ export function ItemCatalogForm({
             onClick={() => downloadItemCatalogExcel("Catalogo-articulos.xlsx", rows)}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Exportar Excel
+            {t("itemCatalogForm.exportExcel")}
           </button>
           <input
             ref={importInputRef}
@@ -265,7 +266,7 @@ export function ItemCatalogForm({
             onClick={() => importInputRef.current?.click()}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {importing ? "Importando..." : "Importar Excel"}
+            {importing ? t("itemCatalogForm.importing") : t("itemCatalogForm.importExcel")}
           </button>
           <input
             ref={deleteImportInputRef}
@@ -280,7 +281,7 @@ export function ItemCatalogForm({
             onClick={() => deleteImportInputRef.current?.click()}
             className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
           >
-            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+            {deleteImporting ? t("itemCatalogForm.deleting") : t("itemCatalogForm.importToDelete")}
           </button>
         </div>
       </div>
@@ -289,12 +290,10 @@ export function ItemCatalogForm({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-slate-900">
-              Catálogo de artículos
+              {t("itemCatalogForm.title")}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Se actualiza solo con el precio adjudicado cada vez que se
-              adjudica una RFP. También puedes agregar o corregir entradas a
-              mano.
+              {t("itemCatalogForm.subtitle")}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -304,7 +303,7 @@ export function ItemCatalogForm({
                 onClick={() => removeRows(selectedKeys)}
                 className="text-sm font-medium text-red-600 hover:text-red-700"
               >
-                Borrar seleccionados ({selectedKeys.size})
+                {t("itemCatalogForm.deleteSelected")} ({selectedKeys.size})
               </button>
             )}
             {isSuperAdmin && (
@@ -313,7 +312,7 @@ export function ItemCatalogForm({
                 disabled={clearTable.pending}
                 onClick={() =>
                   clearTable.run(
-                    "Esto borra TODO el catálogo de artículos de este cliente de forma permanente. ¿Continuar?",
+                    t("itemCatalogForm.deleteAllConfirm"),
                     () => {
                       setRows([emptyRow()]);
                       setSelectedKeys(new Set());
@@ -323,7 +322,7 @@ export function ItemCatalogForm({
                 }
                 className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
               >
-                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+                {clearTable.pending ? t("itemCatalogForm.deleting") : t("itemCatalogForm.deleteTable")}
               </button>
             )}
             <button
@@ -331,7 +330,7 @@ export function ItemCatalogForm({
               onClick={() => setRows((prev) => [...prev, emptyRow()])}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar
+              {t("itemCatalogForm.add")}
             </button>
           </div>
         </div>
@@ -339,7 +338,7 @@ export function ItemCatalogForm({
         <div className="mt-4">
           <input
             className={inputClass()}
-            placeholder="Buscar por catálogo, código, artículo, descripción, unidad o commodity..."
+            placeholder={t("itemCatalogForm.searchPlaceholder")}
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
           />
@@ -359,13 +358,13 @@ export function ItemCatalogForm({
                     onChange={toggleSelectPage}
                   />
                 </th>
-                <th className="px-3 pb-1">Catálogo</th>
-                <th className="px-3 pb-1">Código</th>
-                <th className="px-3 pb-1">Artículo</th>
-                <th className="px-3 pb-1">Descripción</th>
-                <th className="px-3 pb-1">Unidad</th>
-                <th className="px-3 pb-1">Commodity</th>
-                <th className="px-3 pb-1">Último precio</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.catalog")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.code")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.item")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.description")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.unit")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.commodity")}</th>
+                <th className="px-3 pb-1">{t("itemCatalogForm.lastPrice")}</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
             </thead>
@@ -386,7 +385,7 @@ export function ItemCatalogForm({
                       onChange={(e) =>
                         updateRow(row.clientKey, { catalogName: e.target.value })
                       }
-                      placeholder="Nombre del catálogo"
+                      placeholder={t("itemCatalogForm.catalogNamePlaceholder")}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -394,7 +393,7 @@ export function ItemCatalogForm({
                       className={smallInputClass()}
                       value={row.code}
                       onChange={(e) => updateRow(row.clientKey, { code: e.target.value })}
-                      placeholder="Código"
+                      placeholder={t("itemCatalogForm.code")}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -402,7 +401,7 @@ export function ItemCatalogForm({
                       className={smallInputClass()}
                       value={row.name}
                       onChange={(e) => updateRow(row.clientKey, { name: e.target.value })}
-                      placeholder="Nombre del artículo"
+                      placeholder={t("itemCatalogForm.itemNamePlaceholder")}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -412,7 +411,7 @@ export function ItemCatalogForm({
                       onChange={(e) =>
                         updateRow(row.clientKey, { description: e.target.value })
                       }
-                      placeholder="Descripción"
+                      placeholder={t("itemCatalogForm.description")}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -442,8 +441,8 @@ export function ItemCatalogForm({
                           commodity: node?.description ?? "",
                         });
                       }}
-                      placeholder="Commodity"
-                      clearLabel="Sin commodity"
+                      placeholder={t("itemCatalogForm.commodity")}
+                      clearLabel={t("itemCatalogForm.noCommodity")}
                     />
                   </td>
                   <td className="px-3 py-2">
@@ -456,7 +455,7 @@ export function ItemCatalogForm({
                       onChange={(e) =>
                         updateRow(row.clientKey, { lastPrice: e.target.value })
                       }
-                      placeholder="Sin dato"
+                      placeholder={t("itemCatalogForm.noData")}
                     />
                   </td>
                   <td className="rounded-r-lg px-3 py-2 text-right">
@@ -466,7 +465,7 @@ export function ItemCatalogForm({
                       disabled={rows.length === 1}
                       className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                     >
-                      Quitar
+                      {t("itemCatalogForm.remove")}
                     </button>
                   </td>
                 </tr>
@@ -490,7 +489,7 @@ export function ItemCatalogForm({
           disabled={pending}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar cambios"}
+          {pending ? t("common.saving") : t("itemCatalogForm.saveChanges")}
         </button>
       </div>
     </form>

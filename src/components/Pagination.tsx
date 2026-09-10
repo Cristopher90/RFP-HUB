@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
@@ -49,6 +50,7 @@ export function PaginationBar({
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
 }) {
+  const { t } = usePreferences();
   if (totalItems === 0) return null;
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
@@ -56,11 +58,11 @@ export function PaginationBar({
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
       <span>
-        Mostrando {start}–{end} de {totalItems}
+        {t("pagination.showing")} {start}–{end} {t("pagination.of")} {totalItems}
       </span>
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-1.5">
-          Mostrar
+          {t("pagination.show")}
           <select
             className="rounded-md border border-slate-300 px-2 py-1 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
             value={pageSize}
@@ -80,10 +82,10 @@ export function PaginationBar({
             disabled={page <= 1}
             className="rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
           >
-            &lsaquo; Anterior
+            {t("pagination.previous")}
           </button>
           <span className="px-1">
-            Página {page} de {pageCount}
+            {t("pagination.page")} {page} {t("pagination.pageOf")} {pageCount}
           </span>
           <button
             type="button"
@@ -91,7 +93,7 @@ export function PaginationBar({
             disabled={page >= pageCount}
             className="rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
           >
-            Siguiente &rsaquo;
+            {t("pagination.next")}
           </button>
         </div>
       </div>

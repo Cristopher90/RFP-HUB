@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { ItemCatalogForm } from "./ItemCatalogForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function ItemCatalogPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function ItemCatalogPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const [items, commodities] = effectiveClientId
     ? await Promise.all([
@@ -31,14 +33,13 @@ export default async function ItemCatalogPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Catálogo de artículos
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.itemCatalogPage.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Artículos disponibles para seleccionar al crear una RFP, con su
-        último precio adjudicado como referencia histórica.
+        {dictionary.itemCatalogPage.subtitle}
       </p>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -66,7 +67,7 @@ export default async function ItemCatalogPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para ver y editar su catálogo de artículos.
+          {dictionary.itemCatalogPage.selectClient}
         </p>
       )}
     </div>
