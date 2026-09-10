@@ -69,7 +69,7 @@ export function AwardPanel({
   awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
 }) {
-  const { formatCurrency, formatDateTime, dictionary } = usePreferences();
+  const { formatCurrency, formatDateTime, dictionary, t } = usePreferences();
   const [answerScores, setAnswerScores] = useState<Record<string, number | null>>(
     () =>
       Object.fromEntries(
@@ -252,10 +252,10 @@ export function AwardPanel({
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm font-semibold text-slate-800">
-              ¿Agregar los artículos adjudicados al catálogo?
+              {t("awardPanel.addToCatalogTitle")}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              Se crearán o actualizarán en el catálogo con nombre:
+              {t("awardPanel.addToCatalogHint")}
             </p>
             <input
               autoFocus
@@ -269,7 +269,7 @@ export function AwardPanel({
                 onClick={() => setCatalogPrompt(null)}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Omitir
+                {t("awardPanel.skip")}
               </button>
               <button
                 type="button"
@@ -277,7 +277,7 @@ export function AwardPanel({
                 onClick={handleConfirmAddToCatalog}
                 className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
               >
-                Agregar al catálogo
+                {t("awardPanel.addToCatalog")}
               </button>
             </div>
           </div>
@@ -286,7 +286,7 @@ export function AwardPanel({
 
       {catalogSaved && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Artículos agregados al catálogo.
+          {t("awardPanel.itemsAddedToCatalog")}
         </div>
       )}
 
@@ -294,7 +294,7 @@ export function AwardPanel({
         <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4">
           <div>
             <p className="text-sm font-semibold text-emerald-800">
-              RFP adjudicada a {awardedSupplier.name} ({awardedSupplier.company}
+              {t("awardPanel.awardedTo")} {awardedSupplier.name} ({awardedSupplier.company}
               )
             </p>
             {awardedAt && (
@@ -309,14 +309,14 @@ export function AwardPanel({
             disabled={pending}
             className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
           >
-            Quitar adjudicación
+            {t("awardPanel.revokeAward")}
           </button>
         </div>
       )}
 
       {pendingSupplier && (
         <ApprovalFlowBanner
-          title={`Pendiente de aprobación de adjudicación: ${pendingSupplier.name} (${pendingSupplier.company})`}
+          title={`${t("awardPanel.pendingApprovalTitle")}: ${pendingSupplier.name} (${pendingSupplier.company})`}
           levels={awardLevels}
           canDecide={canDecideAward}
           pending={pending}
@@ -327,14 +327,12 @@ export function AwardPanel({
       )}
 
       <CollapsibleSection
-        title="Criterio de adjudicación"
+        title={t("awardPanel.criteriaTitle")}
         storageKey="award-criteria"
       >
         {!scoringEnabled ? (
           <p className="text-sm text-slate-500">
-            Esta RFP no fue configurada con ponderación de artículos ni
-            preguntas — la adjudicación se basa únicamente en el precio
-            total.
+            {t("awardPanel.noScoringHint")}
           </p>
         ) : (
           <>
@@ -357,8 +355,8 @@ export function AwardPanel({
             {criteria === "WEIGHTED" && (
               <div className="mt-5">
                 <div className="mb-1 flex items-center justify-between text-xs font-medium text-slate-500">
-                  <span>Artículos {itemsWeightPct}%</span>
-                  <span>Preguntas {100 - itemsWeightPct}%</span>
+                  <span>{t("awardPanel.items")} {itemsWeightPct}%</span>
+                  <span>{t("awardPanel.questions")} {100 - itemsWeightPct}%</span>
                 </div>
                 <input
                   type="range"
@@ -375,19 +373,17 @@ export function AwardPanel({
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Puntajes" storageKey="award-scores">
+      <CollapsibleSection title={t("awardPanel.scoresTitle")} storageKey="award-scores">
         {!scoringEnabled ? (
-          <p className="text-sm text-slate-500">RFP no puntuada.</p>
+          <p className="text-sm text-slate-500">{t("awardPanel.notScored")}</p>
         ) : (
           <div className="space-y-6">
             <div>
               <h3 className="text-sm font-semibold text-slate-800">
-                Puntaje de artículos
+                {t("awardPanel.itemsScoreTitle")}
               </h3>
               <p className="mt-1 text-sm text-slate-500">
-                Cada artículo tiene un peso (definido al crear la RFP) que
-                determina cuánto influye su competitividad de precio en el
-                puntaje final.
+                {t("awardPanel.itemsScoreHint")}
               </p>
               <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((item) => (
@@ -397,7 +393,7 @@ export function AwardPanel({
                   >
                     <span className="truncate text-slate-700">{item.name}</span>
                     <span className="shrink-0 text-xs text-slate-400">
-                      peso {item.weight}
+                      {t("awardPanel.weightPrefix")} {item.weight}
                     </span>
                   </div>
                 ))}
@@ -407,11 +403,10 @@ export function AwardPanel({
             {questions.length > 0 && (
               <div className="border-t border-slate-200 pt-6">
                 <h3 className="text-sm font-semibold text-slate-800">
-                  Evaluación de respuestas
+                  {t("awardPanel.answersEvalTitle")}
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
-                  Califica cada respuesta de 0 a 10. El peso de cada pregunta
-                  se definió al crear la RFP.
+                  {t("awardPanel.answersEvalHint")}
                 </p>
                 <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {suppliers.map((s) => (
@@ -445,7 +440,7 @@ export function AwardPanel({
                                 <p className="truncate text-xs font-medium text-slate-500">
                                   {q.text}{" "}
                                   <span className="text-slate-400">
-                                    (peso {q.weight})
+                                    ({t("awardPanel.weightPrefix")} {q.weight})
                                   </span>
                                 </p>
                                 <p className="truncate text-sm text-slate-800">
@@ -460,7 +455,7 @@ export function AwardPanel({
                                           rel="noreferrer"
                                           className="text-violet-600 underline hover:text-violet-700"
                                         >
-                                          {filename ?? "Ver archivo"}
+                                          {filename ?? t("awardPanel.viewFile")}
                                         </a>
                                       );
                                     })()
@@ -501,7 +496,7 @@ export function AwardPanel({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Resultado con el criterio seleccionado"
+        title={t("awardPanel.resultTitle")}
         storageKey="award-results"
       >
         <div>
@@ -513,9 +508,9 @@ export function AwardPanel({
               value: Math.round(s.combined * 10) / 10,
               color: s.color,
             }))}
-            valueFormatter={(v) => `${v.toFixed(1)} pts`}
+            valueFormatter={(v) => `${v.toFixed(1)} ${t("awardPanel.pointsSuffix")}`}
             bestId={ranked[0]?.invitationId ?? null}
-            bestLabel="1er lugar"
+            bestLabel={t("awardPanel.firstPlace")}
           />
         </div>
 
@@ -524,15 +519,15 @@ export function AwardPanel({
             <thead className="text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="py-2 pr-4">#</th>
-                <th className="py-2 pr-4">Proveedor</th>
-                <th className="py-2 pr-4">Precio total</th>
+                <th className="py-2 pr-4">{t("awardPanel.supplier")}</th>
+                <th className="py-2 pr-4">{t("awardPanel.totalPrice")}</th>
                 {scoringEnabled && (
                   <>
-                    <th className="py-2 pr-4">Puntaje artículos</th>
-                    <th className="py-2 pr-4">Puntaje preguntas</th>
+                    <th className="py-2 pr-4">{t("awardPanel.itemsScoreColumn")}</th>
+                    <th className="py-2 pr-4">{t("awardPanel.questionsScoreColumn")}</th>
                   </>
                 )}
-                <th className="py-2 pr-4">Puntaje final</th>
+                <th className="py-2 pr-4">{t("awardPanel.finalScore")}</th>
                 <th className="py-2" />
               </tr>
             </thead>
@@ -571,7 +566,7 @@ export function AwardPanel({
                       </td>
                       <td className="py-3 pr-4 text-slate-600">
                         {s.questionScore === null
-                          ? "Sin evaluar"
+                          ? t("awardPanel.notEvaluated")
                           : s.questionScore.toFixed(0)}
                       </td>
                     </>
@@ -582,11 +577,11 @@ export function AwardPanel({
                   <td className="py-3 text-right">
                     {s.invitationId === awardedId ? (
                       <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        Adjudicada
+                        {t("awardPanel.awarded")}
                       </span>
                     ) : s.invitationId === pendingId ? (
                       <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
-                        Pendiente de aprobación
+                        {t("awardPanel.pendingApproval")}
                       </span>
                     ) : (
                       <button
@@ -595,7 +590,7 @@ export function AwardPanel({
                         disabled={pending || Boolean(pendingId)}
                         className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-60"
                       >
-                        Adjudicar
+                        {t("awardPanel.award")}
                       </button>
                     )}
                   </td>
@@ -606,8 +601,8 @@ export function AwardPanel({
         </div>
         <p className="mt-2 text-xs text-slate-400">
           {scoringEnabled
-            ? "El puntaje de artículos pondera la competitividad de precio de cada artículo según su peso. El puntaje de preguntas depende de las calificaciones que asignes arriba."
-            : "El puntaje final refleja únicamente la competitividad de precio total."}
+            ? t("awardPanel.scoringFootnote")
+            : t("awardPanel.priceOnlyFootnote")}
         </p>
       </CollapsibleSection>
     </div>

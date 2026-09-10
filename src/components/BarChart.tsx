@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type BarChartDatum = {
   id: string;
@@ -14,8 +15,8 @@ export function BarChart({
   data,
   valueFormatter = (v: number) => String(v),
   bestId,
-  bestLabel = "Mejor",
-  emptyMessage = "Sin datos todavía.",
+  bestLabel,
+  emptyMessage,
 }: {
   data: BarChartDatum[];
   valueFormatter?: (value: number) => string;
@@ -23,6 +24,7 @@ export function BarChart({
   bestLabel?: string;
   emptyMessage?: string;
 }) {
+  const { t } = usePreferences();
   const uid = useId();
   const [hoverId, setHoverId] = useState<string | null>(null);
   const max = Math.max(1, ...data.map((d) => d.value));
@@ -30,7 +32,7 @@ export function BarChart({
   if (data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-slate-400">
-        {emptyMessage}
+        {emptyMessage ?? t("barChart.noDataYet")}
       </div>
     );
   }
@@ -65,7 +67,7 @@ export function BarChart({
                 )}
                 {isBest && (
                   <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                    {bestLabel}
+                    {bestLabel ?? t("barChart.best")}
                   </span>
                 )}
               </div>
@@ -95,7 +97,7 @@ export function BarChart({
         );
       })}
       <p className="sr-only" id={uid}>
-        Gráfico de barras horizontal
+        {t("barChart.horizontalBarChart")}
       </p>
     </div>
   );

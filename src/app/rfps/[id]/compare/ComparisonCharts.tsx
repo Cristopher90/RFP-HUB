@@ -21,7 +21,7 @@ export function ComparisonCharts({
   totals: SupplierTotal[];
   items: ItemChartData[];
 }) {
-  const { formatCurrency } = usePreferences();
+  const { formatCurrency, t } = usePreferences();
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? "");
   const [itemQuery, setItemQuery] = useState("");
 
@@ -51,10 +51,10 @@ export function ComparisonCharts({
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-900">
-          Total de la oferta por proveedor
+          {t("comparisonCharts.totalBySupplier")}
         </h3>
         <p className="mb-4 text-xs text-slate-400">
-          Suma de precio unitario × cantidad de todos los artículos.
+          {t("comparisonCharts.totalBySupplierHint")}
         </p>
         <BarChart
           data={totals}
@@ -66,13 +66,13 @@ export function ComparisonCharts({
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="mb-1 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">
-            Precio por artículo
+            {t("comparisonCharts.pricePerItem")}
           </h3>
         </div>
         <div className="mb-4 space-y-2">
           <input
             type="text"
-            placeholder="Buscar artículo por nombre..."
+            placeholder={t("comparisonCharts.searchPlaceholder")}
             value={itemQuery}
             onChange={(e) => setItemQuery(e.target.value)}
             className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
@@ -83,7 +83,7 @@ export function ComparisonCharts({
             className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
           >
             {filteredItems.length === 0 ? (
-              <option value="">Sin resultados</option>
+              <option value="">{t("comparisonCharts.noResults")}</option>
             ) : (
               filteredItems.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -98,7 +98,7 @@ export function ComparisonCharts({
             data={selectedItem.bars}
             valueFormatter={formatCurrency}
             bestId={bestItemId}
-            emptyMessage="Ningún proveedor ha cotizado este artículo."
+            emptyMessage={t("comparisonCharts.noSupplierQuoted")}
           />
         )}
       </div>

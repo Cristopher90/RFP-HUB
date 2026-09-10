@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatCurrency } from "@/lib/format";
 import { localeForLanguage } from "@/i18n/locale";
+import { getDictionary } from "@/i18n/getDictionary";
 import { colorForIndex } from "@/lib/chartColors";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
@@ -40,6 +41,7 @@ export default async function ComparePage({
 
   const locale = localeForLanguage(user.language);
   const currencyOptions = { locale, currency: user.currency };
+  const dictionary = getDictionary(user.language);
 
   const responded = rfp.invitations.filter((inv) => inv.response);
 
@@ -202,20 +204,19 @@ export default async function ComparePage({
         href={`/rfps/${rfp.id}`}
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Volver a la RFP
+        {dictionary.comparePage.backToRfp}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Monitor y Adjudicación &middot; {rfp.title}
+        {dictionary.comparePage.titlePrefix} &middot; {rfp.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        {responded.length} de {rfp.invitations.length} proveedores han
-        respondido.
+        {responded.length} {dictionary.comparePage.of} {rfp.invitations.length} {dictionary.comparePage.respondedSuffix}
       </p>
 
       {previousProjectMatches.length > 0 && (
         <CollapsibleSection
-          title="Precios de proyectos anteriores"
-          subtitle="Mejor precio encontrado en otras RFPs con el mismo código de artículo o descripción."
+          title={dictionary.comparePage.previousPricesTitle}
+          subtitle={dictionary.comparePage.previousPricesSubtitle}
           storageKey="monitor-previous-projects"
           className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
@@ -241,7 +242,7 @@ export default async function ComparePage({
                     href={`/rfps/${m.best.rfpId}`}
                     className="text-xs font-medium text-violet-600 hover:text-violet-700"
                   >
-                    Ver RFP &quot;{m.best.rfpTitle}&quot; &rarr;
+                    {dictionary.comparePage.viewRfpPrefix} &quot;{m.best.rfpTitle}&quot; &rarr;
                   </Link>
                 </span>
               </li>
@@ -252,21 +253,20 @@ export default async function ComparePage({
 
       {responded.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
-          Todavía no hay cotizaciones para comparar.
+          {dictionary.comparePage.noQuotesYet}
         </div>
       ) : isBlind ? (
         <div className="mt-8 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-12 text-center text-amber-800">
-          <p className="font-medium">Oferta a ciegas activada</p>
+          <p className="font-medium">{dictionary.comparePage.blindOfferActive}</p>
           <p className="mt-1 text-sm">
-            Las respuestas de los proveedores se mostrarán una vez que
-            cierres la RFP. Ya hay {responded.length} de{" "}
-            {rfp.invitations.length} respuestas recibidas.
+            {dictionary.comparePage.blindOfferHint} {responded.length} {dictionary.comparePage.of}{" "}
+            {rfp.invitations.length} {dictionary.comparePage.receivedResponses}
           </p>
         </div>
       ) : (
         <>
           <CollapsibleSection
-            title="Comparación de ofertas"
+            title={dictionary.comparePage.comparisonTitle}
             storageKey="monitor-charts"
             className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
           >
@@ -274,7 +274,7 @@ export default async function ComparePage({
           </CollapsibleSection>
 
           <CollapsibleSection
-            title="Precio por artículo"
+            title={dictionary.comparePage.pricePerItemTitle}
             storageKey="monitor-item-prices"
             className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
           >
@@ -296,7 +296,7 @@ export default async function ComparePage({
 
           {rfp.questions.some((q) => q.visibility === "EXTERNAL") && (
             <CollapsibleSection
-              title="Respuestas a preguntas"
+              title={dictionary.comparePage.answersTitle}
               storageKey="monitor-answers"
               className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
             >
@@ -336,7 +336,7 @@ export default async function ComparePage({
                                       rel="noreferrer"
                                       className="text-violet-600 underline hover:text-violet-700"
                                     >
-                                      {filename ?? "Ver archivo"}
+                                      {filename ?? dictionary.comparePage.viewFile}
                                     </a>
                                   );
                                 })()
@@ -358,8 +358,8 @@ export default async function ComparePage({
 
           {internalQuestions.length > 0 && (
             <CollapsibleSection
-              title="Notas internas"
-              subtitle="Solo las ve el comprador. Aparecen por proveedor cuando se cumple su condición (si tienen una)."
+              title={dictionary.comparePage.internalNotesTitle}
+              subtitle={dictionary.comparePage.internalNotesSubtitle}
               storageKey="monitor-internal-notes"
               className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
             >
@@ -387,7 +387,7 @@ export default async function ComparePage({
                             {q.text}
                             {q.respondedBy === "BUYER" && (
                               <span className="ml-2 font-medium text-slate-900">
-                                {q.buyerAnswerValue || "— sin responder"}
+                                {q.buyerAnswerValue || dictionary.comparePage.unanswered}
                               </span>
                             )}
                           </li>
@@ -402,7 +402,7 @@ export default async function ComparePage({
 
           <div className="mt-10">
             <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">
-              Adjudicación
+              {dictionary.comparePage.awardTitle}
             </h2>
             <AwardPanel
               rfpId={rfp.id}

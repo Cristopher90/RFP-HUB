@@ -27,7 +27,7 @@ export function ItemPriceTable({
   totals: { invId: string; total: number }[];
   bestTotal: number | null;
 }) {
-  const { formatCurrency } = usePreferences();
+  const { formatCurrency, t } = usePreferences();
   const [query, setQuery] = useState("");
 
   const q = query.trim().toLowerCase();
@@ -44,7 +44,7 @@ export function ItemPriceTable({
       {items.length > 6 && (
         <input
           type="text"
-          placeholder="Buscar artículo por nombre o código..."
+          placeholder={t("itemPriceTable.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="mb-3 w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
@@ -54,9 +54,9 @@ export function ItemPriceTable({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="sticky left-0 bg-slate-50 px-5 py-3">Artículo</th>
-              <th className="px-5 py-3 whitespace-nowrap">Precio histórico</th>
-              <th className="px-5 py-3 whitespace-nowrap">Ahorro</th>
+              <th className="sticky left-0 bg-slate-50 px-5 py-3">{t("itemPriceTable.item")}</th>
+              <th className="px-5 py-3 whitespace-nowrap">{t("itemPriceTable.historicalPrice")}</th>
+              <th className="px-5 py-3 whitespace-nowrap">{t("itemPriceTable.savings")}</th>
               {suppliers.map((s) => (
                 <th key={s.id} className="px-5 py-3 whitespace-nowrap">
                   <span className="flex items-center gap-1.5">
@@ -81,7 +81,7 @@ export function ItemPriceTable({
                   colSpan={3 + suppliers.length}
                   className="px-5 py-6 text-center text-slate-400"
                 >
-                  Sin resultados.
+                  {t("itemPriceTable.noResults")}
                 </td>
               </tr>
             ) : (
@@ -118,14 +118,14 @@ export function ItemPriceTable({
                         <span className="text-slate-400">—</span>
                       ) : savings > 0 ? (
                         <span className="font-medium text-emerald-700">
-                          {formatCurrency(savings)} ahorro
+                          {formatCurrency(savings)} {t("itemPriceTable.savingsSuffix")}
                         </span>
                       ) : savings < 0 ? (
                         <span className="font-medium text-red-600">
-                          {formatCurrency(Math.abs(savings))} más caro
+                          {formatCurrency(Math.abs(savings))} {t("itemPriceTable.moreExpensiveSuffix")}
                         </span>
                       ) : (
-                        <span className="text-slate-400">sin cambio</span>
+                        <span className="text-slate-400">{t("itemPriceTable.noChange")}</span>
                       )}
                     </td>
                     {item.prices.map(({ invId, price }) => (
@@ -149,7 +149,7 @@ export function ItemPriceTable({
                 className="sticky left-0 bg-slate-50 px-5 py-3 font-semibold text-slate-900"
                 colSpan={3}
               >
-                Total estimado
+                {t("itemPriceTable.estimatedTotal")}
               </td>
               {totals.map(({ invId, total }) => (
                 <td
@@ -161,7 +161,7 @@ export function ItemPriceTable({
                   {formatCurrency(total)}
                   {total === bestTotal && (
                     <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                      Mejor precio
+                      {t("itemPriceTable.bestPrice")}
                     </span>
                   )}
                 </td>
