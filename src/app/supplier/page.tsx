@@ -14,7 +14,12 @@ export default async function SupplierHomePage() {
   });
 
   const invitations = await prisma.invitation.findMany({
-    where: { supplier: { supplierDirectoryId: supplierUser.supplierDirectoryId } },
+    where: {
+      supplier: { supplierDirectoryId: supplierUser.supplierDirectoryId },
+      rfp: {
+        status: { notIn: ["AWAITING_START", "PENDING_PUBLISH_APPROVAL"] },
+      },
+    },
     include: {
       rfp: { include: { client: true } },
       response: true,

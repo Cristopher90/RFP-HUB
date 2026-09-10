@@ -121,19 +121,20 @@ model Client {
 }
 
 model User {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   name               String // Nombre
   lastName           String? // Apellido
   clientId           String? // null solo para ADMIN (ve todos los clientes)
-  client             Client?  @relation(fields: [clientId], references: [id])
-  email              String   @unique // Correo
+  client             Client?   @relation(fields: [clientId], references: [id])
+  email              String    @unique // Correo
   companyCode        String? // Sociedad
   plant              String? // Centro
   costCenter         String? // Centro de coste
   passwordHash       String
-  role               UserRole @default(BUYER)
-  createdAt          DateTime @default(now())
-  allowFreeTextItems Boolean  @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
+  role               UserRole  @default(BUYER)
+  createdAt          DateTime  @default(now())
+  lastLoginAt        DateTime? // fecha y hora del login más reciente, mostrado en el pie de página
+  allowFreeTextItems Boolean   @default(true) // si puede agregar artículos escribiendo la descripción libremente, o solo desde el catálogo
 
   approvalGroups UserApprovalGroup[]
 
@@ -273,6 +274,7 @@ model SupplierUser {
   email               String            @unique
   passwordHash        String
   createdAt           DateTime          @default(now())
+  lastLoginAt         DateTime? // fecha y hora del login más reciente, mostrado en el pie de página
 }
 
 // Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa

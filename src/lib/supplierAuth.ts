@@ -18,6 +18,10 @@ export async function createSupplierSessionCookie(supplierUserId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+  await prisma.supplierUser.update({
+    where: { id: supplierUserId },
+    data: { lastLoginAt: new Date() },
+  });
 }
 
 export async function clearSupplierSessionCookie() {

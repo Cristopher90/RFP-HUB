@@ -34,6 +34,10 @@ export async function createSessionCookie(userId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { lastLoginAt: new Date() },
+  });
 }
 
 export async function clearSessionCookie() {

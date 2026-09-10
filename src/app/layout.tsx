@@ -5,6 +5,7 @@ import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
+import { formatDateTime } from "@/lib/format";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,6 +29,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const client = user?.client ?? supplierUser?.client ?? null;
   const brandName = client?.description ?? null;
   const brandIcon = client?.icon || "🔨";
+
+  const activeSession = user ?? supplierUser;
+  const sessionName = activeSession
+    ? `${activeSession.name} ${activeSession.lastName ?? ""}`.trim()
+    : null;
+  const sessionLoginLabel =
+    activeSession?.lastLoginAt != null
+      ? formatDateTime(activeSession.lastLoginAt)
+      : null;
 
   return (
     <html
@@ -59,6 +69,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </div>
         <footer className="border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-400">
           RFP.HUB &middot; herramienta de compras y sourcing &middot; datos de demostración
+          {sessionName && (
+            <>
+              {" "}
+              &middot; {sessionName}
+              {sessionLoginLabel && (
+                <> &middot; Sesión iniciada: {sessionLoginLabel}</>
+              )}
+            </>
+          )}
         </footer>
       </body>
     </html>
