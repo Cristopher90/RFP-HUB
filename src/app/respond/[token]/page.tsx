@@ -14,7 +14,6 @@ export default async function RespondPage({
   const preferences = await getViewerPreferences();
   const locale = localeForLanguage(preferences.language);
   const dateOptions = { locale, timeZone: preferences.timeZone };
-  const currencyOptions = { locale, currency: preferences.currency };
   const dictionary = getDictionary(preferences.language);
 
   const invitation = await prisma.invitation.findUnique({
@@ -25,6 +24,7 @@ export default async function RespondPage({
         include: {
           items: { orderBy: { order: "asc" } },
           questions: { orderBy: { order: "asc" } },
+          client: { select: { currency: true } },
         },
       },
       response: {
@@ -34,6 +34,9 @@ export default async function RespondPage({
   });
 
   if (!invitation) notFound();
+  // Derived from the RFP's owning client, not the (session-less) viewer's
+  // default preference — see rfps/[id]/page.tsx for why.
+  const currencyOptions = { locale, currency: invitation.rfp.client.currency };
 
   invitation.rfp.status = await syncAwaitingStart(invitation.rfp);
 

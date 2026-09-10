@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { ClientsForm } from "./ClientsForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { CURRENCIES } from "@/lib/profileOptions";
 
 export default async function ClientsPage() {
   const scope = await requireClientScope();
@@ -35,7 +36,9 @@ export default async function ClientsPage() {
             code: c.code,
             description: c.description,
             icon: c.icon ?? "",
+            currency: c.currency,
           }))}
+          currencies={CURRENCIES}
         />
       </div>
     </div>

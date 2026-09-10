@@ -18,7 +18,11 @@ type PreferencesContextValue = {
   t: (path: string) => string;
   formatDate: (value: Date | string) => string;
   formatDateTime: (value: Date | string) => string;
-  formatCurrency: (value: number) => string;
+  // `currencyOverride` lets RFP-scoped displays (award/approval amounts,
+  // item prices) format in the RFP's own currency rather than the
+  // viewer's personal preference — otherwise the same stored amount could
+  // show a different currency code to different people looking at it.
+  formatCurrency: (value: number, currencyOverride?: string) => string;
 };
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
@@ -47,7 +51,8 @@ export function PreferencesProvider({
       t: (path) => resolveKey(dictionary, path),
       formatDate: (value) => formatDateBase(value, { locale, timeZone }),
       formatDateTime: (value) => formatDateTimeBase(value, { locale, timeZone }),
-      formatCurrency: (value) => formatCurrencyBase(value, { locale, currency }),
+      formatCurrency: (value, currencyOverride) =>
+        formatCurrencyBase(value, { locale, currency: currencyOverride ?? currency }),
     };
   }, [language, timeZone, currency, dictionary]);
 

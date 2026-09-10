@@ -33,6 +33,7 @@ export default async function ComparePage({
         },
         orderBy: { invitedAt: "asc" },
       },
+      client: { select: { currency: true } },
     },
   });
 
@@ -40,7 +41,9 @@ export default async function ComparePage({
   if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
 
   const locale = localeForLanguage(user.language);
-  const currencyOptions = { locale, currency: user.currency };
+  // Derived from the RFP's owning client, not the viewer's personal
+  // preference — see rfps/[id]/page.tsx for why.
+  const currencyOptions = { locale, currency: rfp.client.currency };
   const dictionary = getDictionary(user.language);
 
   const responded = rfp.invitations.filter((inv) => inv.response);
@@ -270,7 +273,7 @@ export default async function ComparePage({
             storageKey="monitor-charts"
             className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
           >
-            <ComparisonCharts totals={totalsChartData} items={itemsChartData} />
+            <ComparisonCharts totals={totalsChartData} items={itemsChartData} currency={rfp.client.currency} />
           </CollapsibleSection>
 
           <CollapsibleSection
@@ -291,6 +294,7 @@ export default async function ComparePage({
                 total: totals.get(inv.id) ?? 0,
               }))}
               bestTotal={bestTotal}
+              currency={rfp.client.currency}
             />
           </CollapsibleSection>
 
@@ -435,6 +439,7 @@ export default async function ComparePage({
               initialPendingInvitationId={rfp.pendingAwardInvitationId}
               awardLevels={awardLevels}
               canDecideAward={canDecideAward}
+              currency={rfp.client.currency}
             />
           </div>
         </>

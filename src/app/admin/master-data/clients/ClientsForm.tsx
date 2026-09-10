@@ -13,10 +13,11 @@ type ClientRow = {
   code: string;
   description: string;
   icon: string;
+  currency: string;
 };
 
 function emptyRow(): ClientRow {
-  return { clientKey: makeClientKey(), code: "", description: "", icon: "" };
+  return { clientKey: makeClientKey(), code: "", description: "", icon: "", currency: "USD" };
 }
 
 function inputClass() {
@@ -26,7 +27,13 @@ function inputClass() {
 // Flat editor for the Client list — unlike the other datos maestros
 // screens, clients have no hierarchy (no "Padre") and aren't themselves
 // scoped by a clientId, since a Client IS the tenant boundary. ADMIN-only.
-export function ClientsForm({ initial }: { initial: ClientRow[] }) {
+export function ClientsForm({
+  initial,
+  currencies,
+}: {
+  initial: ClientRow[];
+  currencies: string[];
+}) {
   const { t } = usePreferences();
   const [rows, setRows] = useState<ClientRow[]>(
     initial.length > 0 ? initial : [emptyRow()],
@@ -177,6 +184,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                 <th className="px-3 pb-1">{t("clientsForm.code")}</th>
                 <th className="px-3 pb-1">{t("clientsForm.name")}</th>
                 <th className="px-3 pb-1">{t("clientsForm.icon")}</th>
+                <th className="px-3 pb-1" title={t("clientsForm.currencyHint")}>{t("clientsForm.currency")}</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
             </thead>
@@ -216,6 +224,19 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                       value={row.icon}
                       onChange={(e) => updateRow(row.clientKey, { icon: e.target.value })}
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      className={inputClass()}
+                      value={row.currency}
+                      onChange={(e) => updateRow(row.clientKey, { currency: e.target.value })}
+                    >
+                      {currencies.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="rounded-r-lg px-3 py-2 text-right">
                     <button

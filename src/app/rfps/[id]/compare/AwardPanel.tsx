@@ -54,6 +54,7 @@ export function AwardPanel({
   initialPendingInvitationId,
   awardLevels,
   canDecideAward,
+  currency,
 }: {
   rfpId: string;
   rfpNumber: number;
@@ -68,6 +69,7 @@ export function AwardPanel({
   initialPendingInvitationId: string | null;
   awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
+  currency: string;
 }) {
   const { formatCurrency, formatDateTime, dictionary, t } = usePreferences();
   const [answerScores, setAnswerScores] = useState<Record<string, number | null>>(
@@ -460,7 +462,7 @@ export function AwardPanel({
                                       );
                                     })()
                                   ) : q.type === "MONEY" ? (
-                                    formatCurrency(Number(answer.value))
+                                    formatCurrency(Number(answer.value), currency)
                                   ) : (
                                     answer.value
                                   )}
@@ -557,7 +559,7 @@ export function AwardPanel({
                     </span>
                   </td>
                   <td className="py-3 pr-4 text-slate-600">
-                    {formatCurrency(s.totalPrice)}
+                    {formatCurrency(s.totalPrice, currency)}
                   </td>
                   {scoringEnabled && (
                     <>

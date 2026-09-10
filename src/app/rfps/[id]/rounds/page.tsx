@@ -16,15 +16,22 @@ export default async function RfpRoundsPage({
   const preferences = await getViewerPreferences();
   const locale = localeForLanguage(preferences.language);
   const dateOptions = { locale, timeZone: preferences.timeZone };
-  const currencyOptions = { locale, currency: preferences.currency };
   const dictionary = getDictionary(preferences.language);
 
   const rfp = await prisma.rfp.findUnique({
     where: { id },
-    select: { id: true, seriesRootId: true, clientId: true },
+    select: {
+      id: true,
+      seriesRootId: true,
+      clientId: true,
+      client: { select: { currency: true } },
+    },
   });
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
+  // Derived from the RFP's owning client, not the viewer's personal
+  // preference — see rfps/[id]/page.tsx for why.
+  const currencyOptions = { locale, currency: rfp.client.currency };
 
   const seriesRootId = rfp.seriesRootId ?? rfp.id;
 

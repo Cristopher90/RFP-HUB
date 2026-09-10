@@ -91,6 +91,7 @@ model Client {
   code        String   @unique
   description String
   icon        String? // emoji mostrado junto al nombre del cliente en la barra superior
+  currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
   createdAt   DateTime @default(now())
 
   users                User[]

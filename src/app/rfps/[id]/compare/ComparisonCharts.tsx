@@ -17,9 +17,11 @@ type ItemChartData = {
 export function ComparisonCharts({
   totals,
   items,
+  currency,
 }: {
   totals: SupplierTotal[];
   items: ItemChartData[];
+  currency: string;
 }) {
   const { formatCurrency, t } = usePreferences();
   const [selectedItemId, setSelectedItemId] = useState(items[0]?.id ?? "");
@@ -58,7 +60,7 @@ export function ComparisonCharts({
         </p>
         <BarChart
           data={totals}
-          valueFormatter={formatCurrency}
+          valueFormatter={(v) => formatCurrency(v, currency)}
           bestId={bestTotalId}
         />
       </div>
@@ -96,7 +98,7 @@ export function ComparisonCharts({
         {selectedItem && (
           <BarChart
             data={selectedItem.bars}
-            valueFormatter={formatCurrency}
+            valueFormatter={(v) => formatCurrency(v, currency)}
             bestId={bestItemId}
             emptyMessage={t("comparisonCharts.noSupplierQuoted")}
           />

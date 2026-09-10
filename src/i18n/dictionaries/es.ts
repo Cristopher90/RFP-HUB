@@ -375,6 +375,8 @@ export const es = {
     code: "Código",
     name: "Nombre",
     icon: "Ícono",
+    currency: "Moneda",
+    currencyHint: "En qué moneda se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira.",
     codePlaceholder: "Ej. BASELINE",
     namePlaceholder: "Ej. Cliente BASELINE",
     remove: "Quitar",

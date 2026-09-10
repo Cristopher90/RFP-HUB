@@ -46,6 +46,7 @@ export default async function RfpDetailPage({
           orderBy: { invitedAt: "asc" },
         },
         basedOnRfp: { select: { number: true, title: true } },
+        client: { select: { currency: true } },
       },
     }),
     requireClientScope(),
@@ -58,7 +59,11 @@ export default async function RfpDetailPage({
   const locale = localeForLanguage(user.language);
   const dictionary = getDictionary(user.language);
   const dateOptions = { locale, timeZone: user.timezone };
-  const currencyOptions = { locale, currency: user.currency };
+  // Currency is derived from the RFP's owning client, not the viewer's
+  // personal preference — otherwise the same stored amount could show a
+  // different currency code to different people looking at it (e.g. two
+  // approvers with different `currency` settings).
+  const currencyOptions = { locale, currency: rfp.client.currency };
 
   const supplierDirectoryRaw = await prisma.supplierDirectory.findMany({
     where: { status: "ACTIVE", clientId: rfp.clientId },

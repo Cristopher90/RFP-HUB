@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
+import { CURRENCIES } from "@/lib/profileOptions";
 
 export type MasterDataItemInput = {
   clientKey: string;
@@ -11,6 +12,7 @@ export type MasterDataItemInput = {
   description: string;
   parentClientKey: string | null;
   icon?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
+  currency?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
   selectable?: boolean; // solo usado por kind: "commodity"
 };
 
@@ -37,6 +39,7 @@ export async function saveClientList(
       code: i.code.trim(),
       description: i.description.trim(),
       icon: i.icon?.trim() || null,
+      currency: (i.currency?.trim() || "USD").toUpperCase(),
     }))
     .filter((i) => i.code.length > 0 && i.description.length > 0);
 
@@ -45,6 +48,9 @@ export async function saveClientList(
     const key = i.code.toLowerCase();
     if (seen.has(key)) return { error: `El ID "${i.code}" está repetido.` };
     seen.add(key);
+    if (!CURRENCIES.includes(i.currency)) {
+      return { error: `La moneda "${i.currency}" no es válida.` };
+    }
   }
 
   // Every other table has a hard (RESTRICT) foreign key straight to
@@ -74,11 +80,11 @@ export async function saveClientList(
     if (existingIds.has(i.clientKey)) {
       await prisma.client.update({
         where: { id: i.clientKey },
-        data: { code: i.code, description: i.description, icon: i.icon },
+        data: { code: i.code, description: i.description, icon: i.icon, currency: i.currency },
       });
     } else {
       await prisma.client.create({
-        data: { code: i.code, description: i.description, icon: i.icon },
+        data: { code: i.code, description: i.description, icon: i.icon, currency: i.currency },
       });
     }
   }

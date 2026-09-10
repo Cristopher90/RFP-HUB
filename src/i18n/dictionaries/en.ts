@@ -374,6 +374,8 @@ export const en: Dictionary = {
     code: "Code",
     name: "Name",
     icon: "Icon",
+    currency: "Currency",
+    currencyHint: "The currency this client's RFP prices are shown in, regardless of the personal preference of whoever is viewing them.",
     codePlaceholder: "E.g. BASELINE",
     namePlaceholder: "E.g. BASELINE Client",
     remove: "Remove",

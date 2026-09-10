@@ -21,11 +21,13 @@ export function ItemPriceTable({
   items,
   totals,
   bestTotal,
+  currency,
 }: {
   suppliers: SupplierCol[];
   items: ItemRow[];
   totals: { invId: string; total: number }[];
   bestTotal: number | null;
+  currency: string;
 }) {
   const { formatCurrency, t } = usePreferences();
   const [query, setQuery] = useState("");
@@ -110,7 +112,7 @@ export function ItemPriceTable({
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap text-slate-500">
                       {item.historicalPrice != null
-                        ? formatCurrency(item.historicalPrice)
+                        ? formatCurrency(item.historicalPrice, currency)
                         : "—"}
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap">
@@ -118,11 +120,11 @@ export function ItemPriceTable({
                         <span className="text-slate-400">—</span>
                       ) : savings > 0 ? (
                         <span className="font-medium text-emerald-700">
-                          {formatCurrency(savings)} {t("itemPriceTable.savingsSuffix")}
+                          {formatCurrency(savings, currency)} {t("itemPriceTable.savingsSuffix")}
                         </span>
                       ) : savings < 0 ? (
                         <span className="font-medium text-red-600">
-                          {formatCurrency(Math.abs(savings))} {t("itemPriceTable.moreExpensiveSuffix")}
+                          {formatCurrency(Math.abs(savings), currency)} {t("itemPriceTable.moreExpensiveSuffix")}
                         </span>
                       ) : (
                         <span className="text-slate-400">{t("itemPriceTable.noChange")}</span>
@@ -137,7 +139,7 @@ export function ItemPriceTable({
                             : "text-slate-600"
                         }`}
                       >
-                        {price !== undefined ? formatCurrency(price) : "—"}
+                        {price !== undefined ? formatCurrency(price, currency) : "—"}
                       </td>
                     ))}
                   </tr>
@@ -158,7 +160,7 @@ export function ItemPriceTable({
                     total === bestTotal ? "text-emerald-700" : "text-slate-800"
                   }`}
                 >
-                  {formatCurrency(total)}
+                  {formatCurrency(total, currency)}
                   {total === bestTotal && (
                     <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                       {t("itemPriceTable.bestPrice")}
