@@ -6,6 +6,7 @@ import { TreePickerField } from "@/components/TreePickerField";
 import { SupplierSearchPicker } from "@/components/SupplierSearchPicker";
 import { ItemCatalogPicker, type ItemCatalogEntry } from "@/components/ItemCatalogPicker";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { QuestionScoringFields } from "@/components/QuestionScoringFields";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
@@ -56,6 +57,7 @@ export type TemplateData = {
     respondedBy: QuestionResponder;
     numberMin: number | null;
     numberMax: number | null;
+    scoringConfig: Record<string, number> | null;
     lockRoles: UserRole[];
   }[];
 };
@@ -90,6 +92,7 @@ function emptySupplierQuestion(): NewQuestionInput {
     respondedBy: "SUPPLIER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -111,6 +114,7 @@ function emptyInternalQuestion(): NewQuestionInput {
     respondedBy: "BUYER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -132,6 +136,7 @@ function emptyInfoBlock(area: "external" | "internal"): NewQuestionInput {
     respondedBy: area === "internal" ? "BUYER" : "SUPPLIER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -400,6 +405,7 @@ export function RfpForm({
           respondedBy: tq.respondedBy,
           numberMin: tq.numberMin,
           numberMax: tq.numberMax,
+          scoringConfig: tq.scoringConfig,
           dependsOnQuestionKey: null,
           dependsOnHeaderField: null,
           dependsOnValue: "",
@@ -897,28 +903,6 @@ export function RfpForm({
       <CollapsibleSection
         title="Detalles de la RFP"
         storageKey="rfp-new-details"
-        right={
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={weightingEnabled}
-                onChange={(e) => setWeightingEnabled(e.target.checked)}
-              />
-              Ponderar artículos
-            </label>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={weightingQuestionsEnabled}
-                onChange={(e) =>
-                  setWeightingQuestionsEnabled(e.target.checked)
-                }
-              />
-              Ponderar preguntas
-            </label>
-          </div>
-        }
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -1149,6 +1133,26 @@ export function RfpForm({
                 }
               />
             )}
+          </div>
+          <div className="flex items-center gap-4 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={weightingEnabled}
+                onChange={(e) => setWeightingEnabled(e.target.checked)}
+              />
+              Ponderar artículos
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={weightingQuestionsEnabled}
+                onChange={(e) =>
+                  setWeightingQuestionsEnabled(e.target.checked)
+                }
+              />
+              Ponderar preguntas
+            </label>
           </div>
         </div>
       </CollapsibleSection>
@@ -2081,6 +2085,16 @@ export function RfpForm({
                               }
                             />
                           </div>
+                        )}
+                        {weightingQuestionsEnabled && q.respondedBy === "SUPPLIER" && (
+                          <QuestionScoringFields
+                            type={q.type}
+                            options={q.options}
+                            scoringConfig={q.scoringConfig}
+                            onChange={(scoringConfig) =>
+                              updateQuestion(index, { scoringConfig })
+                            }
+                          />
                         )}
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">

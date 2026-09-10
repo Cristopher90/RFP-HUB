@@ -111,6 +111,9 @@ export default async function EditRfpPage({
         respondedBy: q.respondedBy,
         numberMin: q.numberMin,
         numberMax: q.numberMax,
+        scoringConfig: q.scoringConfig
+          ? (JSON.parse(q.scoringConfig) as Record<string, number>)
+          : null,
         dependsOnQuestionKey: q.dependsOnQuestionId,
         dependsOnHeaderField: q.dependsOnHeaderField as
           | "commodity"
@@ -226,6 +229,9 @@ export default async function EditRfpPage({
               respondedBy: q.respondedBy,
               numberMin: q.numberMin,
               numberMax: q.numberMax,
+              scoringConfig: q.scoringConfig
+                ? (JSON.parse(q.scoringConfig) as Record<string, number>)
+                : null,
               lockRoles: q.lockRoles,
             })),
           }))}

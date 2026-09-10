@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { matchesTemplate } from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
+import { serializeScoringConfig } from "@/lib/questionScoring";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -55,6 +56,7 @@ export type NewQuestionInput = {
   respondedBy: QuestionResponder;
   numberMin: number | null;
   numberMax: number | null;
+  scoringConfig: Record<string, number> | null;
   dependsOnQuestionKey: string | null;
   dependsOnHeaderField: "commodity" | "region" | null;
   dependsOnValue: string;
@@ -170,6 +172,11 @@ function shapeQuestions(questions: NewQuestionInput[]) {
         respondedBy,
         numberMin: q.type === "NUMBER" ? q.numberMin : null,
         numberMax: q.type === "NUMBER" ? q.numberMax : null,
+        scoringConfig:
+          respondedBy === "SUPPLIER" &&
+          (q.type === "SELECT" || q.type === "NUMBER" || q.type === "YES_NO")
+            ? serializeScoringConfig(q.scoringConfig)
+            : null,
         dependsOnQuestionKey: q.dependsOnQuestionKey,
         dependsOnHeaderField: q.dependsOnHeaderField,
         dependsOnValue: q.dependsOnValue.trim(),
@@ -370,6 +377,7 @@ export async function createRfp(
         respondedBy: q.respondedBy,
         numberMin: q.numberMin,
         numberMax: q.numberMax,
+        scoringConfig: q.scoringConfig,
         dependsOnHeaderField: q.dependsOnHeaderField,
         dependsOnValue: q.dependsOnValue || null,
         buyerAnswerValue: q.buyerAnswerValue,

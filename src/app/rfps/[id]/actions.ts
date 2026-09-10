@@ -277,6 +277,7 @@ export async function updateRfp(
       respondedBy: q.respondedBy,
       numberMin: q.numberMin,
       numberMax: q.numberMax,
+      scoringConfig: q.scoringConfig,
       dependsOnHeaderField: q.dependsOnHeaderField,
       dependsOnValue: q.dependsOnValue || null,
       buyerAnswerValue: q.buyerAnswerValue,

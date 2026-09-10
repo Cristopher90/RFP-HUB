@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
+import { serializeScoringConfig } from "@/lib/questionScoring";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type TemplateItemInput = {
@@ -47,6 +48,7 @@ export type TemplateQuestionInput = {
   respondedBy: TemplateQuestionResponder;
   numberMin: number | null;
   numberMax: number | null;
+  scoringConfig: Record<string, number> | null;
   dependsOnQuestionKey: string | null;
   dependsOnHeaderField: "commodity" | "region" | null;
   dependsOnValue: string;
@@ -124,6 +126,11 @@ export async function saveTemplate(
       respondedBy: q.respondedBy,
       numberMin: q.type === "NUMBER" ? q.numberMin : null,
       numberMax: q.type === "NUMBER" ? q.numberMax : null,
+      scoringConfig:
+        q.respondedBy === "SUPPLIER" &&
+        (q.type === "SELECT" || q.type === "NUMBER" || q.type === "YES_NO")
+          ? serializeScoringConfig(q.scoringConfig)
+          : null,
       dependsOnQuestionKey: q.dependsOnQuestionKey,
       dependsOnHeaderField: q.dependsOnHeaderField,
       dependsOnValue: q.dependsOnValue.trim(),
@@ -182,6 +189,7 @@ export async function saveTemplate(
         respondedBy: q.respondedBy,
         numberMin: q.numberMin,
         numberMax: q.numberMax,
+        scoringConfig: q.scoringConfig,
         dependsOnHeaderField: q.dependsOnHeaderField,
         dependsOnValue: q.dependsOnValue || null,
         options: q.options,

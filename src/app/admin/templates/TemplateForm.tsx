@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { GearButton } from "@/components/GearButton";
 import { TreePickerField } from "@/components/TreePickerField";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { QuestionScoringFields } from "@/components/QuestionScoringFields";
 import { ROLE_LABEL } from "@/lib/roleLabels";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
@@ -67,6 +68,7 @@ function emptySupplierQuestion(): TemplateQuestionInput {
     respondedBy: "SUPPLIER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -88,6 +90,7 @@ function emptyInfoBlock(area: "external" | "internal"): TemplateQuestionInput {
     respondedBy: area === "internal" ? "BUYER" : "SUPPLIER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -109,6 +112,7 @@ function emptyInternalQuestion(): TemplateQuestionInput {
     respondedBy: "BUYER",
     numberMin: null,
     numberMax: null,
+    scoringConfig: null,
     dependsOnQuestionKey: null,
     dependsOnHeaderField: null,
     dependsOnValue: "",
@@ -1394,6 +1398,16 @@ export function TemplateForm({
                             }
                           />
                         </div>
+                        {q.respondedBy === "SUPPLIER" && (
+                          <QuestionScoringFields
+                            type={q.type}
+                            options={q.options}
+                            scoringConfig={q.scoringConfig}
+                            onChange={(scoringConfig) =>
+                              updateQuestion(index, { scoringConfig })
+                            }
+                          />
+                        )}
                         <div className="sm:col-span-4">
                           <label className="mb-1 block text-xs font-medium text-slate-500">
                             Editable/excluible por grupo

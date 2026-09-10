@@ -170,6 +170,9 @@ export default async function NewRfpPage({
               respondedBy: q.respondedBy,
               numberMin: q.numberMin,
               numberMax: q.numberMax,
+              scoringConfig: q.scoringConfig
+                ? (JSON.parse(q.scoringConfig) as Record<string, number>)
+                : null,
               lockRoles: q.lockRoles,
             })),
           }))}

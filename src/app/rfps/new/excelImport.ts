@@ -128,6 +128,7 @@ export async function parseRfpExcelFile(file: File): Promise<{
           row.NumeroMax !== undefined && row.NumeroMax !== ""
             ? Number(row.NumeroMax)
             : null,
+        scoringConfig: null,
         dependsOnQuestionKey,
         dependsOnHeaderField,
         dependsOnValue: (row.CondicionValor ?? "").toString().trim(),

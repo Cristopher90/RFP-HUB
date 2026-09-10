@@ -73,7 +73,12 @@ export default async function EditApprovalWorkflowPage({
           workflowId={workflow.id}
           initial={initial}
           templates={templates.map((t) => ({ id: t.id, name: t.name }))}
-          users={users.map((u) => ({ id: u.id, name: u.name }))}
+          users={users.map((u) => ({
+            id: u.id,
+            name: u.name,
+            lastName: u.lastName ?? "",
+            email: u.email,
+          }))}
           groups={groups.map((g) => ({ id: g.id, description: g.description }))}
         />
       </div>

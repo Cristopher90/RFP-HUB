@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
+import { UserMultiPicker, type PickableUser } from "@/components/UserMultiPicker";
 import {
   createApprovalWorkflow,
   updateApprovalWorkflow,
@@ -37,7 +38,7 @@ function LevelListEditor({
   levels: LevelRow[];
   onChange: (levels: LevelRow[]) => void;
   groups: { id: string; description: string }[];
-  users: { id: string; name: string }[];
+  users: PickableUser[];
 }) {
   function update(clientKey: string, patch: Partial<LevelRow>) {
     onChange(levels.map((l) => (l.clientKey === clientKey ? { ...l, ...patch } : l)));
@@ -127,29 +128,16 @@ function LevelListEditor({
             </div>
 
             {level.mode === "USERS" && (
-              <div className="mt-2 max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 bg-white p-2">
-                {users.length === 0 && (
+              <div className="mt-2">
+                {users.length === 0 ? (
                   <p className="text-xs text-slate-400">No hay usuarios.</p>
+                ) : (
+                  <UserMultiPicker
+                    users={users}
+                    selectedIds={level.userIds}
+                    onChange={(userIds) => update(level.clientKey, { userIds })}
+                  />
                 )}
-                {users.map((u) => (
-                  <label
-                    key={u.id}
-                    className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-slate-50"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={level.userIds.includes(u.id)}
-                      onChange={(e) =>
-                        update(level.clientKey, {
-                          userIds: e.target.checked
-                            ? [...level.userIds, u.id]
-                            : level.userIds.filter((id) => id !== u.id),
-                        })
-                      }
-                    />
-                    {u.name}
-                  </label>
-                ))}
               </div>
             )}
 
@@ -179,10 +167,13 @@ function LevelListEditor({
                     }
                   />
                   <span>
-                    Acumulativo: se van sumando los límites de aprobación de
-                    quienes aprueban hasta cubrir el valor de la RFP. Si no
-                    está marcado, aprueba cualquiera del grupo cuyo límite
-                    individual ya cubra ese valor.
+                    Acumulativo: deben aprobar en orden ascendente de límite
+                    hasta cubrir el valor de la RFP — primero quien tenga el
+                    límite más bajo del grupo, luego el siguiente, y así
+                    sucesivamente, aunque un límite mayor ya alcanzara para
+                    cubrir el valor por sí solo. Si no está marcado, aprueba
+                    cualquiera del grupo cuyo límite individual ya cubra ese
+                    valor.
                   </span>
                 </label>
               </div>
@@ -205,7 +196,7 @@ export function ApprovalWorkflowForm({
   workflowId?: string;
   initial?: ApprovalWorkflowInput;
   templates: { id: string; name: string }[];
-  users: { id: string; name: string }[];
+  users: PickableUser[];
   groups: { id: string; description: string }[];
   targetClientId?: string;
 }) {

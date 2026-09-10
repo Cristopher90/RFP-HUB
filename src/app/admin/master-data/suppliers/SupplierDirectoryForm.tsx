@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { makeClientKey } from "@/lib/clientKey";
 import {
   saveSupplierDirectory,
+  saveSupplierRow,
   clearSupplierDirectory,
   type SupplierDirectoryItemInput,
   type SupplierUserItemInput,
@@ -90,8 +91,16 @@ export function SupplierDirectoryForm({
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   // Only rows that already exist in the DB (loaded from the server) have a
   // real id a SupplierUser can attach to — a freshly-added, unsaved row's
-  // clientKey is just a local placeholder.
-  const [savedKeys] = useState(() => new Set(initial.map((r) => r.clientKey)));
+  // clientKey is just a local placeholder. Grows via saveRow() below, so a
+  // just-added supplier becomes usable in "Usuarios de proveedor" right
+  // away instead of needing the whole-table "Guardar cambios" + reload.
+  const [savedKeys, setSavedKeys] = useState(
+    () => new Set(initial.map((r) => r.clientKey)),
+  );
+  const [rowSavingKeys, setRowSavingKeys] = useState<Set<string>>(new Set());
+  const [rowSaveErrors, setRowSaveErrors] = useState<Record<string, string>>(
+    {},
+  );
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(
     initial[0]?.clientKey ?? "",
   );
@@ -146,6 +155,50 @@ export function SupplierDirectoryForm({
       if (next.has(clientKey)) next.delete(clientKey);
       else next.add(clientKey);
       return next;
+    });
+  }
+
+  function saveRow(clientKey: string) {
+    const row = rows.find((r) => r.clientKey === clientKey);
+    if (!row) return;
+    setRowSavingKeys((prev) => new Set(prev).add(clientKey));
+    setRowSaveErrors((prev) => {
+      const next = { ...prev };
+      delete next[clientKey];
+      return next;
+    });
+    startTransition(async () => {
+      const result = await saveSupplierRow(row, targetClientId);
+      setRowSavingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(clientKey);
+        return next;
+      });
+      if ("error" in result) {
+        setRowSaveErrors((prev) => ({ ...prev, [clientKey]: result.error }));
+        return;
+      }
+      const savedId = result.id;
+      setRows((prev) =>
+        prev.map((r) =>
+          r.clientKey === clientKey ? { ...r, clientKey: savedId } : r,
+        ),
+      );
+      setSavedKeys((prev) => new Set(prev).add(savedId));
+      setEditingKeys((prev) => {
+        if (!prev.has(clientKey)) return prev;
+        const next = new Set(prev);
+        next.delete(clientKey);
+        return next;
+      });
+      setSelectedKeys((prev) => {
+        if (!prev.has(clientKey)) return prev;
+        const next = new Set(prev);
+        next.delete(clientKey);
+        next.add(savedId);
+        return next;
+      });
+      setSelectedSupplierId((prev) => (prev === clientKey ? savedId : prev));
     });
   }
 
@@ -477,6 +530,18 @@ export function SupplierDirectoryForm({
                     ))}
                     <td className="rounded-r-lg px-3 py-2 text-right">
                       <div className="flex justify-end gap-3">
+                        {isEditing && (
+                          <button
+                            type="button"
+                            disabled={rowSavingKeys.has(row.clientKey)}
+                            onClick={() => saveRow(row.clientKey)}
+                            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 disabled:opacity-50"
+                          >
+                            {rowSavingKeys.has(row.clientKey)
+                              ? "Guardando..."
+                              : "Guardar"}
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => toggleEditing(row.clientKey)}
@@ -493,6 +558,11 @@ export function SupplierDirectoryForm({
                           Quitar
                         </button>
                       </div>
+                      {rowSaveErrors[row.clientKey] && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {rowSaveErrors[row.clientKey]}
+                        </p>
+                      )}
                     </td>
                   </tr>
                 );

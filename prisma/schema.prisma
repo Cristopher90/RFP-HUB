@@ -409,6 +409,7 @@ model TemplateQuestion {
   respondedBy    QuestionResponder  @default(SUPPLIER)
   numberMin      Float?
   numberMax      Float?
+  scoringConfig  String? // JSON: puntaje automático por respuesta (ver src/lib/questionScoring.ts)
   section        String? // nombre de la sección a la que pertenece (agrupa y numera)
   order          Int                @default(0)
   lockRoles      UserRole[] // roles que pueden editarla/quitarla al crear la RFP; vacío = cualquiera puede
@@ -564,6 +565,7 @@ model RfpQuestion {
   buyerAnswerValue String? // respuesta del propio comprador cuando respondedBy = BUYER
   numberMin        Float?
   numberMax        Float?
+  scoringConfig    String? // JSON: puntaje automático por respuesta (ver src/lib/questionScoring.ts)
 
   dependsOnQuestionId  String? // condicionada a la respuesta de otra pregunta
   dependsOnHeaderField String? // o condicionada a un dato de cabecera (commodity, region)

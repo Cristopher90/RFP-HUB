@@ -87,15 +87,38 @@ export function levelsForStage(
     }));
 }
 
+// The lowest limit, among group members who have NOT yet approved this
+// level, that must decide next — null once everyone has already approved
+// (shouldn't happen in practice: the level would already be APPROVED by
+// then). Acumulativo approval is an ascending chain: $1,000 must approve
+// before $2,000 gets a turn, even if $2,000 alone would already cover the
+// RFP's value, so the sum genuinely reflects everyone who had to sign off
+// in order, not just whoever got there first.
+async function nextCumulativeApproverLimit(
+  approvalId: string,
+  approvalGroupId: string,
+): Promise<number | null> {
+  const [members, approvedDecisions] = await Promise.all([
+    prisma.userApprovalGroup.findMany({ where: { approvalGroupId } }),
+    prisma.rfpApprovalDecision.findMany({
+      where: { approvalId, decision: "APPROVED" },
+    }),
+  ]);
+  const approvedUserIds = new Set(approvedDecisions.map((d) => d.userId));
+  const remaining = members.filter((m) => !approvedUserIds.has(m.userId));
+  if (remaining.length === 0) return null;
+  return Math.min(...remaining.map((m) => m.limit));
+}
+
 // Eligibility check shared by the UI (show/hide Aprobar/Rechazar) and the
 // action layer (authoritative gate) — must never drift between the two.
-export function canDecide(
+export async function canDecide(
   approval: Pick<
     ApprovalRow,
-    "mode" | "userIds" | "approvalGroupId" | "cumulative" | "requiredValue"
+    "id" | "mode" | "userIds" | "approvalGroupId" | "cumulative" | "requiredValue"
   >,
   user: DeciderUser,
-): boolean {
+): Promise<boolean> {
   if (approval.mode === "USERS") {
     const ids = approval.userIds ? (JSON.parse(approval.userIds) as string[]) : [];
     return ids.includes(user.id);
@@ -104,8 +127,14 @@ export function canDecide(
   // per-user value, so an unrelated group membership never qualifies them.
   const membership = user.groups.find((g) => g.approvalGroupId === approval.approvalGroupId);
   if (!membership) return false;
-  if (approval.cumulative) return true;
-  return membership.limit >= approval.requiredValue;
+  if (!approval.cumulative) return membership.limit >= approval.requiredValue;
+
+  const nextLimit = await nextCumulativeApproverLimit(
+    approval.id,
+    approval.approvalGroupId ?? "",
+  );
+  if (nextLimit === null) return false;
+  return membership.limit === nextLimit;
 }
 
 // A user may only decide once per level — otherwise a cumulative GROUP
@@ -129,7 +158,7 @@ export async function canDecideActiveLevel(
   if (rejected || !active) return false;
   const user = await loadDeciderUser(userId);
   if (!user) return false;
-  if (!canDecide(active, user)) return false;
+  if (!(await canDecide(active, user))) return false;
   if (await hasAlreadyDecided(active.id, user.id)) return false;
   return true;
 }
@@ -212,7 +241,7 @@ export async function recordDecision(input: {
   const { active, rejected } = await getActiveApproval(rfpId, stage);
   if (rejected) return { ok: false, error: "Esta etapa ya fue rechazada." };
   if (!active) return { ok: false, error: "No hay ningún nivel pendiente de aprobación." };
-  if (!canDecide(active, user)) {
+  if (!(await canDecide(active, user))) {
     return { ok: false, error: "No tienes permiso para decidir sobre este nivel." };
   }
   if (await hasAlreadyDecided(active.id, userId)) {
@@ -336,7 +365,7 @@ export async function findPendingApprovalsForUser(userId: string) {
     if (group.some((g) => g.status === "REJECTED")) continue;
     const active = group.find((g) => g.status === "PENDING");
     if (!active) continue;
-    if (canDecide(active, user)) {
+    if (await canDecide(active, user)) {
       results.push({
         rfpId: active.rfpId,
         rfpNumber: active.rfp.number,
@@ -418,6 +447,9 @@ export async function describeApprovals(
   let blocked = false;
 
   return approvals.map((a) => {
+    const approvedUserIds = new Set(
+      a.decisions.filter((d) => d.decision === "APPROVED").map((d) => d.userId),
+    );
     const label =
       a.mode === "USERS"
         ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : [])
@@ -430,6 +462,7 @@ export async function describeApprovals(
           }`;
     const active = !blocked && a.status === "PENDING" && !rejectedStage;
     if (a.status !== "APPROVED") blocked = true;
+    const groupMembers = membersByGroupId.get(a.approvalGroupId ?? "") ?? [];
     const eligibleApprovers =
       a.mode === "USERS"
         ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : []).map((id) => ({
@@ -437,7 +470,16 @@ export async function describeApprovals(
             name: userNameById.get(id) ?? "?",
             limit: null,
           }))
-        : (membersByGroupId.get(a.approvalGroupId ?? "") ?? []);
+        : a.cumulative
+          ? // Ascending chain: only whoever is tied for the lowest limit among
+            // members who haven't approved yet gets to act next.
+            (() => {
+              const remaining = groupMembers.filter((m) => !approvedUserIds.has(m.id));
+              if (remaining.length === 0) return [];
+              const nextLimit = Math.min(...remaining.map((m) => m.limit ?? Infinity));
+              return remaining.filter((m) => m.limit === nextLimit);
+            })()
+          : groupMembers;
     return {
       id: a.id,
       order: a.order,

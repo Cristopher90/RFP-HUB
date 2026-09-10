@@ -75,6 +75,9 @@ export default async function EditTemplatePage({
       respondedBy: q.respondedBy,
       numberMin: q.numberMin,
       numberMax: q.numberMax,
+      scoringConfig: q.scoringConfig
+        ? (JSON.parse(q.scoringConfig) as Record<string, number>)
+        : null,
       dependsOnQuestionKey: q.dependsOnQuestionId
         ? (questionClientKeyById.get(q.dependsOnQuestionId) ?? null)
         : null,

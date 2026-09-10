@@ -6,6 +6,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
+import { computeAutoScore } from "@/lib/questionScoring";
 
 export async function submitResponse(token: string, formData: FormData) {
   const invitation = await prisma.invitation.findUnique({
@@ -53,7 +54,7 @@ export async function submitResponse(token: string, formData: FormData) {
   };
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  const answers: { questionId: string; value: string }[] = [];
+  const answers: { questionId: string; value: string; score: number | null }[] = [];
 
   for (const question of invitation.rfp.questions) {
     if (question.visibility === "INTERNAL" || question.respondedBy === "BUYER")
@@ -67,7 +68,7 @@ export async function submitResponse(token: string, formData: FormData) {
           error: `Debes aceptar "${question.text}" para poder participar.`,
         };
       }
-      answers.push({ questionId: question.id, value: "Aceptado" });
+      answers.push({ questionId: question.id, value: "Aceptado", score: null });
       continue;
     }
 
@@ -82,6 +83,7 @@ export async function submitResponse(token: string, formData: FormData) {
         answers.push({
           questionId: question.id,
           value: `/uploads/${storedName}|${safeName}`,
+          score: null,
         });
       } else if (question.required) {
         return { error: `Adjunta un archivo para "${question.text}".` };
@@ -109,7 +111,13 @@ export async function submitResponse(token: string, formData: FormData) {
         };
       }
     }
-    if (value) answers.push({ questionId: question.id, value });
+    if (value) {
+      answers.push({
+        questionId: question.id,
+        value,
+        score: computeAutoScore(question.type, question.scoringConfig, value),
+      });
+    }
   }
 
   const notes = (formData.get("notes") as string | null)?.trim() || null;

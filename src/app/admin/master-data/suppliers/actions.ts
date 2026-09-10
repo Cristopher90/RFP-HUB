@@ -19,6 +19,67 @@ export type SupplierDirectoryItemInput = {
   status: SupplierDirectoryStatus;
 };
 
+// Guarda una única fila (crea o actualiza), en vez del reemplazo total de
+// saveSupplierDirectory — así una fila recién agregada queda utilizable en
+// "Usuarios de proveedor" de inmediato, sin tener que guardar y recargar
+// toda la tabla primero (mismo espíritu que "Crear usuario").
+export async function saveSupplierRow(
+  item: SupplierDirectoryItemInput,
+  targetClientId?: string,
+): Promise<{ error: string } | { success: true; id: string }> {
+  const scope = await requireClientScope();
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    return { error: "No tenés permiso para editar el directorio de proveedores." };
+  }
+  const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
+  if (!clientId) {
+    return { error: "Selecciona el cliente cuyos proveedores vas a editar." };
+  }
+
+  const code = item.code.trim();
+  const companyName = item.companyName.trim();
+  if (!code || !companyName) {
+    return { error: "Código y empresa son obligatorios." };
+  }
+
+  const existing = await prisma.supplierDirectory.findUnique({
+    where: { id: item.clientKey },
+  });
+  const isUpdate = Boolean(existing && existing.clientId === clientId);
+
+  const dupe = await prisma.supplierDirectory.findFirst({
+    where: {
+      clientId,
+      code: { equals: code, mode: "insensitive" },
+      ...(isUpdate ? { NOT: { id: item.clientKey } } : {}),
+    },
+  });
+  if (dupe) {
+    return { error: `El código de proveedor "${code}" está repetido.` };
+  }
+
+  const data = {
+    code,
+    taxId: item.taxId.trim(),
+    companyName,
+    contactFirstName: item.contactFirstName.trim(),
+    contactLastName: item.contactLastName.trim(),
+    email: item.email.trim(),
+    phone: item.phone.trim(),
+    status: item.status,
+  };
+
+  const saved = isUpdate
+    ? await prisma.supplierDirectory.update({
+        where: { id: item.clientKey },
+        data,
+      })
+    : await prisma.supplierDirectory.create({ data: { ...data, clientId } });
+
+  revalidatePath("/admin/master-data/suppliers");
+  return { success: true, id: saved.id };
+}
+
 export async function saveSupplierDirectory(
   items: SupplierDirectoryItemInput[],
   targetClientId?: string,
