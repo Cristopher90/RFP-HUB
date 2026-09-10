@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export function CopyRfpButton({ rfpId }: { rfpId: string }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -14,7 +16,7 @@ export function CopyRfpButton({ rfpId }: { rfpId: string }) {
         onClick={() => setOpen((o) => !o)}
         className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
       >
-        Copiar
+        {t("copyRfpButton.copy")}
       </button>
       {open && (
         <>
@@ -29,10 +31,10 @@ export function CopyRfpButton({ rfpId }: { rfpId: string }) {
               className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50"
             >
               <span className="block font-medium text-slate-800">
-                Empezar desde cero
+                {t("copyRfpButton.startFromScratchTitle")}
               </span>
               <span className="block text-xs text-slate-400">
-                Copia artículos y preguntas, sin precios históricos.
+                {t("copyRfpButton.startFromScratchHint")}
               </span>
             </button>
             <button
@@ -43,11 +45,10 @@ export function CopyRfpButton({ rfpId }: { rfpId: string }) {
               className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50"
             >
               <span className="block font-medium text-slate-800">
-                Usar como proceso anterior
+                {t("copyRfpButton.usePreviousTitle")}
               </span>
               <span className="block text-xs text-slate-400">
-                Trae el precio ganador de cada artículo como precio
-                histórico y enlaza esta RFP como antecesora.
+                {t("copyRfpButton.usePreviousHint")}
               </span>
             </button>
             <button
@@ -58,12 +59,10 @@ export function CopyRfpButton({ rfpId }: { rfpId: string }) {
               className="block w-full rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50"
             >
               <span className="block font-medium text-slate-800">
-                Crear como siguiente ronda
+                {t("copyRfpButton.nextRoundTitle")}
               </span>
               <span className="block text-xs text-slate-400">
-                Misma negociación, misma información — queda numerada como
-                la próxima ronda y podrás comparar las respuestas entre
-                rondas.
+                {t("copyRfpButton.nextRoundHint")}
               </span>
             </button>
           </div>

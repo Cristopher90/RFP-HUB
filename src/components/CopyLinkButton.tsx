@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export function CopyLinkButton({ path }: { path: string }) {
+  const { t } = usePreferences();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -12,7 +14,7 @@ export function CopyLinkButton({ path }: { path: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      window.prompt("Copia el link:", url);
+      window.prompt(t("copyLinkButton.promptCopy"), url);
     }
   }
 
@@ -22,7 +24,7 @@ export function CopyLinkButton({ path }: { path: string }) {
       onClick={handleCopy}
       className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
     >
-      {copied ? "¡Copiado!" : "Copiar link"}
+      {copied ? t("copyLinkButton.copied") : t("copyLinkButton.copyLink")}
     </button>
   );
 }

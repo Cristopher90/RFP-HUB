@@ -7,6 +7,7 @@ import {
   type SupplierDirectoryEntry,
 } from "@/components/SupplierSearchPicker";
 import { inviteSupplier } from "./actions";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export function InviteSupplierForm({
   rfpId,
@@ -15,6 +16,7 @@ export function InviteSupplierForm({
   rfpId: string;
   supplierDirectory: SupplierDirectoryEntry[];
 }) {
+  const { t } = usePreferences();
   const [selectedDir, setSelectedDir] = useState<SupplierDirectoryEntry | null>(
     null,
   );
@@ -29,7 +31,7 @@ export function InviteSupplierForm({
     setError(null);
     const dir = selectedDir;
     if (!dir || selectedContacts.length === 0) {
-      setError("Selecciona un proveedor y al menos un contacto.");
+      setError(t("inviteSupplierForm.selectSupplierError"));
       return;
     }
     startTransition(async () => {
@@ -60,7 +62,7 @@ export function InviteSupplierForm({
           suppliers={supplierDirectory}
           selectedLabel={
             selectedDir
-              ? `${selectedDir.companyName} — ${selectedContacts.length} contacto${selectedContacts.length === 1 ? "" : "s"}`
+              ? `${selectedDir.companyName} — ${selectedContacts.length} ${selectedContacts.length === 1 ? t("inviteSupplierForm.contact") : t("inviteSupplierForm.contacts")}`
               : null
           }
           onConfirm={(dir, contacts) => {
@@ -74,13 +76,12 @@ export function InviteSupplierForm({
         disabled={pending || supplierDirectory.length === 0}
         className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
       >
-        {pending ? "Invitando..." : "Invitar"}
+        {pending ? t("inviteSupplierForm.inviting") : t("inviteSupplierForm.invite")}
       </button>
       {error && <span className="text-xs text-red-600">{error}</span>}
       {supplierDirectory.length === 0 && (
         <span className="text-xs text-amber-600">
-          No hay proveedores activos en Configuración → Datos maestros →
-          Proveedores.
+          {t("inviteSupplierForm.noActiveSuppliers")}
         </span>
       )}
     </form>

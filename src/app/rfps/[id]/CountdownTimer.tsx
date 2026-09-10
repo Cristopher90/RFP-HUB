@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 function formatRemaining(ms: number): string {
-  if (ms <= 0) return "Vencida";
   const totalMinutes = Math.floor(ms / 60000);
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
@@ -16,6 +16,7 @@ function formatRemaining(ms: number): string {
 // Live "time left" chip for an open RFP, ticking client-side every minute
 // off a fixed deadline timestamp — no server round-trip needed.
 export function CountdownTimer({ deadline }: { deadline: string }) {
+  const { t } = usePreferences();
   const target = new Date(deadline).getTime();
   // Starts null so the server-rendered markup never depends on "now" (which
   // would differ from the client's clock and trigger a hydration mismatch);
@@ -44,7 +45,9 @@ export function CountdownTimer({ deadline }: { deadline: string }) {
             : "bg-blue-100 text-blue-700"
       }`}
     >
-      {remaining <= 0 ? "Vencida" : `Quedan ${formatRemaining(remaining)}`}
+      {remaining <= 0
+        ? t("countdownTimer.expired")
+        : `${t("countdownTimer.remainingPrefix")} ${formatRemaining(remaining)}`}
     </span>
   );
 }

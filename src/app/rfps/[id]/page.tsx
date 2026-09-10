@@ -83,23 +83,23 @@ export default async function RfpDetailPage({
     (await canDecideActiveLevel(rfp.id, "PUBLISH", user.id));
 
   const history: { date: Date; label: string; detail?: string }[] = [
-    { date: rfp.createdAt, label: "Creación" },
+    { date: rfp.createdAt, label: dictionary.rfpDetail.creation },
   ];
-  if (rfp.publishedAt) history.push({ date: rfp.publishedAt, label: "Publicación" });
+  if (rfp.publishedAt) history.push({ date: rfp.publishedAt, label: dictionary.rfpDetail.publication });
   for (const h of await getApprovalHistory(rfp.id)) {
     history.push({
       date: new Date(h.decidedAt),
-      label: `${h.decision === "APPROVED" ? "Aprobado" : "Rechazado"} · ${approvalStageLabel(dictionary, h.stage)} (nivel ${h.order + 1})`,
+      label: `${h.decision === "APPROVED" ? dictionary.rfpDetail.approved : dictionary.rfpDetail.rejected} · ${approvalStageLabel(dictionary, h.stage)} (${dictionary.rfpDetail.levelPrefix} ${h.order + 1})`,
       detail: h.reason ? `${h.userName} — ${h.reason}` : h.userName,
     });
   }
-  if (rfp.closedAt) history.push({ date: rfp.closedAt, label: "Cierre" });
+  if (rfp.closedAt) history.push({ date: rfp.closedAt, label: dictionary.rfpDetail.closure });
   if (rfp.status === "CLOSED") {
     for (const inv of rfp.invitations) {
       if (inv.response) {
         history.push({
           date: inv.response.submittedAt,
-          label: `Respuesta de ${inv.supplier.name}`,
+          label: `${dictionary.rfpDetail.responseFrom} ${inv.supplier.name}`,
         });
       }
     }
@@ -146,7 +146,7 @@ export default async function RfpDetailPage({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-slate-500 hover:text-slate-700">
-            &larr; Todas las RFPs
+            {dictionary.rfpDetail.backToAll}
           </Link>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">
             <span className="mr-2 font-normal text-slate-400">
@@ -158,17 +158,17 @@ export default async function RfpDetailPage({
             <StatusBadge status={rfp.status} language={user.language} />
             {awardedInvitation && (
               <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                Adjudicada a {awardedInvitation.supplier.name}
+                {dictionary.rfpDetail.awardedTo} {awardedInvitation.supplier.name}
               </span>
             )}
             <Link
               href={`/rfps/${rfp.id}/rounds`}
               className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-200"
             >
-              Ronda {rfp.roundNumber}
+              {dictionary.rfpDetail.roundPrefix} {rfp.roundNumber}
             </Link>
-            {rfp.publishedAt && <span>Abre: {formatDateTime(rfp.publishedAt, dateOptions)}</span>}
-            <span>Cierra: {formatDateTime(rfp.deadlineAt, dateOptions)}</span>
+            {rfp.publishedAt && <span>{dictionary.rfpDetail.opens}: {formatDateTime(rfp.publishedAt, dateOptions)}</span>}
+            <span>{dictionary.rfpDetail.closes}: {formatDateTime(rfp.deadlineAt, dateOptions)}</span>
             {rfp.status === "OPEN" && (
               <CountdownTimer deadline={rfp.deadlineAt.toISOString()} />
             )}
@@ -177,7 +177,7 @@ export default async function RfpDetailPage({
                 href={`/rfps/${rfp.basedOnRfpId}`}
                 className="font-medium text-violet-600 hover:underline"
               >
-                RFP anterior: {formatRfpNumber(rfp.basedOnRfp.number)} →
+                {dictionary.rfpForm.previousRfpPrefix}: {formatRfpNumber(rfp.basedOnRfp.number)} →
               </Link>
             )}
           </div>
@@ -189,14 +189,14 @@ export default async function RfpDetailPage({
                 href={`/rfps/${rfp.id}/compare`}
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
               >
-                Monitor y Adjudicación ({respondedCount})
+                {dictionary.rfpDetail.monitorAndAward} ({respondedCount})
               </Link>
             )}
           <a
             href={`/rfps/${rfp.id}/export`}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
           >
-            Exportar a Excel
+            {dictionary.rfpDetail.exportToExcel}
           </a>
           <CopyRfpButton rfpId={rfp.id} />
           {rfp.status === "DRAFT" && <DraftActions rfpId={rfp.id} />}
@@ -217,7 +217,7 @@ export default async function RfpDetailPage({
                 type="submit"
                 className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
               >
-                {rfp.status === "CLOSED" ? "Reabrir" : "Cerrar RFP"}
+                {rfp.status === "CLOSED" ? dictionary.rfpDetail.reopen : dictionary.rfpDetail.closeRfp}
               </button>
             </form>
           )}
@@ -240,7 +240,7 @@ export default async function RfpDetailPage({
 
       {appliedTemplates.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-slate-500">Plantilla aplicada:</span>
+          <span className="text-slate-500">{dictionary.rfpDetail.templateApplied}</span>
           {appliedTemplates.map((t) => (
             <Link
               key={t.id}
@@ -255,21 +255,21 @@ export default async function RfpDetailPage({
 
       <div className="mb-8 grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm sm:grid-cols-4">
         <div>
-          <p className="text-xs text-slate-400">Commodity</p>
+          <p className="text-xs text-slate-400">{dictionary.rfpForm.commodityLabel}</p>
           <p className="font-medium text-slate-700">{rfp.commodity || "—"}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Región</p>
+          <p className="text-xs text-slate-400">{dictionary.rfpForm.regionLabel}</p>
           <p className="font-medium text-slate-700">{rfp.region || "—"}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Inicio</p>
+          <p className="text-xs text-slate-400">{dictionary.rfpDetail.startLabel}</p>
           <p className="font-medium text-slate-700">
             {rfp.startDate ? formatDateTime(rfp.startDate, dateOptions) : "—"}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Precio estimado</p>
+          <p className="text-xs text-slate-400">{dictionary.rfpDetail.estimatedPriceLabel}</p>
           <p className="font-medium text-slate-700">
             {rfp.estimatedPrice != null
               ? formatCurrency(rfp.estimatedPrice, currencyOptions)
@@ -278,13 +278,13 @@ export default async function RfpDetailPage({
         </div>
         <div>
           <p className="text-xs text-slate-400">
-            Origen <span className="text-slate-300">(interno)</span>
+            {dictionary.rfpForm.originLabel} <span className="text-slate-300">{dictionary.rfpDetail.internalAnnotation}</span>
           </p>
           <p className="font-medium text-slate-700">{rfp.origin || "—"}</p>
         </div>
         <div>
           <p className="text-xs text-slate-400">
-            Documento predecesor <span className="text-slate-300">(interno)</span>
+            {dictionary.rfpForm.predecessorLabel} <span className="text-slate-300">{dictionary.rfpDetail.internalAnnotation}</span>
           </p>
           <p className="font-medium text-slate-700">
             {rfp.predecessorDocument || "—"}
@@ -293,7 +293,7 @@ export default async function RfpDetailPage({
       </div>
 
       <CollapsibleSection
-        title="Artículos solicitados"
+        title={dictionary.rfpForm.itemsTitle}
         storageKey="rfp-detail-items"
         className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -301,11 +301,11 @@ export default async function RfpDetailPage({
           <table className="min-w-full divide-y divide-slate-100 text-sm">
             <thead className="text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-6 py-2">Código</th>
-                <th className="px-6 py-2">Artículo</th>
-                <th className="px-6 py-2">Descripción</th>
-                <th className="px-6 py-2">Cantidad</th>
-                <th className="px-6 py-2">Unidad</th>
+                <th className="px-6 py-2">{dictionary.rfpForm.codePlaceholder}</th>
+                <th className="px-6 py-2">{dictionary.itemCatalogPicker.item}</th>
+                <th className="px-6 py-2">{dictionary.itemCatalogPicker.description}</th>
+                <th className="px-6 py-2">{dictionary.rfpForm.quantityPlaceholder}</th>
+                <th className="px-6 py-2">{dictionary.rfpForm.unitPlaceholder}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -315,7 +315,7 @@ export default async function RfpDetailPage({
                     <tr className="bg-slate-50">
                       <td colSpan={5} className="px-6 py-2">
                         <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                          Sección {group.sectionNumber}
+                          {dictionary.rfpForm.sectionPrefix} {group.sectionNumber}
                         </span>
                         <span className="ml-2 text-xs font-medium text-slate-500">
                           {group.name}
@@ -341,12 +341,12 @@ export default async function RfpDetailPage({
                           </span>
                           {item.name}
                           <p className="text-xs font-normal text-slate-400">
-                            peso {item.weight} &middot; {item.decimals} decimales
-                            {item.commodity && <> &middot; commodity: {item.commodity}</>}
+                            {dictionary.awardPanel.weightPrefix} {item.weight} &middot; {item.decimals} {dictionary.rfpDetail.decimalsSuffix}
+                            {item.commodity && <> &middot; {dictionary.rfpDetail.commodityColon}: {item.commodity}</>}
                             {item.historicalPrice != null && (
                               <>
                                 {" "}
-                                &middot; precio histórico:{" "}
+                                &middot; {dictionary.rfpDetail.historicalPriceColon}:{" "}
                                 {formatCurrency(item.historicalPrice, currencyOptions)}
                               </>
                             )}
@@ -382,8 +382,8 @@ export default async function RfpDetailPage({
 
       {visibleBuyerQuestions.length > 0 && (
         <CollapsibleSection
-          title="Preguntas para el comprador"
-          subtitle="Estas las respondes tú directamente; nunca se envían al proveedor."
+          title={dictionary.rfpDetail.buyerQuestionsTitle}
+          subtitle={dictionary.rfpDetail.buyerQuestionsSubtitle}
           storageKey="rfp-detail-buyer-questions"
           className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
@@ -400,7 +400,7 @@ export default async function RfpDetailPage({
 
       {supplierQuestions.length > 0 && (
         <CollapsibleSection
-          title="Preguntas para los proveedores"
+          title={dictionary.rfpForm.supplierQuestionsTitle}
           storageKey="rfp-detail-supplier-questions"
           className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
@@ -410,7 +410,7 @@ export default async function RfpDetailPage({
                 {group.name !== null && (
                   <li className="bg-slate-50 px-6 py-2">
                     <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                      Sección {group.sectionNumber}
+                      {dictionary.rfpForm.sectionPrefix} {group.sectionNumber}
                     </span>
                     <span className="ml-2 text-xs font-medium text-slate-500">
                       {group.name}
@@ -420,9 +420,9 @@ export default async function RfpDetailPage({
                 {group.entries.map(({ item: q, label }) => {
                   const typeLabel = questionTypeLabel(dictionary, q.type);
                   const conditionLabel = q.dependsOnHeaderField
-                    ? `si ${q.dependsOnHeaderField} = "${q.dependsOnValue}"`
+                    ? `${dictionary.rfpDetail.conditionIfField} ${q.dependsOnHeaderField} = "${q.dependsOnValue}"`
                     : q.dependsOnQuestionId
-                      ? `si otra pregunta = "${q.dependsOnValue}"`
+                      ? `${dictionary.rfpDetail.conditionIfOtherQuestion} "${q.dependsOnValue}"`
                       : null;
                   return (
                     <li
@@ -439,20 +439,20 @@ export default async function RfpDetailPage({
                         )}
                         {conditionLabel && (
                           <span className="ml-2 text-xs text-violet-500">
-                            condicionada: {conditionLabel}
+                            {dictionary.rfpDetail.conditioned}: {conditionLabel}
                           </span>
                         )}
                         {q.respondedBy === "BUYER" && (
                           <span className="ml-2 block text-xs text-slate-500">
-                            Respuesta del comprador:{" "}
-                            {q.buyerAnswerValue || "— sin responder —"}
+                            {dictionary.rfpDetail.buyerAnswerLabel}:{" "}
+                            {q.buyerAnswerValue || dictionary.rfpDetail.notAnswered}
                           </span>
                         )}
                       </span>
                       <span className="flex shrink-0 items-center gap-2 text-xs text-slate-400">
                         {q.respondedBy === "BUYER" && (
                           <span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700">
-                            responde el comprador
+                            {dictionary.rfpDetail.buyerAnswers}
                           </span>
                         )}
                         {q.visibility !== "EXTERNAL" && (
@@ -464,16 +464,16 @@ export default async function RfpDetailPage({
                             }`}
                           >
                             {q.visibility === "INTERNAL"
-                              ? "interna"
-                              : "solo proveedor"}
+                              ? dictionary.rfpDetail.internal
+                              : dictionary.rfpDetail.supplierOnly}
                           </span>
                         )}
                         {q.isPrerequisite && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700">
-                            prerrequisito
+                            {dictionary.rfpDetail.prerequisite}
                           </span>
                         )}
-                        peso {q.weight} &middot; {typeLabel}
+                        {dictionary.awardPanel.weightPrefix} {q.weight} &middot; {typeLabel}
                       </span>
                     </li>
                   );
@@ -485,7 +485,7 @@ export default async function RfpDetailPage({
       )}
 
       <CollapsibleSection
-        title="Proveedores invitados"
+        title={dictionary.rfpDetail.invitedSuppliersTitle}
         storageKey="rfp-detail-invited-suppliers"
         className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
@@ -498,17 +498,17 @@ export default async function RfpDetailPage({
           </div>
           {rfp.invitations.length === 0 ? (
             <p className="px-6 pt-4 text-sm text-slate-500">
-              Todavía no has invitado proveedores.
+              {dictionary.rfpDetail.noSuppliersInvited}
             </p>
           ) : (
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full divide-y divide-slate-100 text-sm">
                 <thead className="text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-6 py-2">Proveedor</th>
-                    <th className="px-6 py-2">Correo</th>
-                    <th className="px-6 py-2">Estado</th>
-                    <th className="px-6 py-2">Invitado</th>
+                    <th className="px-6 py-2">{dictionary.rfpDetail.supplierColumn}</th>
+                    <th className="px-6 py-2">{dictionary.login.email}</th>
+                    <th className="px-6 py-2">{dictionary.rfpDetail.statusColumn}</th>
+                    <th className="px-6 py-2">{dictionary.rfpDetail.invitedColumn}</th>
                     <th className="px-6 py-2" />
                   </tr>
                 </thead>
@@ -543,14 +543,13 @@ export default async function RfpDetailPage({
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Histórico"
+        title={dictionary.rfpDetail.historyTitle}
         storageKey="rfp-detail-history"
         className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         {rfp.status !== "CLOSED" && rfp.invitations.some((i) => i.response) && (
           <p className="mb-3 text-xs text-slate-400">
-            Las fechas de respuesta de los proveedores se mostrarán una vez
-            que se cierre la RFP.
+            {dictionary.rfpDetail.responseDatesHidden}
           </p>
         )}
         <ul className="space-y-2">
