@@ -980,6 +980,22 @@ export function RfpForm({
     }
   }
 
+  // Artículos/preguntas/proveedores only make sense once the header is
+  // actually filled in and — when there's a choice to make — a plantilla
+  // has been resolved (auto-picked when there's exactly one match, or
+  // chosen when there are several); an edit in progress already has all
+  // of this settled, so it never gets hidden again.
+  const headerComplete = Boolean(
+    title.trim() && buyerName.trim() && deadlineAt && commodity.trim(),
+  );
+  const conditionalMatchCount = splitConditionalTemplates(
+    templates.filter((t) =>
+      matchesTemplate(t, commodity, region, parsePrice(estimatedPrice)),
+    ),
+  ).conditional.length;
+  const templateResolved = conditionalMatchCount === 0 || Boolean(selectedTemplateId);
+  const readyForContent = mode === "edit" || (headerComplete && templateResolved);
+
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
       {error && (
@@ -1280,6 +1296,16 @@ export function RfpForm({
         </div>
       </CollapsibleSection>
 
+      {!readyForContent && (
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+          Completa el título, comprador, fecha límite y commodity de la
+          cabecera{conditionalMatchCount > 1 ? " y selecciona una plantilla" : ""}{" "}
+          para continuar con los artículos y las preguntas de esta RFP.
+        </div>
+      )}
+
+      {readyForContent && (
+        <>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
           <p className="text-sm font-medium text-slate-700">
@@ -2436,6 +2462,8 @@ export function RfpForm({
             : "Publicar RFP"}
         </button>
       </div>
+        </>
+      )}
     </form>
   );
 }
