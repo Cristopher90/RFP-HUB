@@ -1,6 +1,7 @@
 const STYLES: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-600",
   PENDING_PUBLISH_APPROVAL: "bg-amber-100 text-amber-700",
+  AWAITING_START: "bg-blue-100 text-blue-700",
   OPEN: "bg-emerald-100 text-emerald-700",
   CLOSED: "bg-slate-200 text-slate-500",
   DELETED: "bg-red-100 text-red-600",
@@ -12,6 +13,7 @@ const STYLES: Record<string, string> = {
 const LABELS: Record<string, string> = {
   DRAFT: "Borrador",
   PENDING_PUBLISH_APPROVAL: "Pendiente de aprobación",
+  AWAITING_START: "Aguardando inicio",
   OPEN: "Abierta",
   CLOSED: "Cerrada",
   DELETED: "Eliminada",

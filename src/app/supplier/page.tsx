@@ -1,10 +1,17 @@
 import { requireSupplierUser } from "@/lib/supplierAuth";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatDateTime, formatRfpNumber } from "@/lib/format";
+import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { SupplierRfpTable } from "./SupplierRfpTable";
 
 export default async function SupplierHomePage() {
   const supplierUser = await requireSupplierUser();
+
+  await sweepAwaitingStart({
+    invitations: {
+      some: { supplier: { supplierDirectoryId: supplierUser.supplierDirectoryId } },
+    },
+  });
 
   const invitations = await prisma.invitation.findMany({
     where: { supplier: { supplierDirectoryId: supplierUser.supplierDirectoryId } },

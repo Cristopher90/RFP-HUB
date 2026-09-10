@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import {
   formatCurrency,
-  formatDate,
   formatDateTime,
   formatRfpNumber,
 } from "@/lib/format";
@@ -26,6 +25,7 @@ import { CopyRfpButton } from "./CopyRfpButton";
 import { PublishApprovalSection } from "./PublishApprovalSection";
 import { CountdownTimer } from "./CountdownTimer";
 import { closeRfp, reopenRfp } from "./actions";
+import { syncAwaitingStart } from "@/lib/rfpStatus";
 
 const TYPE_LABEL: Record<string, string> = {
   SELECT: "Opción múltiple",
@@ -61,6 +61,7 @@ export default async function RfpDetailPage({
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
   const user = scope.user;
+  rfp.status = await syncAwaitingStart(rfp);
 
   const supplierDirectoryRaw = await prisma.supplierDirectory.findMany({
     where: { status: "ACTIVE", clientId: rfp.clientId },
@@ -206,7 +207,9 @@ export default async function RfpDetailPage({
           </a>
           <CopyRfpButton rfpId={rfp.id} />
           {rfp.status === "DRAFT" && <DraftActions rfpId={rfp.id} />}
-          {(rfp.status === "OPEN" || rfp.status === "CLOSED") && (
+          {(rfp.status === "OPEN" ||
+            rfp.status === "AWAITING_START" ||
+            rfp.status === "CLOSED") && (
             <form
               action={async () => {
                 "use server";
@@ -267,9 +270,9 @@ export default async function RfpDetailPage({
           <p className="font-medium text-slate-700">{rfp.region || "—"}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-400">Inicio estimado</p>
+          <p className="text-xs text-slate-400">Inicio</p>
           <p className="font-medium text-slate-700">
-            {rfp.startDate ? formatDate(rfp.startDate) : "—"}
+            {rfp.startDate ? formatDateTime(rfp.startDate) : "—"}
           </p>
         </div>
         <div>

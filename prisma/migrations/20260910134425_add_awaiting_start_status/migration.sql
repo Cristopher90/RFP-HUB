@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "RfpStatus" ADD VALUE 'AWAITING_START';

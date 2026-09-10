@@ -10,6 +10,7 @@ function selectClass() {
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Borrador",
   PENDING_PUBLISH_APPROVAL: "Pendiente de aprobación",
+  AWAITING_START: "Aguardando inicio",
   OPEN: "Abierta",
   CLOSED: "Cerrada",
 };

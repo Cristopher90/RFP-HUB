@@ -13,6 +13,7 @@ datasource db {
 enum RfpStatus {
   DRAFT
   PENDING_PUBLISH_APPROVAL
+  AWAITING_START // ya aprobada/publicada, pero su fecha y hora de inicio todavía no llegó — los proveedores no ven la invitación hasta entonces
   OPEN
   CLOSED
   DELETED

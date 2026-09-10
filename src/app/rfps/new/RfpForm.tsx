@@ -1141,11 +1141,11 @@ export function RfpForm({
               htmlFor={`${idBase}-start`}
               className="mb-1 block text-sm font-medium text-slate-700"
             >
-              Fecha de inicio estimada
+              Fecha de inicio
             </label>
             <input
               id={`${idBase}-start`}
-              type="date"
+              type="datetime-local"
               className={inputClass()}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -1344,341 +1344,6 @@ export function RfpForm({
           </button>
         </div>
       </div>
-
-      <CollapsibleSection
-        title="Artículos solicitados"
-        storageKey="rfp-new-items"
-        right={
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={addItemSection}
-              className="text-sm font-medium text-violet-600 hover:text-violet-700"
-            >
-              + Agregar sección
-            </button>
-            {allowFreeTextItems && (
-              <button
-                type="button"
-                onClick={() =>
-                  setItems((prev) => [
-                    ...prev,
-                    {
-                      ...emptyItem(),
-                      section: prev[prev.length - 1]?.section ?? null,
-                    },
-                  ])
-                }
-                className="text-sm font-medium text-violet-600 hover:text-violet-700"
-              >
-                + Agregar artículo
-              </button>
-            )}
-            <ItemCatalogPicker
-              items={itemCatalog}
-              onPick={(entry) =>
-                setItems((prev) => [
-                  ...prev,
-                  {
-                    ...emptyItem(),
-                    section: prev[prev.length - 1]?.section ?? null,
-                    code: entry.code,
-                    name: entry.name,
-                    description: entry.description ?? "",
-                    unit: entry.unit,
-                    commodity: entry.commodity,
-                    historicalPrice: entry.lastPrice,
-                    sourceItemCatalogEntryId: entry.id,
-                  },
-                ])
-              }
-            />
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {groupBySection(items).map((group, groupIdx) => (
-            <div key={groupIdx}>
-              {group.name !== null && (
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
-                    Sección {group.sectionNumber}
-                  </span>
-                  <input
-                    className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                    placeholder="Nombre de la sección"
-                    value={group.name}
-                    onChange={(e) =>
-                      renameItemSection(group.name!, e.target.value)
-                    }
-                  />
-                </div>
-              )}
-              <div className="space-y-3">
-                {group.entries.map(({ item, index, label }) => (
-                  <div
-                    key={index}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-3"
-                  >
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
-                      <div className="sm:col-span-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-9 shrink-0 text-right text-xs font-medium text-slate-400">
-                            {label}
-                          </span>
-                          <input
-                            className={inputClass()}
-                            placeholder="Código"
-                            value={item.code ?? ""}
-                            disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
-                            onChange={(e) =>
-                              updateItem(index, { code: e.target.value || null })
-                            }
-                          />
-                        </div>
-                        {item.locked && (
-                          <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-amber-600">
-                            🔒 Bloqueado por plantilla
-                          </span>
-                        )}
-                        {item.sourceItemCatalogEntryId && (
-                          <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-violet-600">
-                            🔒 Desde catálogo
-                          </span>
-                        )}
-                      </div>
-                      <div className="sm:col-span-3">
-                        <input
-                          className={inputClass()}
-                          placeholder="Nombre del artículo"
-                          value={item.name}
-                          disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
-                          onChange={(e) =>
-                            updateItem(index, { name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <input
-                          className={inputClass()}
-                          placeholder="Descripción / especificaciones"
-                          value={item.description}
-                          disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
-                          onChange={(e) =>
-                            updateItem(index, { description: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <input
-                          type="number"
-                          min={0}
-                          step="any"
-                          className={inputClass()}
-                          placeholder="Cantidad"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(index, {
-                              quantity: Number(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="sm:col-span-1">
-                        <input
-                          className={inputClass()}
-                          placeholder="Unidad"
-                          value={item.unit}
-                          disabled={Boolean(item.sourceItemCatalogEntryId)}
-                          onChange={(e) =>
-                            updateItem(index, { unit: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="flex justify-end gap-2 sm:col-span-2">
-                        <GearButton
-                          active={expandedItems.has(index)}
-                          onClick={() => toggleExpandedItem(index)}
-                          title="Configurar artículo"
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setItems((prev) =>
-                              prev.filter((_, i) => i !== index),
-                            )
-                          }
-                          disabled={item.locked}
-                          title={
-                            item.locked ? "Bloqueado por plantilla" : undefined
-                          }
-                          className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
-                        >
-                          Quitar
-                        </button>
-                      </div>
-                    </div>
-
-                    {expandedItems.has(index) && (
-                      <div className="mt-3 max-w-xl space-y-3 border-t border-slate-200 pt-3">
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Decimales del precio
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={4}
-                            className={smallInputClass()}
-                            value={item.decimals}
-                            onChange={(e) =>
-                              updateItem(index, {
-                                decimals: Number(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Precio histórico{" "}
-                            <span className="font-normal text-slate-400">
-                              (no visible p/ proveedor)
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            step="any"
-                            className={smallInputClass()}
-                            value={item.historicalPrice ?? ""}
-                            onChange={(e) =>
-                              updateItem(index, {
-                                historicalPrice:
-                                  e.target.value === ""
-                                    ? null
-                                    : Number(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-slate-500">
-                            Commodity de la línea
-                          </label>
-                          {item.sourceItemCatalogEntryId ? (
-                            <p className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500">
-                              {item.commodity || "— Sin commodity específico —"}
-                            </p>
-                          ) : (
-                            <TreePickerField
-                              nodes={commodities.map((c) => ({
-                                id: c.id,
-                                parentId: c.parentId,
-                                label: c.description,
-                                code: c.code,
-                                selectable: c.selectable,
-                              }))}
-                              valueId={
-                                commodities.find(
-                                  (c) => c.description === item.commodity,
-                                )?.id ?? null
-                              }
-                              onChangeId={(id) => {
-                                const node = commodities.find((c) => c.id === id);
-                                updateItem(index, {
-                                  commodity: node?.description ?? null,
-                                });
-                              }}
-                              placeholder="— Sin commodity específico —"
-                              clearLabel="— Sin commodity específico —"
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <div className="mb-1 flex items-center justify-between">
-                            <label className="text-xs font-medium text-slate-500">
-                              Campos adicionales (adhoc)
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                updateItem(index, {
-                                  customFields: [
-                                    ...item.customFields,
-                                    { label: "", value: "" },
-                                  ],
-                                })
-                              }
-                              className="text-xs font-medium text-violet-600 hover:text-violet-700"
-                            >
-                              + Agregar campo
-                            </button>
-                          </div>
-                          <div className="space-y-1.5">
-                            {item.customFields.map((field, fieldIndex) => (
-                              <div key={fieldIndex} className="flex gap-1.5">
-                                <input
-                                  className={smallInputClass()}
-                                  placeholder="Nombre (ej. Color)"
-                                  value={field.label}
-                                  onChange={(e) =>
-                                    updateCustomField(index, fieldIndex, {
-                                      label: e.target.value,
-                                    })
-                                  }
-                                />
-                                <input
-                                  className={smallInputClass()}
-                                  placeholder="Valor (ej. Negro)"
-                                  value={field.value}
-                                  onChange={(e) =>
-                                    updateCustomField(index, fieldIndex, {
-                                      value: e.target.value,
-                                    })
-                                  }
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateItem(index, {
-                                      customFields: item.customFields.filter(
-                                        (_, i) => i !== fieldIndex,
-                                      ),
-                                    })
-                                  }
-                                  className="shrink-0 text-xs text-slate-400 hover:text-red-600"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {group.name !== null && allowFreeTextItems && (
-                <div className="mt-1 pl-11">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      insertItemAt(
-                        group.entries[group.entries.length - 1].index + 1,
-                        group.name,
-                      )
-                    }
-                    className="text-xs font-medium text-violet-500 hover:text-violet-700"
-                  >
-                    + Agregar artículo en esta sección
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </CollapsibleSection>
 
       <CollapsibleSection
         title="Preguntas internas"
@@ -2332,6 +1997,341 @@ export function RfpForm({
                     className="text-xs font-medium text-violet-500 hover:text-violet-700"
                   >
                     + Agregar pregunta en esta sección
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title="Artículos solicitados"
+        storageKey="rfp-new-items"
+        right={
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={addItemSection}
+              className="text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              + Agregar sección
+            </button>
+            {allowFreeTextItems && (
+              <button
+                type="button"
+                onClick={() =>
+                  setItems((prev) => [
+                    ...prev,
+                    {
+                      ...emptyItem(),
+                      section: prev[prev.length - 1]?.section ?? null,
+                    },
+                  ])
+                }
+                className="text-sm font-medium text-violet-600 hover:text-violet-700"
+              >
+                + Agregar artículo
+              </button>
+            )}
+            <ItemCatalogPicker
+              items={itemCatalog}
+              onPick={(entry) =>
+                setItems((prev) => [
+                  ...prev,
+                  {
+                    ...emptyItem(),
+                    section: prev[prev.length - 1]?.section ?? null,
+                    code: entry.code,
+                    name: entry.name,
+                    description: entry.description ?? "",
+                    unit: entry.unit,
+                    commodity: entry.commodity,
+                    historicalPrice: entry.lastPrice,
+                    sourceItemCatalogEntryId: entry.id,
+                  },
+                ])
+              }
+            />
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          {groupBySection(items).map((group, groupIdx) => (
+            <div key={groupIdx}>
+              {group.name !== null && (
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                    Sección {group.sectionNumber}
+                  </span>
+                  <input
+                    className="flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm font-medium text-slate-700 hover:border-slate-200 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                    placeholder="Nombre de la sección"
+                    value={group.name}
+                    onChange={(e) =>
+                      renameItemSection(group.name!, e.target.value)
+                    }
+                  />
+                </div>
+              )}
+              <div className="space-y-3">
+                {group.entries.map(({ item, index, label }) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                  >
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
+                      <div className="sm:col-span-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-9 shrink-0 text-right text-xs font-medium text-slate-400">
+                            {label}
+                          </span>
+                          <input
+                            className={inputClass()}
+                            placeholder="Código"
+                            value={item.code ?? ""}
+                            disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
+                            onChange={(e) =>
+                              updateItem(index, { code: e.target.value || null })
+                            }
+                          />
+                        </div>
+                        {item.locked && (
+                          <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-amber-600">
+                            🔒 Bloqueado por plantilla
+                          </span>
+                        )}
+                        {item.sourceItemCatalogEntryId && (
+                          <span className="mt-1 inline-flex items-center gap-1 pl-11 text-[11px] font-medium text-violet-600">
+                            🔒 Desde catálogo
+                          </span>
+                        )}
+                      </div>
+                      <div className="sm:col-span-3">
+                        <input
+                          className={inputClass()}
+                          placeholder="Nombre del artículo"
+                          value={item.name}
+                          disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
+                          onChange={(e) =>
+                            updateItem(index, { name: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <input
+                          className={inputClass()}
+                          placeholder="Descripción / especificaciones"
+                          value={item.description}
+                          disabled={item.locked || Boolean(item.sourceItemCatalogEntryId)}
+                          onChange={(e) =>
+                            updateItem(index, { description: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <input
+                          type="number"
+                          min={0}
+                          step="any"
+                          className={inputClass()}
+                          placeholder="Cantidad"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateItem(index, {
+                              quantity: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <input
+                          className={inputClass()}
+                          placeholder="Unidad"
+                          value={item.unit}
+                          disabled={Boolean(item.sourceItemCatalogEntryId)}
+                          onChange={(e) =>
+                            updateItem(index, { unit: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 sm:col-span-2">
+                        <GearButton
+                          active={expandedItems.has(index)}
+                          onClick={() => toggleExpandedItem(index)}
+                          title="Configurar artículo"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setItems((prev) =>
+                              prev.filter((_, i) => i !== index),
+                            )
+                          }
+                          disabled={item.locked}
+                          title={
+                            item.locked ? "Bloqueado por plantilla" : undefined
+                          }
+                          className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    </div>
+
+                    {expandedItems.has(index) && (
+                      <div className="mt-3 max-w-xl space-y-3 border-t border-slate-200 pt-3">
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                            Decimales del precio
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={4}
+                            className={smallInputClass()}
+                            value={item.decimals}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                decimals: Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                            Precio histórico{" "}
+                            <span className="font-normal text-slate-400">
+                              (no visible p/ proveedor)
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="any"
+                            className={smallInputClass()}
+                            value={item.historicalPrice ?? ""}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                historicalPrice:
+                                  e.target.value === ""
+                                    ? null
+                                    : Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                            Commodity de la línea
+                          </label>
+                          {item.sourceItemCatalogEntryId ? (
+                            <p className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-500">
+                              {item.commodity || "— Sin commodity específico —"}
+                            </p>
+                          ) : (
+                            <TreePickerField
+                              nodes={commodities.map((c) => ({
+                                id: c.id,
+                                parentId: c.parentId,
+                                label: c.description,
+                                code: c.code,
+                                selectable: c.selectable,
+                              }))}
+                              valueId={
+                                commodities.find(
+                                  (c) => c.description === item.commodity,
+                                )?.id ?? null
+                              }
+                              onChangeId={(id) => {
+                                const node = commodities.find((c) => c.id === id);
+                                updateItem(index, {
+                                  commodity: node?.description ?? null,
+                                });
+                              }}
+                              placeholder="— Sin commodity específico —"
+                              clearLabel="— Sin commodity específico —"
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="text-xs font-medium text-slate-500">
+                              Campos adicionales (adhoc)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateItem(index, {
+                                  customFields: [
+                                    ...item.customFields,
+                                    { label: "", value: "" },
+                                  ],
+                                })
+                              }
+                              className="text-xs font-medium text-violet-600 hover:text-violet-700"
+                            >
+                              + Agregar campo
+                            </button>
+                          </div>
+                          <div className="space-y-1.5">
+                            {item.customFields.map((field, fieldIndex) => (
+                              <div key={fieldIndex} className="flex gap-1.5">
+                                <input
+                                  className={smallInputClass()}
+                                  placeholder="Nombre (ej. Color)"
+                                  value={field.label}
+                                  onChange={(e) =>
+                                    updateCustomField(index, fieldIndex, {
+                                      label: e.target.value,
+                                    })
+                                  }
+                                />
+                                <input
+                                  className={smallInputClass()}
+                                  placeholder="Valor (ej. Negro)"
+                                  value={field.value}
+                                  onChange={(e) =>
+                                    updateCustomField(index, fieldIndex, {
+                                      value: e.target.value,
+                                    })
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    updateItem(index, {
+                                      customFields: item.customFields.filter(
+                                        (_, i) => i !== fieldIndex,
+                                      ),
+                                    })
+                                  }
+                                  className="shrink-0 text-xs text-slate-400 hover:text-red-600"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {group.name !== null && allowFreeTextItems && (
+                <div className="mt-1 pl-11">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      insertItemAt(
+                        group.entries[group.entries.length - 1].index + 1,
+                        group.name,
+                      )
+                    }
+                    className="text-xs font-medium text-violet-500 hover:text-violet-700"
+                  >
+                    + Agregar artículo en esta sección
                   </button>
                 </div>
               )}

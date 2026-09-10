@@ -20,6 +20,7 @@ import {
   resolveAppliedTemplates,
   ancestorChain,
 } from "@/lib/templateMatch";
+import { resolveOpenStatus } from "@/lib/rfpStatus";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -67,9 +68,13 @@ export async function closeRfp(rfpId: string) {
 }
 
 export async function reopenRfp(rfpId: string) {
+  const rfp = await prisma.rfp.findUniqueOrThrow({
+    where: { id: rfpId },
+    select: { startDate: true },
+  });
   await prisma.rfp.update({
     where: { id: rfpId },
-    data: { status: "OPEN", closedAt: null },
+    data: { status: resolveOpenStatus(rfp.startDate), closedAt: null },
   });
   revalidatePath(`/rfps/${rfpId}`);
 }
@@ -160,7 +165,8 @@ export async function publishRfp(rfpId: string) {
   await prisma.rfp.update({
     where: { id: rfpId },
     data: {
-      status: levels.length === 0 ? "OPEN" : "PENDING_PUBLISH_APPROVAL",
+      status:
+        levels.length === 0 ? resolveOpenStatus(rfp.startDate) : "PENDING_PUBLISH_APPROVAL",
       publishedAt: levels.length === 0 ? new Date() : null,
       approvalWorkflowId: workflow?.id ?? null,
     },
@@ -179,7 +185,7 @@ export async function publishRfp(rfpId: string) {
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfpId },
-        data: { status: "OPEN", publishedAt: new Date() },
+        data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date() },
       });
     }
   }
@@ -218,14 +224,14 @@ export async function updateRfp(
 
   const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
-  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = input.saveAsDraft
-    ? "DRAFT"
-    : publishLevels.length === 0
-      ? "OPEN"
-      : "PENDING_PUBLISH_APPROVAL";
-
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
+  const startDateValue = input.startDate ? new Date(input.startDate) : null;
+  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" | "AWAITING_START" = input.saveAsDraft
+    ? "DRAFT"
+    : publishLevels.length === 0
+      ? resolveOpenStatus(startDateValue)
+      : "PENDING_PUBLISH_APPROVAL";
 
   await prisma.rfp.update({
     where: { id: rfpId },
@@ -235,10 +241,11 @@ export async function updateRfp(
       buyerName,
       deadlineAt: new Date(input.deadlineAt),
       status,
-      publishedAt: status === "OPEN" ? new Date() : null,
+      publishedAt:
+        status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
-      startDate: input.startDate ? new Date(input.startDate) : null,
+      startDate: startDateValue,
       estimatedPrice: estimatedPriceValue,
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
@@ -370,7 +377,7 @@ export async function updateRfp(
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfpId },
-        data: { status: "OPEN", publishedAt: new Date() },
+        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date() },
       });
     }
   }
@@ -395,7 +402,7 @@ export async function approvePublish(rfpId: string) {
   if (result.stageCompleted) {
     await prisma.rfp.update({
       where: { id: rfpId },
-      data: { status: "OPEN", publishedAt: new Date() },
+      data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date() },
     });
   }
   revalidatePath(`/rfps/${rfpId}`);

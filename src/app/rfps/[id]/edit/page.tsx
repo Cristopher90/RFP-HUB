@@ -55,11 +55,6 @@ export default async function EditRfpPage({
       prisma.user.findMany({ where: rfpWhere, orderBy: { name: "asc" } }),
     ]);
 
-  function toDateInput(date: Date | null) {
-    if (!date) return "";
-    return date.toISOString().slice(0, 10);
-  }
-
   function toDatetimeLocalInput(date: Date | null) {
     if (!date) return "";
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -141,7 +136,7 @@ export default async function EditRfpPage({
     deadlineAt: toDatetimeLocalInput(rfp.deadlineAt),
     commodity: rfp.commodity ?? "",
     region: rfp.region ?? "",
-    startDate: toDateInput(rfp.startDate),
+    startDate: toDatetimeLocalInput(rfp.startDate),
     estimatedPrice: rfp.estimatedPrice != null ? String(rfp.estimatedPrice) : "",
     origin: rfp.origin ?? "",
     predecessorDocument: rfp.predecessorDocument ?? "",

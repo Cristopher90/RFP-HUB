@@ -5,6 +5,7 @@ import { requireClientScope } from "@/lib/clientScope";
 import { RfpFilters } from "@/components/RfpFilters";
 import { RfpTable, type RfpRow } from "@/components/RfpTable";
 import { findPendingApprovalsForUser, findDecidedRfpIdsForUser } from "@/lib/approvalEngine";
+import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
@@ -58,6 +59,8 @@ export default async function Home({
       ? { clientId: clientFilter }
       : {}),
   };
+
+  await sweepAwaitingStart(scope.where);
 
   const [rfps, commodities, regions, creators, clients] = await Promise.all([
     prisma.rfp.findMany({

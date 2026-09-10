@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { syncAwaitingStart } from "@/lib/rfpStatus";
 import { ResponseForm } from "./ResponseForm";
 
 export default async function RespondPage({
@@ -26,9 +27,18 @@ export default async function RespondPage({
 
   if (!invitation) notFound();
 
-  const isPublished = invitation.rfp.status === "OPEN" || invitation.rfp.status === "CLOSED";
+  invitation.rfp.status = await syncAwaitingStart(invitation.rfp);
 
-  if (invitation.status === "INVITED" && isPublished) {
+  // AWAITING_START already went through approval and is otherwise ready —
+  // it's just not time yet — so it counts as "published" (no more waiting
+  // on the comprador) but the invitation only becomes visible/viewable
+  // once its fecha y hora de inicio actually arrives.
+  const isPublished =
+    invitation.rfp.status === "OPEN" ||
+    invitation.rfp.status === "AWAITING_START" ||
+    invitation.rfp.status === "CLOSED";
+
+  if (invitation.status === "INVITED" && invitation.rfp.status === "OPEN") {
     await prisma.invitation.update({
       where: { id: invitation.id },
       data: { status: "VIEWED", viewedAt: new Date() },
@@ -37,6 +47,7 @@ export default async function RespondPage({
 
   const { rfp, supplier, response } = invitation;
   const isClosed = rfp.status === "CLOSED";
+  const isAwaitingStart = rfp.status === "AWAITING_START";
   const isNotYetPublished = !isPublished;
   // Genuinely internal (Contenido Interno) questions are never sent to the
   // supplier — filter them out before anything reaches the client, not
@@ -79,7 +90,7 @@ export default async function RespondPage({
           {rfp.commodity && <span>Commodity: {rfp.commodity}</span>}
           {rfp.region && <span>Región: {rfp.region}</span>}
           {rfp.startDate && (
-            <span>Inicio estimado: {formatDate(rfp.startDate)}</span>
+            <span>Inicio: {formatDateTime(rfp.startDate)}</span>
           )}
         </div>
       </div>
@@ -163,6 +174,11 @@ export default async function RespondPage({
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Esta RFP ya fue cerrada por el comprador y ya no acepta nuevas
           cotizaciones.
+        </div>
+      ) : isAwaitingStart ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
+          Esta RFP todavía no comienza. Podrás enviar tu cotización a partir
+          del {formatDateTime(rfp.startDate!)}.
         </div>
       ) : (
         <ResponseForm

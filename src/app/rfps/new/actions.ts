@@ -11,6 +11,7 @@ import {
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
+import { resolveOpenStatus } from "@/lib/rfpStatus";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -322,10 +323,11 @@ export async function createRfp(
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
-  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" = input.saveAsDraft
+  const startDateValue = input.startDate ? new Date(input.startDate) : null;
+  const status: "DRAFT" | "PENDING_PUBLISH_APPROVAL" | "OPEN" | "AWAITING_START" = input.saveAsDraft
     ? "DRAFT"
     : publishLevels.length === 0
-      ? "OPEN"
+      ? resolveOpenStatus(startDateValue)
       : "PENDING_PUBLISH_APPROVAL";
 
   let roundNumber = 1;
@@ -350,10 +352,11 @@ export async function createRfp(
       buyerName,
       deadlineAt: new Date(input.deadlineAt),
       status,
-      publishedAt: status === "OPEN" ? new Date() : null,
+      publishedAt:
+        status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
-      startDate: input.startDate ? new Date(input.startDate) : null,
+      startDate: startDateValue,
       estimatedPrice: estimatedPriceValue,
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
@@ -449,7 +452,7 @@ export async function createRfp(
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfp.id },
-        data: { status: "OPEN", publishedAt: new Date() },
+        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date() },
       });
     }
   }
