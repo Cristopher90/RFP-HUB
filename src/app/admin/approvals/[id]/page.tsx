@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
 import type { ApprovalWorkflowInput, ApprovalLevelInput } from "../actions";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function EditApprovalWorkflowPage({
   params,
@@ -13,6 +14,7 @@ export default async function EditApprovalWorkflowPage({
     redirect("/");
   }
   const { id } = await params;
+  const dictionary = getDictionary(scope.user.language);
 
   const workflow = await prisma.approvalWorkflow.findUnique({
     where: { id },
@@ -63,7 +65,7 @@ export default async function EditApprovalWorkflowPage({
         href="/admin/approvals"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Procesos de aprobación
+        {dictionary.approvalWorkflowPage.backToList}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
         {workflow.name}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { ApprovalWorkflowForm } from "../ApprovalWorkflowForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function NewApprovalWorkflowPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function NewApprovalWorkflowPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const [templates, users, groups] = effectiveClientId
     ? await Promise.all([
@@ -34,10 +36,10 @@ export default async function NewApprovalWorkflowPage({
         href="/admin/approvals"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Procesos de aprobación
+        {dictionary.approvalWorkflowPage.backToList}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Nuevo proceso de aprobación
+        {dictionary.approvalWorkflowPage.newTitle}
       </h1>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -60,7 +62,7 @@ export default async function NewApprovalWorkflowPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para crear el proceso.
+          {dictionary.approvalWorkflowPage.selectClient}
         </p>
       )}
     </div>
