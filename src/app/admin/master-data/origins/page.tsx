@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function OriginsPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function OriginsPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const origins = effectiveClientId
     ? await prisma.origin.findMany({
@@ -24,14 +26,13 @@ export default async function OriginsPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Orígenes
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.masterDataKind.origin}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Estos valores alimentan el desplegable de Origen en la cabecera de la
-        RFP (campo opcional, no visible para el proveedor).
+        {dictionary.masterDataScreen.originsSubtitle}
       </p>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -43,7 +44,7 @@ export default async function OriginsPage({
           <MasterDataForm
             key={effectiveClientId}
             kind="origin"
-            label="Orígenes"
+            label={dictionary.masterDataKind.origin}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
             initial={origins.map((o) => ({
@@ -56,7 +57,7 @@ export default async function OriginsPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para ver y editar sus orígenes.
+          {dictionary.masterDataScreen.selectClientPrefix} {dictionary.masterDataKind.origin.toLowerCase()}.
         </p>
       )}
     </div>

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function RegionsPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function RegionsPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const regions = effectiveClientId
     ? await prisma.region.findMany({
@@ -24,14 +26,13 @@ export default async function RegionsPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Regiones
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.masterDataKind.region}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Estos valores alimentan el desplegable de Región al crear una RFP o
-        una plantilla.
+        {dictionary.masterDataScreen.regionsSubtitle}
       </p>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -43,7 +44,7 @@ export default async function RegionsPage({
           <MasterDataForm
             key={effectiveClientId}
             kind="region"
-            label="Regiones"
+            label={dictionary.masterDataKind.region}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
             initial={regions.map((r) => ({
@@ -56,7 +57,7 @@ export default async function RegionsPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para ver y editar sus regiones.
+          {dictionary.masterDataScreen.selectClientPrefix} {dictionary.masterDataKind.region.toLowerCase()}.
         </p>
       )}
     </div>

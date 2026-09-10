@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ColumnDef } from "@/lib/useColumnPrefs";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export function ColumnSettingsMenu<K extends string>({
   defs,
@@ -18,6 +19,7 @@ export function ColumnSettingsMenu<K extends string>({
   moveColumn: (key: K, direction: -1 | 1) => void;
   resetPrefs: () => void;
 }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const byKey = new Map(defs.map((d) => [d.key, d]));
@@ -40,12 +42,12 @@ export function ColumnSettingsMenu<K extends string>({
         onClick={() => setOpen((o) => !o)}
         className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
       >
-        ⚙ Columnas
+        {t("columnSettingsMenu.columns")}
       </button>
       {open && (
         <div className="absolute right-0 z-20 mt-1 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
           <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
-            Mostrar / ocultar y ordenar
+            {t("columnSettingsMenu.showHideAndOrder")}
           </p>
           {order.map((k, i) => {
             const def = byKey.get(k);
@@ -67,7 +69,7 @@ export function ColumnSettingsMenu<K extends string>({
                   type="button"
                   disabled={i === 0}
                   onClick={() => moveColumn(k, -1)}
-                  title="Mover a la izquierda"
+                  title={t("columnSettingsMenu.moveLeft")}
                   className="rounded px-1 text-xs text-slate-400 hover:text-slate-700 disabled:opacity-20"
                 >
                   ↑
@@ -76,7 +78,7 @@ export function ColumnSettingsMenu<K extends string>({
                   type="button"
                   disabled={i === order.length - 1}
                   onClick={() => moveColumn(k, 1)}
-                  title="Mover a la derecha"
+                  title={t("columnSettingsMenu.moveRight")}
                   className="rounded px-1 text-xs text-slate-400 hover:text-slate-700 disabled:opacity-20"
                 >
                   ↓
@@ -89,7 +91,7 @@ export function ColumnSettingsMenu<K extends string>({
             onClick={resetPrefs}
             className="mt-1 w-full rounded px-2 py-1 text-left text-xs text-slate-400 hover:bg-slate-50 hover:text-slate-600"
           >
-            Restablecer columnas
+            {t("columnSettingsMenu.resetColumns")}
           </button>
         </div>
       )}
@@ -107,6 +109,7 @@ export function ResizableTh({
   onResize: (width: number) => void;
   children: React.ReactNode;
 }) {
+  const { t } = usePreferences();
   const startRef = useRef<{ x: number; width: number } | null>(null);
 
   function handleMouseDown(e: React.MouseEvent) {
@@ -133,7 +136,7 @@ export function ResizableTh({
       <span className="pr-2">{children}</span>
       <span
         onMouseDown={handleMouseDown}
-        title="Arrastra para ajustar el ancho"
+        title={t("columnSettingsMenu.dragToResize")}
         className="absolute right-0 top-0 h-full w-2 cursor-col-resize select-none hover:bg-violet-200"
       />
     </th>

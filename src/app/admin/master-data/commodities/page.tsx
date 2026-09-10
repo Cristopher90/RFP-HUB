@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function CommoditiesPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function CommoditiesPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const commodities = effectiveClientId
     ? await prisma.commodity.findMany({
@@ -24,14 +26,13 @@ export default async function CommoditiesPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Commodities
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.masterDataKind.commodity}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Estos valores alimentan el desplegable de Commodity al crear una RFP
-        o una plantilla.
+        {dictionary.masterDataScreen.commoditiesSubtitle}
       </p>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -43,7 +44,7 @@ export default async function CommoditiesPage({
           <MasterDataForm
             key={effectiveClientId}
             kind="commodity"
-            label="Commodities"
+            label={dictionary.masterDataKind.commodity}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
             initial={commodities.map((c) => ({
@@ -57,7 +58,7 @@ export default async function CommoditiesPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para ver y editar sus commodities.
+          {dictionary.masterDataScreen.selectClientPrefix} {dictionary.masterDataKind.commodity.toLowerCase()}.
         </p>
       )}
     </div>

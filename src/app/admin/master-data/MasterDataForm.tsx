@@ -20,25 +20,30 @@ import {
 import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type ColumnKey = "code" | "description" | "parent" | "selectable";
 
-const COLUMN_DEFS: ColumnDef<ColumnKey>[] = [
-  { key: "code", label: "Código", defaultWidth: 140, minWidth: 90 },
-  { key: "description", label: "Descripción", defaultWidth: 320, minWidth: 140 },
-  { key: "parent", label: "Padre", defaultWidth: 280, minWidth: 160 },
-];
+function columnDefs(t: (key: string) => string): ColumnDef<ColumnKey>[] {
+  return [
+    { key: "code", label: t("masterDataForm.code"), defaultWidth: 140, minWidth: 90 },
+    { key: "description", label: t("masterDataForm.description"), defaultWidth: 320, minWidth: 140 },
+    { key: "parent", label: t("masterDataForm.parent"), defaultWidth: 280, minWidth: 160 },
+  ];
+}
 
 // Solo "commodity" tiene esta columna: si un nivel del árbol es un valor
 // elegible en una RFP/plantilla, o solo sirve para agrupar sus hijos (para
 // armar una jerarquía donde, por ejemplo, solo el último nivel es
 // seleccionable).
-const SELECTABLE_COLUMN_DEF: ColumnDef<ColumnKey> = {
-  key: "selectable",
-  label: "Seleccionable en RFP",
-  defaultWidth: 160,
-  minWidth: 120,
-};
+function selectableColumnDef(t: (key: string) => string): ColumnDef<ColumnKey> {
+  return {
+    key: "selectable",
+    label: t("masterDataForm.selectableInRfp"),
+    defaultWidth: 160,
+    minWidth: 120,
+  };
+}
 
 function emptyRow(): MasterDataItemInput {
   return {
@@ -67,6 +72,7 @@ export function MasterDataForm({
   targetClientId?: string;
   isSuperAdmin?: boolean;
 }) {
+  const { t } = usePreferences();
   const [rows, setRows] = useState<MasterDataItemInput[]>(
     initial.length > 0 ? initial : [emptyRow()],
   );
@@ -85,9 +91,11 @@ export function MasterDataForm({
     clearMasterDataTable(kind, targetClientId),
   );
 
-  const columnDefs =
-    kind === "commodity" ? [...COLUMN_DEFS, SELECTABLE_COLUMN_DEF] : COLUMN_DEFS;
-  const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, columnDefs);
+  const defs =
+    kind === "commodity"
+      ? [...columnDefs(t), selectableColumnDef(t)]
+      : columnDefs(t);
+  const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, defs);
 
   function updateRow(clientKey: string, patch: Partial<MasterDataItemInput>) {
     setSuccess(false);
@@ -171,9 +179,7 @@ export function MasterDataForm({
     try {
       const imported = await parseMasterDataExcelFile(file);
       if (imported.length === 0) {
-        setImportError(
-          "No se encontraron filas con columnas 'ID' y 'Descripcion'.",
-        );
+        setImportError(t("masterDataForm.noRowsFoundError"));
         return;
       }
       setSuccess(false);
@@ -200,7 +206,7 @@ export function MasterDataForm({
         return [...kept, ...withParents];
       });
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("masterDataForm.readFileError"));
     } finally {
       setImporting(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -221,9 +227,7 @@ export function MasterDataForm({
     try {
       const imported = await parseMasterDataExcelFile(file);
       if (imported.length === 0) {
-        setImportError(
-          "No se encontraron filas con columnas 'ID' y 'Descripcion'.",
-        );
+        setImportError(t("masterDataForm.noRowsFoundError"));
         return;
       }
       const codesToDelete = new Set(
@@ -237,7 +241,7 @@ export function MasterDataForm({
         ),
       );
     } catch {
-      setImportError("No se pudo leer el archivo. Verifica que sea un .xlsx.");
+      setImportError(t("masterDataForm.readFileError"));
     } finally {
       setDeleteImporting(false);
       if (deleteImportInputRef.current) deleteImportInputRef.current.value = "";
@@ -286,7 +290,7 @@ export function MasterDataForm({
   function parentLabel(row: MasterDataItemInput): string {
     if (!row.parentClientKey) return "—";
     const parent = rows.find((r) => r.clientKey === row.parentClientKey);
-    return parent ? parent.description || parent.code || "(sin nombre)" : "—";
+    return parent ? parent.description || parent.code || t("masterDataForm.unnamed") : "—";
   }
 
   const filteredTree = treeOrder.filter(({ item }) => {
@@ -312,7 +316,7 @@ export function MasterDataForm({
       )}
       {success && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Cambios guardados.
+          {t("masterDataForm.savedChanges")}
         </div>
       )}
       {clearTable.error && (
@@ -324,12 +328,10 @@ export function MasterDataForm({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div>
           <p className="text-sm font-medium text-slate-700">
-            Cargar {label.toLowerCase()} desde Excel
+            {t("masterDataForm.loadFromExcel")} {label.toLowerCase()} {t("masterDataForm.loadFromExcelSuffix")}
           </p>
           <p className="text-xs text-slate-400">
-            Archivo con columnas &quot;ID&quot;, &quot;Descripcion&quot; y
-            &quot;PadreID&quot; (opcional, ID de otra fila). Se agrega a lo
-            que ya tengas.
+            {t("masterDataForm.excelColumnsHint")}
           </p>
           {importError && (
             <p className="mt-1 text-xs text-red-600">{importError}</p>
@@ -341,7 +343,7 @@ export function MasterDataForm({
             onClick={() => downloadMasterDataExcel(`${label}.xlsx`, rows)}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            Exportar Excel
+            {t("masterDataForm.exportExcel")}
           </button>
           <input
             ref={importInputRef}
@@ -356,7 +358,7 @@ export function MasterDataForm({
             onClick={() => importInputRef.current?.click()}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60"
           >
-            {importing ? "Importando..." : "Importar Excel"}
+            {importing ? t("masterDataForm.importing") : t("masterDataForm.importExcel")}
           </button>
           <input
             ref={deleteImportInputRef}
@@ -371,7 +373,7 @@ export function MasterDataForm({
             onClick={() => deleteImportInputRef.current?.click()}
             className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
           >
-            {deleteImporting ? "Borrando..." : "Importar para borrar"}
+            {deleteImporting ? t("masterDataForm.deleting") : t("masterDataForm.importToDelete")}
           </button>
         </div>
       </div>
@@ -382,7 +384,7 @@ export function MasterDataForm({
         right={
           <div className="flex items-center gap-3">
             <ColumnSettingsMenu
-              defs={columnDefs}
+              defs={defs}
               order={columnPrefs.order}
               hidden={columnPrefs.hidden}
               toggleVisible={columnPrefs.toggleVisible}
@@ -395,7 +397,7 @@ export function MasterDataForm({
                 onClick={() => removeRows(selectedKeys)}
                 className="text-sm font-medium text-red-600 hover:text-red-700"
               >
-                Borrar seleccionados ({selectedKeys.size})
+                {t("masterDataForm.deleteSelected")} ({selectedKeys.size})
               </button>
             )}
             {isSuperAdmin && (
@@ -404,7 +406,7 @@ export function MasterDataForm({
                 disabled={clearTable.pending}
                 onClick={() =>
                   clearTable.run(
-                    `Esto borra TODOS los registros de "${label}" de este cliente de forma permanente. ¿Continuar?`,
+                    `${t("masterDataForm.deleteAllConfirm")} "${label}" ${t("masterDataForm.deleteAllConfirmSuffix")}`,
                     () => {
                       setRows([emptyRow()]);
                       setSelectedKeys(new Set());
@@ -414,7 +416,7 @@ export function MasterDataForm({
                 }
                 className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
               >
-                {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+                {clearTable.pending ? t("masterDataForm.deleting") : t("masterDataForm.deleteTable")}
               </button>
             )}
             <button
@@ -426,7 +428,7 @@ export function MasterDataForm({
               }}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar
+              {t("masterDataForm.add")}
             </button>
           </div>
         }
@@ -434,7 +436,7 @@ export function MasterDataForm({
         <div>
           <input
             className={inputClass()}
-            placeholder="Buscar por ID o descripción..."
+            placeholder={t("masterDataForm.searchPlaceholder")}
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
           />
@@ -493,7 +495,7 @@ export function MasterDataForm({
                             (isEditing ? (
                               <input
                                 className={inputClass()}
-                                placeholder="ID (ej. HW-IT)"
+                                placeholder={t("masterDataForm.idPlaceholder")}
                                 value={row.code}
                                 onChange={(e) =>
                                   updateRow(row.clientKey, {
@@ -516,7 +518,7 @@ export function MasterDataForm({
                               >
                                 <input
                                   className={inputClass()}
-                                  placeholder="Descripción (ej. Hardware / IT)"
+                                  placeholder={t("masterDataForm.descriptionPlaceholder")}
                                   value={row.description}
                                   onChange={(e) =>
                                     updateRow(row.clientKey, {
@@ -550,7 +552,7 @@ export function MasterDataForm({
                                     id: r.clientKey,
                                     parentId: r.parentClientKey,
                                     label:
-                                      r.description || r.code || "(sin nombre)",
+                                      r.description || r.code || t("masterDataForm.unnamed"),
                                     code: r.code,
                                   }))}
                                 valueId={row.parentClientKey}
@@ -559,8 +561,8 @@ export function MasterDataForm({
                                     parentClientKey: id,
                                   })
                                 }
-                                placeholder="— Sin padre (raíz) —"
-                                clearLabel="— Sin padre (raíz) —"
+                                placeholder={t("masterDataForm.noParentRoot")}
+                                clearLabel={t("masterDataForm.noParentRoot")}
                               />
                             ) : (
                               <span className="text-slate-500">
@@ -588,7 +590,7 @@ export function MasterDataForm({
                             onClick={() => toggleEditing(row.clientKey)}
                             className="text-sm font-medium text-violet-600 hover:text-violet-700"
                           >
-                            {isEditing ? "Listo" : "Editar"}
+                            {isEditing ? t("masterDataForm.done") : t("masterDataForm.edit")}
                           </button>
                           <button
                             type="button"
@@ -596,7 +598,7 @@ export function MasterDataForm({
                             disabled={rows.length === 1}
                             className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                           >
-                            Quitar
+                            {t("masterDataForm.remove")}
                           </button>
                         </div>
                       </td>
@@ -622,7 +624,7 @@ export function MasterDataForm({
           disabled={pending}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar cambios"}
+          {pending ? t("common.saving") : t("masterDataForm.saveChanges")}
         </button>
       </div>
     </form>

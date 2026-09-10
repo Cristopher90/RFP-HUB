@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function ApprovalGroupsPage({
   searchParams,
@@ -10,6 +11,7 @@ export default async function ApprovalGroupsPage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } =
     await requireMasterDataScope(sp);
+  const dictionary = getDictionary(scope.user.language);
 
   const groups = effectiveClientId
     ? await prisma.approvalGroup.findMany({
@@ -24,14 +26,13 @@ export default async function ApprovalGroupsPage({
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Grupos de aprobación
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.masterDataKind.approvalGroup}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Estos grupos se asignan a usuarios y se usan en los procesos de
-        aprobación por valor (modo &ldquo;Grupo&rdquo;).
+        {dictionary.masterDataScreen.approvalGroupsSubtitle}
       </p>
       {scope.isSuperAdmin && (
         <div className="mt-6">
@@ -43,7 +44,7 @@ export default async function ApprovalGroupsPage({
           <MasterDataForm
             key={effectiveClientId}
             kind="approvalGroup"
-            label="Grupos de aprobación"
+            label={dictionary.masterDataKind.approvalGroup}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
             initial={groups.map((g) => ({
@@ -56,7 +57,7 @@ export default async function ApprovalGroupsPage({
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">
-          Selecciona un cliente para ver y editar sus grupos de aprobación.
+          {dictionary.masterDataScreen.selectClientPrefix} {dictionary.masterDataKind.approvalGroup.toLowerCase()}.
         </p>
       )}
     </div>
