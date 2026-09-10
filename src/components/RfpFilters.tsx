@@ -2,18 +2,20 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TreePickerField } from "@/components/TreePickerField";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import { statusLabel } from "@/i18n/labels";
 
 function selectClass() {
   return "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Borrador",
-  PENDING_PUBLISH_APPROVAL: "Pendiente de aprobación",
-  AWAITING_START: "Aguardando inicio",
-  OPEN: "Abierta",
-  CLOSED: "Cerrada",
-};
+const RFP_FILTER_STATUSES = [
+  "DRAFT",
+  "PENDING_PUBLISH_APPROVAL",
+  "AWAITING_START",
+  "OPEN",
+  "CLOSED",
+];
 
 type CategoryOption = {
   id: string;
@@ -33,6 +35,7 @@ export function RfpFilters({
   creators?: { id: string; name: string }[];
   clients?: { id: string; description: string }[];
 }) {
+  const { t, dictionary } = usePreferences();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -72,8 +75,8 @@ export function RfpFilters({
             const node = commodities.find((c) => c.id === id);
             setParam("commodity", node?.description ?? "");
           }}
-          placeholder="Todos los commodities"
-          clearLabel="Todos los commodities"
+          placeholder={t("filters.allCommodities")}
+          clearLabel={t("filters.allCommodities")}
         />
       </div>
       <div className="w-56">
@@ -91,8 +94,8 @@ export function RfpFilters({
             const node = regions.find((r) => r.id === id);
             setParam("region", node?.description ?? "");
           }}
-          placeholder="Todas las regiones"
-          clearLabel="Todas las regiones"
+          placeholder={t("filters.allRegions")}
+          clearLabel={t("filters.allRegions")}
         />
       </div>
       <select
@@ -100,10 +103,10 @@ export function RfpFilters({
         value={searchParams.get("status") ?? ""}
         onChange={(e) => setParam("status", e.target.value)}
       >
-        <option value="">Todos los estados</option>
-        {Object.entries(STATUS_LABEL).map(([value, label]) => (
+        <option value="">{t("filters.allStatuses")}</option>
+        {RFP_FILTER_STATUSES.map((value) => (
           <option key={value} value={value}>
-            {label}
+            {statusLabel(dictionary, value)}
           </option>
         ))}
       </select>
@@ -113,7 +116,7 @@ export function RfpFilters({
           value={searchParams.get("creator") ?? ""}
           onChange={(e) => setParam("creator", e.target.value)}
         >
-          <option value="">Todos los usuarios</option>
+          <option value="">{t("filters.allUsers")}</option>
           {creators.map((u) => (
             <option key={u.id} value={u.id}>
               {u.name}
@@ -127,7 +130,7 @@ export function RfpFilters({
           value={searchParams.get("client") ?? ""}
           onChange={(e) => setParam("client", e.target.value)}
         >
-          <option value="">Todos los clientes</option>
+          <option value="">{t("filters.allClients")}</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>
               {c.description}
@@ -147,7 +150,7 @@ export function RfpFilters({
           }}
           className="text-sm font-medium text-slate-500 hover:text-slate-700"
         >
-          Limpiar filtros
+          {t("filters.clear")}
         </button>
       )}
     </div>

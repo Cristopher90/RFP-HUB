@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { formatRfpNumber } from "@/lib/format";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { approvalStageLabel } from "@/i18n/labels";
 
 export type PendingApprovalRow = {
   rfpId: string;
@@ -16,13 +17,8 @@ export type PendingApprovalRow = {
 
 type SortKey = "id" | "title" | "date";
 
-const STAGE_LABEL: Record<PendingApprovalRow["stage"], string> = {
-  PUBLISH: "Publicar",
-  AWARD: "Adjudicar",
-};
-
 export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) {
-  const { formatDate } = usePreferences();
+  const { formatDate, dictionary } = usePreferences();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -121,7 +117,7 @@ export function PendingApprovalsBox({ items }: { items: PendingApprovalRow[] }) 
                 </td>
                 <td className="px-5 py-3 text-slate-700">{i.rfpTitle}</td>
                 <td className="px-5 py-3 text-slate-600">
-                  {STAGE_LABEL[i.stage]}
+                  {approvalStageLabel(dictionary, i.stage)}
                 </td>
                 <td className="px-5 py-3 text-slate-600">
                   {formatDate(i.createdAt)}

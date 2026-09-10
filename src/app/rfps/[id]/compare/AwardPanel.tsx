@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { formatRfpNumber } from "@/lib/format";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { awardCriteriaLabel } from "@/i18n/labels";
 import { BarChart } from "@/components/BarChart";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { ApprovalFlowBanner } from "../ApprovalFlowBanner";
@@ -37,12 +38,7 @@ type SupplierRow = {
   answers: AnswerData[];
 };
 
-const CRITERIA_LABEL: Record<AwardCriteria, string> = {
-  ITEMS: "Puntaje de artículos",
-  QUESTIONS: "Puntaje de preguntas",
-  WEIGHTED: "Ponderado (artículos + preguntas)",
-  PRICE: "Solo precio",
-};
+const ALL_AWARD_CRITERIA: AwardCriteria[] = ["ITEMS", "QUESTIONS", "WEIGHTED", "PRICE"];
 
 export function AwardPanel({
   rfpId,
@@ -73,7 +69,7 @@ export function AwardPanel({
   awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
 }) {
-  const { formatCurrency, formatDateTime } = usePreferences();
+  const { formatCurrency, formatDateTime, dictionary } = usePreferences();
   const [answerScores, setAnswerScores] = useState<Record<string, number | null>>(
     () =>
       Object.fromEntries(
@@ -343,11 +339,7 @@ export function AwardPanel({
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {(
-                Object.keys(CRITERIA_LABEL).filter(
-                  (c) => c !== "PRICE",
-                ) as AwardCriteria[]
-              ).map((c) => (
+              {ALL_AWARD_CRITERIA.filter((c) => c !== "PRICE").map((c) => (
                 <button
                   key={c}
                   type="button"
@@ -358,7 +350,7 @@ export function AwardPanel({
                       : "border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  {CRITERIA_LABEL[c]}
+                  {awardCriteriaLabel(dictionary, c)}
                 </button>
               ))}
             </div>

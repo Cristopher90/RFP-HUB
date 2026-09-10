@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
-import { ROLE_LABEL } from "@/lib/roleLabels";
+import { getDictionary } from "@/i18n/getDictionary";
+import { roleLabel } from "@/i18n/labels";
 import { UserListFilter } from "./UserListFilter";
 
 export default async function UsersPage({
@@ -15,6 +16,7 @@ export default async function UsersPage({
   const sp = await searchParams;
   const q =
     (typeof sp.q === "string" ? sp.q : "").trim().toLowerCase();
+  const dictionary = getDictionary(scope.user.language);
 
   const users = await prisma.user.findMany({
     where: scope.where,
@@ -31,7 +33,7 @@ export default async function UsersPage({
           u.companyCode ?? "",
           u.plant ?? "",
           u.costCenter ?? "",
-          ROLE_LABEL[u.role],
+          roleLabel(dictionary, u.role),
         ]
           .join(" ")
           .toLowerCase()
@@ -96,7 +98,7 @@ export default async function UsersPage({
                   {u.costCenter || "—"}
                 </td>
                 <td className="px-5 py-4 text-slate-600">
-                  {ROLE_LABEL[u.role]}
+                  {roleLabel(dictionary, u.role)}
                 </td>
                 <td className="px-5 py-4 text-right">
                   <Link

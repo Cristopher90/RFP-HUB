@@ -99,7 +99,7 @@ export default async function RfpRoundsPage({
                     Cierra: {formatDate(round.deadlineAt, dateOptions)}
                   </p>
                 </div>
-                <StatusBadge status={round.status} />
+                <StatusBadge status={round.status} language={preferences.language} />
               </div>
 
               {totals.length === 0 ? (

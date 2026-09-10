@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { StatusBadge } from "@/components/StatusBadge";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type SupplierInvitationRow = {
   id: string;
@@ -35,6 +36,7 @@ export function SupplierRfpTable({
 }: {
   invitations: SupplierInvitationRow[];
 }) {
+  const { language } = usePreferences();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [participation, setParticipation] = useState("");
@@ -148,7 +150,7 @@ export function SupplierRfpTable({
                       {inv.invitedAtLabel}
                     </td>
                     <td className="px-5 py-4">
-                      <StatusBadge status={inv.status} />
+                      <StatusBadge status={inv.status} language={language} />
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       {inv.responded ? (

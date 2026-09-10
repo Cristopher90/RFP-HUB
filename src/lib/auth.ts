@@ -9,7 +9,7 @@ import { ROLE_LEVEL } from "@/lib/roleLabels";
 
 const SESSION_COOKIE = "session_user";
 
-export { ROLE_LEVEL, ROLE_LABEL } from "@/lib/roleLabels";
+export { ROLE_LEVEL } from "@/lib/roleLabels";
 
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");

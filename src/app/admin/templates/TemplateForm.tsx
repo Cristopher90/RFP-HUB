@@ -5,7 +5,15 @@ import { GearButton } from "@/components/GearButton";
 import { TreePickerField } from "@/components/TreePickerField";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { QuestionScoringFields } from "@/components/QuestionScoringFields";
-import { ROLE_LABEL } from "@/lib/roleLabels";
+import { ROLE_LEVEL } from "@/lib/roleLabels";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import type { Dictionary } from "@/i18n/getDictionary";
+import {
+  roleLabel,
+  priceConditionLabel,
+  questionTypeLabel,
+  requiresAnswerLabel,
+} from "@/i18n/labels";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
@@ -19,33 +27,22 @@ import {
   type TemplatePriceCondition,
 } from "./actions";
 
-const PRICE_CONDITION_LABEL: Record<TemplatePriceCondition, string> = {
-  GREATER_THAN: "Mayor que",
-  LESS_THAN: "Menor que",
-  BETWEEN: "Entre",
-};
-
-const QUESTION_TYPE_LABEL: Record<TemplateQuestionType, string> = {
-  TEXT: "Texto",
-  NUMBER: "Número",
-  SELECT: "Opción múltiple",
-  MONEY: "Dinero",
-  ATTACHMENT: "Adjunto",
-  YES_NO: "Sí / No",
-  INFO: "Texto informativo (sin respuesta)",
-};
-
-// "Requiere respuesta" reemplaza a la vieja "Visibilidad" dentro de
-// Contenido Externo: en vez de elegir cuán visible es la respuesta del
-// proveedor, se elige directamente quién debe responder — reutiliza
-// respondedBy/visibility ya existentes (misma pareja que ya usa Contenido
-// Interno) en vez de agregar un campo nuevo.
-const REQUIRES_ANSWER_LABEL: Record<TemplateQuestionResponder, string> = {
-  SUPPLIER: "Externa — debe responder el proveedor",
-  BUYER: "Interna — debe responder el comprador antes de publicar",
-};
-
-const ALL_USER_ROLES = Object.keys(ROLE_LABEL) as UserRole[];
+const ALL_USER_ROLES = Object.keys(ROLE_LEVEL) as UserRole[];
+const ALL_PRICE_CONDITIONS: TemplatePriceCondition[] = [
+  "GREATER_THAN",
+  "LESS_THAN",
+  "BETWEEN",
+];
+const ALL_QUESTION_TYPES: TemplateQuestionType[] = [
+  "TEXT",
+  "NUMBER",
+  "SELECT",
+  "MONEY",
+  "ATTACHMENT",
+  "YES_NO",
+  "INFO",
+];
+const ALL_REQUIRES_ANSWER: TemplateQuestionResponder[] = ["SUPPLIER", "BUYER"];
 
 function emptyItem(): TemplateItemInput {
   return {
@@ -142,6 +139,7 @@ function smallInputClass() {
 function lockRolesField(
   selected: UserRole[],
   onChange: (roles: UserRole[]) => void,
+  dictionary: Dictionary,
 ) {
   function toggle(role: UserRole) {
     onChange(
@@ -162,7 +160,7 @@ function lockRolesField(
             checked={selected.includes(r)}
             onChange={() => toggle(r)}
           />
-          {ROLE_LABEL[r]}
+          {roleLabel(dictionary, r)}
         </label>
       ))}
     </div>
@@ -206,6 +204,7 @@ export function TemplateForm({
     questions: TemplateQuestionInput[];
   };
 }) {
+  const { dictionary } = usePreferences();
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -667,13 +666,11 @@ export function TemplateForm({
                 }
               >
                 <option value="">Cualquiera</option>
-                {(Object.keys(PRICE_CONDITION_LABEL) as TemplatePriceCondition[]).map(
-                  (v) => (
-                    <option key={v} value={v}>
-                      {PRICE_CONDITION_LABEL[v]}
-                    </option>
-                  ),
-                )}
+                {ALL_PRICE_CONDITIONS.map((v) => (
+                  <option key={v} value={v}>
+                    {priceConditionLabel(dictionary, v)}
+                  </option>
+                ))}
               </select>
               {(matchPriceCondition === "GREATER_THAN" ||
                 matchPriceCondition === "BETWEEN") && (
@@ -896,7 +893,7 @@ export function TemplateForm({
                           </label>
                           {lockRolesField(item.lockRoles, (lockRoles) =>
                             updateItem(index, { lockRoles }),
-                          )}
+                          dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
                             Sin marcar = cualquiera puede editarlo o quitarlo.
                           </p>
@@ -1094,13 +1091,9 @@ export function TemplateForm({
                             })
                           }
                         >
-                          {(
-                            Object.keys(
-                              QUESTION_TYPE_LABEL,
-                            ) as TemplateQuestionType[]
-                          ).map((t) => (
+                          {ALL_QUESTION_TYPES.map((t) => (
                             <option key={t} value={t}>
-                              {QUESTION_TYPE_LABEL[t]}
+                              {questionTypeLabel(dictionary, t)}
                             </option>
                           ))}
                         </select>
@@ -1226,7 +1219,7 @@ export function TemplateForm({
                           </label>
                           {lockRolesField(q.lockRoles, (lockRoles) =>
                             updateInternalQuestion(index, { lockRoles }),
-                          )}
+                          dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
                             Sin marcar = cualquiera puede editarla o quitarla.
                           </p>
@@ -1380,13 +1373,9 @@ export function TemplateForm({
                             })
                           }
                         >
-                          {(
-                            Object.keys(
-                              QUESTION_TYPE_LABEL,
-                            ) as TemplateQuestionType[]
-                          ).map((t) => (
+                          {ALL_QUESTION_TYPES.map((t) => (
                             <option key={t} value={t}>
-                              {QUESTION_TYPE_LABEL[t]}
+                              {questionTypeLabel(dictionary, t)}
                             </option>
                           ))}
                         </select>
@@ -1521,7 +1510,7 @@ export function TemplateForm({
                           </label>
                           {lockRolesField(q.lockRoles, (lockRoles) =>
                             updateQuestion(index, { lockRoles }),
-                          )}
+                          dictionary)}
                           <p className="mt-1 text-[11px] text-slate-400">
                             Sin marcar = cualquiera puede editarla o quitarla.
                           </p>
@@ -1543,13 +1532,9 @@ export function TemplateForm({
                               updateQuestion(index, { respondedBy });
                             }}
                           >
-                            {(
-                              Object.keys(
-                                REQUIRES_ANSWER_LABEL,
-                              ) as TemplateQuestionResponder[]
-                            ).map((v) => (
+                            {ALL_REQUIRES_ANSWER.map((v) => (
                               <option key={v} value={v}>
-                                {REQUIRES_ANSWER_LABEL[v]}
+                                {requiresAnswerLabel(dictionary, v)}
                               </option>
                             ))}
                           </select>

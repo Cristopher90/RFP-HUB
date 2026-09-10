@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ROLE_LABEL } from "@/lib/roleLabels";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import { roleLabel } from "@/i18n/labels";
 import { makeClientKey } from "@/lib/clientKey";
 import { TreePickerField } from "@/components/TreePickerField";
 import type { UserRole } from "@/generated/prisma/enums";
@@ -26,6 +27,7 @@ export function UserForm({
   clients: { id: string; code: string; description: string }[];
   actorIsSuperAdmin: boolean;
 }) {
+  const { dictionary } = usePreferences();
   const ROLES: UserRole[] = actorIsSuperAdmin
     ? ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
     : ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
@@ -204,7 +206,7 @@ export function UserForm({
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
+                  {roleLabel(dictionary, r)}
                 </option>
               ))}
             </select>

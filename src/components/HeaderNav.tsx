@@ -2,9 +2,9 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { logout, logoutSupplier } from "@/lib/authActions";
-import { ROLE_LABEL } from "@/lib/roleLabels";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
+import { roleLabel } from "@/i18n/labels";
 
 export async function HeaderNav() {
   const user = await getCurrentUser();
@@ -67,7 +67,7 @@ export async function HeaderNav() {
       <div className="flex items-center gap-2 border-l border-slate-200 pl-5">
         <div className="text-right leading-tight">
           <p className="text-sm font-medium text-slate-800">{user.name}</p>
-          <p className="text-xs text-slate-400">{ROLE_LABEL[user.role]}</p>
+          <p className="text-xs text-slate-400">{roleLabel(dictionary, user.role)}</p>
         </div>
         <Link
           href="/profile"

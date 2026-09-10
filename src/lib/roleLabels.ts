@@ -10,11 +10,3 @@ export const ROLE_LEVEL: Record<UserRole, number> = {
   CLIENT_ADMIN: 3,
   ADMIN: 4,
 };
-
-export const ROLE_LABEL: Record<UserRole, string> = {
-  APPROVER: "Aprobador",
-  BUYER: "Comprador",
-  SENIOR_BUYER: "Comprador Senior",
-  CLIENT_ADMIN: "Administrador de cliente",
-  ADMIN: "Super Administrador",
-};

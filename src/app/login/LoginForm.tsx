@@ -7,7 +7,8 @@ import {
   quickLoginAsUser,
   quickLoginAsSupplierUser,
 } from "./actions";
-import { ROLE_LABEL } from "@/lib/roleLabels";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import { roleLabel } from "@/i18n/labels";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type LoginUserOption = {
@@ -38,6 +39,7 @@ export function LoginForm({
   users: LoginUserOption[];
   supplierUsers: LoginSupplierUserOption[];
 }) {
+  const { t, dictionary } = usePreferences();
   const [mode, setMode] = useState<"client" | "supplier">("client");
   const [clientState, clientFormAction, clientPending] = useActionState(login, {
     error: null,
@@ -68,7 +70,7 @@ export function LoginForm({
               : "text-slate-500 hover:text-slate-700"
           }`}
         >
-          Cliente
+          {t("login.client")}
         </button>
         <button
           type="button"
@@ -79,7 +81,7 @@ export function LoginForm({
               : "text-slate-500 hover:text-slate-700"
           }`}
         >
-          Proveedor
+          {t("login.supplier")}
         </button>
       </div>
 
@@ -91,7 +93,7 @@ export function LoginForm({
         )}
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Correo
+            {t("login.email")}
           </label>
           <input
             type="email"
@@ -103,7 +105,7 @@ export function LoginForm({
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">
-            Contraseña
+            {t("login.password")}
           </label>
           <input
             type="password"
@@ -118,10 +120,10 @@ export function LoginForm({
           className="w-full rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
           {pending
-            ? "Ingresando..."
+            ? t("login.loggingIn")
             : mode === "client"
-              ? "Iniciar sesión"
-              : "Iniciar sesión como proveedor"}
+              ? t("login.signIn")
+              : t("login.signInAsSupplier")}
         </button>
       </form>
 
@@ -131,7 +133,7 @@ export function LoginForm({
         </div>
         <div className="relative flex justify-center text-xs">
           <span className="bg-slate-50 px-2 text-slate-400">
-            o entra como usuario demo
+            {t("login.demoHint")}
           </span>
         </div>
       </div>
@@ -143,10 +145,10 @@ export function LoginForm({
             value={quickUserId}
             onChange={(e) => setQuickUserId(e.target.value)}
           >
-            {users.length === 0 && <option value="">Sin usuarios</option>}
+            {users.length === 0 && <option value="">{t("login.noUsers")}</option>}
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} {u.lastName ?? ""} — {ROLE_LABEL[u.role]}
+                {u.name} {u.lastName ?? ""} — {roleLabel(dictionary, u.role)}
                 {u.clientDescription ? ` (${u.clientDescription})` : ""}
               </option>
             ))}
@@ -161,7 +163,7 @@ export function LoginForm({
             }
             className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:border-violet-400 hover:text-violet-600 disabled:opacity-60"
           >
-            Acceder
+            {t("login.access")}
           </button>
         </div>
       ) : (
@@ -172,7 +174,7 @@ export function LoginForm({
             onChange={(e) => setQuickSupplierUserId(e.target.value)}
           >
             {supplierUsers.length === 0 && (
-              <option value="">Sin usuarios de proveedor</option>
+              <option value="">{t("login.noSupplierUsers")}</option>
             )}
             {supplierUsers.map((u) => (
               <option key={u.id} value={u.id}>
@@ -190,7 +192,7 @@ export function LoginForm({
             }
             className="shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:border-violet-400 hover:text-violet-600 disabled:opacity-60"
           >
-            Acceder
+            {t("login.access")}
           </button>
         </div>
       )}

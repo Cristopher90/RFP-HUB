@@ -53,7 +53,7 @@ export function RfpTable({
   rfps: RfpRow[];
   showClientColumn: boolean;
 }) {
-  const { formatDate } = usePreferences();
+  const { formatDate, language } = usePreferences();
   const defs = showClientColumn
     ? ALL_COLUMN_DEFS
     : ALL_COLUMN_DEFS.filter((d) => d.key !== "cliente");
@@ -64,7 +64,7 @@ export function RfpTable({
       case "cliente":
         return rfp.clientLabel ?? "—";
       case "estado":
-        return <StatusBadge status={rfp.status} />;
+        return <StatusBadge status={rfp.status} language={language} />;
       case "commodity":
         return rfp.commodity ?? "—";
       case "region":

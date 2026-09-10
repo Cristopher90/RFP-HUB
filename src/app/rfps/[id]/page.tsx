@@ -27,16 +27,8 @@ import { CountdownTimer } from "./CountdownTimer";
 import { closeRfp, reopenRfp } from "./actions";
 import { syncAwaitingStart } from "@/lib/rfpStatus";
 import { localeForLanguage } from "@/i18n/locale";
-
-const TYPE_LABEL: Record<string, string> = {
-  SELECT: "Opción múltiple",
-  NUMBER: "Número",
-  MONEY: "Dinero",
-  ATTACHMENT: "Adjunto",
-  YES_NO: "Sí / No",
-  TEXT: "Texto",
-  INFO: "Texto informativo",
-};
+import { questionTypeLabel, approvalStageLabel } from "@/i18n/labels";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function RfpDetailPage({
   params,
@@ -64,6 +56,7 @@ export default async function RfpDetailPage({
   const user = scope.user;
   rfp.status = await syncAwaitingStart(rfp);
   const locale = localeForLanguage(user.language);
+  const dictionary = getDictionary(user.language);
   const dateOptions = { locale, timeZone: user.timezone };
   const currencyOptions = { locale, currency: user.currency };
 
@@ -89,10 +82,6 @@ export default async function RfpDetailPage({
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
     (await canDecideActiveLevel(rfp.id, "PUBLISH", user.id));
 
-  const STAGE_LABEL: Record<"PUBLISH" | "AWARD", string> = {
-    PUBLISH: "Publicar",
-    AWARD: "Adjudicar",
-  };
   const history: { date: Date; label: string; detail?: string }[] = [
     { date: rfp.createdAt, label: "Creación" },
   ];
@@ -100,7 +89,7 @@ export default async function RfpDetailPage({
   for (const h of await getApprovalHistory(rfp.id)) {
     history.push({
       date: new Date(h.decidedAt),
-      label: `${h.decision === "APPROVED" ? "Aprobado" : "Rechazado"} · ${STAGE_LABEL[h.stage]} (nivel ${h.order + 1})`,
+      label: `${h.decision === "APPROVED" ? "Aprobado" : "Rechazado"} · ${approvalStageLabel(dictionary, h.stage)} (nivel ${h.order + 1})`,
       detail: h.reason ? `${h.userName} — ${h.reason}` : h.userName,
     });
   }
@@ -166,7 +155,7 @@ export default async function RfpDetailPage({
             {rfp.title}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-            <StatusBadge status={rfp.status} />
+            <StatusBadge status={rfp.status} language={user.language} />
             {awardedInvitation && (
               <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
                 Adjudicada a {awardedInvitation.supplier.name}
@@ -429,7 +418,7 @@ export default async function RfpDetailPage({
                   </li>
                 )}
                 {group.entries.map(({ item: q, label }) => {
-                  const typeLabel = TYPE_LABEL[q.type] ?? q.type;
+                  const typeLabel = questionTypeLabel(dictionary, q.type);
                   const conditionLabel = q.dependsOnHeaderField
                     ? `si ${q.dependsOnHeaderField} = "${q.dependsOnValue}"`
                     : q.dependsOnQuestionId
@@ -536,7 +525,7 @@ export default async function RfpDetailPage({
                         {inv.supplier.email}
                       </td>
                       <td className="px-6 py-3">
-                        <StatusBadge status={inv.status} />
+                        <StatusBadge status={inv.status} language={user.language} />
                       </td>
                       <td className="px-6 py-3 text-slate-500">
                         {formatDateTime(inv.invitedAt, dateOptions)}

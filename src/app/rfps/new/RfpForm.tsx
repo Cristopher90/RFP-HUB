@@ -20,6 +20,8 @@ import {
 } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
+import { usePreferences } from "@/i18n/PreferencesProvider";
+import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
 import type { UserRole } from "@/generated/prisma/enums";
 import { parseRfpExcelFile } from "./excelImport";
 import { downloadRfpExcel } from "./excelExport";
@@ -186,23 +188,16 @@ function defaultDeadline() {
   return toDatetimeLocalValue(d);
 }
 
-const QUESTION_TYPE_LABEL: Record<QuestionType, string> = {
-  TEXT: "Texto",
-  NUMBER: "Número",
-  SELECT: "Opción múltiple",
-  MONEY: "Dinero",
-  ATTACHMENT: "Adjunto",
-  YES_NO: "Sí / No",
-  INFO: "Texto informativo (sin respuesta)",
-};
-
-// "Requiere respuesta" reemplaza a la vieja "Visibilidad" dentro de las
-// preguntas para proveedores: en vez de elegir cuán visible es la
-// respuesta, se elige directamente quién debe responder.
-const REQUIRES_ANSWER_LABEL: Record<QuestionResponder, string> = {
-  SUPPLIER: "Externa — debe responder el proveedor",
-  BUYER: "Interna — debe responder el comprador antes de publicar",
-};
+const ALL_QUESTION_TYPES: QuestionType[] = [
+  "TEXT",
+  "NUMBER",
+  "SELECT",
+  "MONEY",
+  "ATTACHMENT",
+  "YES_NO",
+  "INFO",
+];
+const ALL_REQUIRES_ANSWER: QuestionResponder[] = ["SUPPLIER", "BUYER"];
 
 export type RfpInitialData = {
   title: string;
@@ -281,6 +276,7 @@ export function RfpForm({
   rfpId?: string;
   initial?: RfpInitialData;
 }) {
+  const { dictionary } = usePreferences();
   const idBase = useId();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -1446,11 +1442,9 @@ export function RfpForm({
                             })
                           }
                         >
-                          {(
-                            Object.keys(QUESTION_TYPE_LABEL) as QuestionType[]
-                          ).map((t) => (
+                          {ALL_QUESTION_TYPES.map((t) => (
                             <option key={t} value={t}>
-                              {QUESTION_TYPE_LABEL[t]}
+                              {questionTypeLabel(dictionary, t)}
                             </option>
                           ))}
                         </select>
@@ -1747,11 +1741,9 @@ export function RfpForm({
                             })
                           }
                         >
-                          {(
-                            Object.keys(QUESTION_TYPE_LABEL) as QuestionType[]
-                          ).map((t) => (
+                          {ALL_QUESTION_TYPES.map((t) => (
                             <option key={t} value={t}>
-                              {QUESTION_TYPE_LABEL[t]}
+                              {questionTypeLabel(dictionary, t)}
                             </option>
                           ))}
                         </select>
@@ -1906,13 +1898,9 @@ export function RfpForm({
                               updateQuestion(index, { respondedBy });
                             }}
                           >
-                            {(
-                              Object.keys(
-                                REQUIRES_ANSWER_LABEL,
-                              ) as QuestionResponder[]
-                            ).map((v) => (
+                            {ALL_REQUIRES_ANSWER.map((v) => (
                               <option key={v} value={v}>
-                                {REQUIRES_ANSWER_LABEL[v]}
+                                {requiresAnswerLabel(dictionary, v)}
                               </option>
                             ))}
                           </select>
