@@ -16,7 +16,14 @@ import {
   type TemplateQuestionInput,
   type TemplateQuestionType,
   type TemplateQuestionResponder,
+  type TemplatePriceCondition,
 } from "./actions";
+
+const PRICE_CONDITION_LABEL: Record<TemplatePriceCondition, string> = {
+  GREATER_THAN: "Mayor que",
+  LESS_THAN: "Menor que",
+  BETWEEN: "Entre",
+};
 
 const QUESTION_TYPE_LABEL: Record<TemplateQuestionType, string> = {
   TEXT: "Texto",
@@ -188,6 +195,9 @@ export function TemplateForm({
     description: string;
     matchCommodity: string;
     matchRegion: string;
+    matchPriceCondition: TemplatePriceCondition | null;
+    matchPriceMin: number | null;
+    matchPriceMax: number | null;
     active: boolean;
     hideResponsesUntilClosed: boolean;
     items: TemplateItemInput[];
@@ -201,6 +211,15 @@ export function TemplateForm({
     initial?.matchCommodity ?? "",
   );
   const [matchRegion, setMatchRegion] = useState(initial?.matchRegion ?? "");
+  const [matchPriceCondition, setMatchPriceCondition] = useState<
+    TemplatePriceCondition | null
+  >(initial?.matchPriceCondition ?? null);
+  const [matchPriceMin, setMatchPriceMin] = useState(
+    initial?.matchPriceMin != null ? String(initial.matchPriceMin) : "",
+  );
+  const [matchPriceMax, setMatchPriceMax] = useState(
+    initial?.matchPriceMax != null ? String(initial.matchPriceMax) : "",
+  );
   const [active, setActive] = useState(initial?.active ?? true);
   const [hideResponsesUntilClosed, setHideResponsesUntilClosed] = useState(
     initial?.hideResponsesUntilClosed ?? false,
@@ -496,6 +515,9 @@ export function TemplateForm({
       description,
       matchCommodity,
       matchRegion,
+      matchPriceCondition,
+      matchPriceMin,
+      matchPriceMax,
       active,
       hideResponsesUntilClosed,
       items,
@@ -596,6 +618,59 @@ export function TemplateForm({
               placeholder="Cualquiera"
               clearLabel="Cualquiera"
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Aplica cuando el Precio estimado sea
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                className={inputClass()}
+                style={{ maxWidth: "12rem" }}
+                value={matchPriceCondition ?? ""}
+                onChange={(e) =>
+                  setMatchPriceCondition(
+                    (e.target.value || null) as TemplatePriceCondition | null,
+                  )
+                }
+              >
+                <option value="">Cualquiera</option>
+                {(Object.keys(PRICE_CONDITION_LABEL) as TemplatePriceCondition[]).map(
+                  (v) => (
+                    <option key={v} value={v}>
+                      {PRICE_CONDITION_LABEL[v]}
+                    </option>
+                  ),
+                )}
+              </select>
+              {(matchPriceCondition === "GREATER_THAN" ||
+                matchPriceCondition === "BETWEEN") && (
+                <input
+                  type="number"
+                  step="any"
+                  placeholder={matchPriceCondition === "BETWEEN" ? "Mínimo" : "Valor"}
+                  className={inputClass()}
+                  style={{ maxWidth: "10rem" }}
+                  value={matchPriceMin}
+                  onChange={(e) => setMatchPriceMin(e.target.value)}
+                />
+              )}
+              {matchPriceCondition === "BETWEEN" && (
+                <span className="text-sm text-slate-400">y</span>
+              )}
+              {(matchPriceCondition === "LESS_THAN" ||
+                matchPriceCondition === "BETWEEN") && (
+                <input
+                  type="number"
+                  step="any"
+                  placeholder={matchPriceCondition === "BETWEEN" ? "Máximo" : "Valor"}
+                  className={inputClass()}
+                  style={{ maxWidth: "10rem" }}
+                  value={matchPriceMax}
+                  onChange={(e) => setMatchPriceMax(e.target.value)}
+                />
+              )}
+            </div>
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">

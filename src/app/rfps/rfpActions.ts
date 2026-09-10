@@ -83,6 +83,8 @@ export async function buildItemsFromSourceRfp(
       sourceNumber: number;
       sourceCommodity: string | null;
       sourceRegion: string | null;
+      sourceEstimatedPrice: number | null;
+      sourceSelectedTemplateId: string | null;
     }
   | { error: string }
 > {
@@ -187,5 +189,7 @@ export async function buildItemsFromSourceRfp(
     sourceNumber: source.number,
     sourceCommodity: source.commodity,
     sourceRegion: source.region,
+    sourceEstimatedPrice: source.estimatedPrice,
+    sourceSelectedTemplateId: source.selectedTemplateId,
   };
 }

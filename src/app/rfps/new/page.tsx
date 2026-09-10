@@ -83,13 +83,15 @@ export default async function NewRfpPage({
         commodity: result.sourceCommodity ?? "",
         region: result.sourceRegion ?? "",
         startDate: "",
-        estimatedPrice: "",
+        estimatedPrice:
+          result.sourceEstimatedPrice != null ? String(result.sourceEstimatedPrice) : "",
         origin: "",
         predecessorDocument: "",
         basedOnRfpId: carriesHistory ? copyFrom : null,
         basedOnRfpLabel: carriesHistory
           ? `${formatRfpNumber(result.sourceNumber)} — ${result.sourceTitle}`
           : null,
+        selectedTemplateId: result.sourceSelectedTemplateId,
         isNextRound,
         scoringEnabled: false,
         items: result.items,
@@ -140,6 +142,9 @@ export default async function NewRfpPage({
             name: t.name,
             matchCommodity: t.matchCommodity,
             matchRegion: t.matchRegion,
+            matchPriceCondition: t.matchPriceCondition,
+            matchPriceMin: t.matchPriceMin,
+            matchPriceMax: t.matchPriceMax,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

@@ -149,6 +149,7 @@ export default async function EditRfpPage({
     basedOnRfpLabel: rfp.basedOnRfp
       ? `${formatRfpNumber(rfp.basedOnRfp.number)} — ${rfp.basedOnRfp.title}`
       : null,
+    selectedTemplateId: rfp.selectedTemplateId,
     scoringEnabled: rfp.scoringEnabled,
     items,
     questions: mapQuestions("EXTERNAL"),
@@ -199,6 +200,9 @@ export default async function EditRfpPage({
             name: t.name,
             matchCommodity: t.matchCommodity,
             matchRegion: t.matchRegion,
+            matchPriceCondition: t.matchPriceCondition,
+            matchPriceMin: t.matchPriceMin,
+            matchPriceMax: t.matchPriceMax,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

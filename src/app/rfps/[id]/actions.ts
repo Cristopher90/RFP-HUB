@@ -15,7 +15,7 @@ import {
   recordDecision,
   sendReminder,
 } from "@/lib/approvalEngine";
-import { matchesTemplate } from "@/lib/templateMatch";
+import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -133,12 +133,17 @@ export async function publishRfp(rfpId: string) {
     return { error: "Solo se puede publicar una RFP en borrador." };
   }
 
-  const matchingTemplates = (
-    await prisma.rfpTemplate.findMany({
-      where: { active: true },
-      include: { approvalWorkflow: { include: { levels: true } } },
-    })
-  ).filter((t) => matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? ""));
+  const matchingTemplates = resolveAppliedTemplates(
+    (
+      await prisma.rfpTemplate.findMany({
+        where: { active: true },
+        include: { approvalWorkflow: { include: { levels: true } } },
+      })
+    ).filter((t) =>
+      matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? "", rfp.estimatedPrice),
+    ),
+    rfp.selectedTemplateId,
+  );
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
   const levels = levelsForStage(workflow, "PUBLISH");
@@ -229,6 +234,7 @@ export async function updateRfp(
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
       basedOnRfpId: input.basedOnRfpId || null,
+      selectedTemplateId: input.selectedTemplateId || null,
       scoringEnabled: input.scoringEnabled,
       approvalWorkflowId: workflow?.id ?? null,
       hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),

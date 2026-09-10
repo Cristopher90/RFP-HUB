@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { matchesTemplate } from "@/lib/templateMatch";
+import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -86,6 +86,7 @@ export type CreateRfpInput = {
   origin: string;
   predecessorDocument: string;
   basedOnRfpId: string | null;
+  selectedTemplateId: string | null;
   clientId?: string; // solo lo usa un Super Administrador (ADMIN); ignorado para cualquier otro rol
   isNextRound?: boolean;
   scoringEnabled: boolean;
@@ -103,12 +104,20 @@ export type ShapedRfpInput = {
   estimatedPrice: number | null;
 };
 
+// Returns the templates whose content actually applies: every
+// unconditional template, plus — among the conditional ones (commodity/
+// región/precio) that currently match — the selected one, or the sole
+// match when there's exactly one. A client-submitted selectedTemplateId
+// that isn't among the current matches (tampered, or stale after a header
+// edit) is silently ignored rather than trusted.
 async function findMatchingTemplates(
   commodity: string,
   region: string,
+  estimatedPrice: number | null,
+  selectedTemplateId: string | null,
   clientId: string,
 ) {
-  return (
+  const matching = (
     await prisma.rfpTemplate.findMany({
       where: { active: true, clientId },
       include: {
@@ -117,7 +126,8 @@ async function findMatchingTemplates(
         approvalWorkflow: { include: { levels: true } },
       },
     })
-  ).filter((t) => matchesTemplate(t, commodity, region));
+  ).filter((t) => matchesTemplate(t, commodity, region, estimatedPrice));
+  return resolveAppliedTemplates(matching, selectedTemplateId);
 }
 
 function shapeItems(items: NewItemInput[]) {
@@ -216,9 +226,15 @@ export async function validateAndShapeRfp(
   user: { role: import("@/generated/prisma/enums").UserRole },
   clientId: string,
 ): Promise<{ error: string } | ShapedRfpInput> {
+  const estimatedPrice = input.estimatedPrice.trim()
+    ? Number(input.estimatedPrice)
+    : null;
+
   const matchingTemplates = await findMatchingTemplates(
     input.commodity,
     input.region,
+    estimatedPrice,
+    input.selectedTemplateId,
     clientId,
   );
 
@@ -258,10 +274,6 @@ export async function validateAndShapeRfp(
   }
   const questions = shapeQuestions(input.questions);
   const suppliers = shapeSuppliers(input.suppliers);
-
-  const estimatedPrice = input.estimatedPrice.trim()
-    ? Number(input.estimatedPrice)
-    : null;
 
   return { items, questions, suppliers, matchingTemplates, estimatedPrice };
 }
@@ -335,6 +347,7 @@ export async function createRfp(
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
       basedOnRfpId: input.basedOnRfpId || null,
+      selectedTemplateId: input.selectedTemplateId || null,
       roundNumber,
       seriesRootId,
       scoringEnabled: input.scoringEnabled,

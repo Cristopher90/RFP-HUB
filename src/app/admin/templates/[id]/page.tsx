@@ -47,6 +47,9 @@ export default async function EditTemplatePage({
     description: template.description ?? "",
     matchCommodity: template.matchCommodity ?? "",
     matchRegion: template.matchRegion ?? "",
+    matchPriceCondition: template.matchPriceCondition,
+    matchPriceMin: template.matchPriceMin,
+    matchPriceMax: template.matchPriceMax,
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     items: template.items.map((i) => ({

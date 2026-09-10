@@ -49,6 +49,12 @@ enum QuestionResponder {
   BUYER // el comprador la responde directamente, nunca se envía al proveedor
 }
 
+enum TemplatePriceCondition {
+  GREATER_THAN // matchPriceMin: precio estimado > matchPriceMin
+  LESS_THAN // matchPriceMax: precio estimado < matchPriceMax
+  BETWEEN // matchPriceMin <= precio estimado <= matchPriceMax
+}
+
 enum InvitationStatus {
   INVITED
   VIEWED
@@ -311,16 +317,19 @@ model ItemCatalogEntry {
 // artículo/pregunta puede bloquearse para que solo un rol igual o superior
 // a lockMinRole pueda quitarlo.
 model RfpTemplate {
-  id             String   @id @default(cuid())
-  clientId       String
-  client         Client   @relation(fields: [clientId], references: [id])
-  name           String
-  description    String?
-  matchCommodity String?
-  matchRegion    String?
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  String                  @id @default(cuid())
+  clientId            String
+  client              Client                  @relation(fields: [clientId], references: [id])
+  name                String
+  description         String?
+  matchCommodity      String?
+  matchRegion         String?
+  matchPriceCondition TemplatePriceCondition?
+  matchPriceMin       Float?
+  matchPriceMax       Float?
+  active              Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
 
@@ -376,19 +385,19 @@ model ApprovalLevel {
 }
 
 model TemplateItem {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   clientId     String
-  client       Client   @relation(fields: [clientId], references: [id])
+  client       Client     @relation(fields: [clientId], references: [id])
   templateId   String
   name         String
   description  String?
-  quantity     Float    @default(1)
-  unit         String   @default("unidad")
-  weight       Int      @default(1)
-  decimals     Int      @default(2)
+  quantity     Float      @default(1)
+  unit         String     @default("unidad")
+  weight       Int        @default(1)
+  decimals     Int        @default(2)
   customFields String?
   section      String? // nombre de la sección a la que pertenece (agrupa y numera)
-  order        Int      @default(0)
+  order        Int        @default(0)
   lockRoles    UserRole[] // roles que pueden editarlo/quitarlo al crear la RFP; vacío = cualquiera puede
 
   template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
@@ -467,6 +476,11 @@ model Rfp {
   approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
 
   appliedTemplates String? // JSON-encoded {id, name}[] snapshot de las plantillas aplicadas al crearla
+
+  // Cuál de las plantillas CON condición (commodity/región/precio) que
+  // coinciden fue la elegida — las plantillas sin condiciones (aplican a
+  // cualquier RFP) no pasan por esta elección, se aplican siempre además.
+  selectedTemplateId String?
 
   createdByUserId String?
   createdBy       User?   @relation(fields: [createdByUserId], references: [id])

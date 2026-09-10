@@ -10,7 +10,12 @@ import { QuestionScoringFields } from "@/components/QuestionScoringFields";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
-import { matchesTemplate } from "@/lib/templateMatch";
+import {
+  matchesTemplate,
+  splitConditionalTemplates,
+  resolveAppliedTemplates,
+  type TemplatePriceCondition,
+} from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
@@ -32,6 +37,9 @@ export type TemplateData = {
   name: string;
   matchCommodity: string | null;
   matchRegion: string | null;
+  matchPriceCondition: TemplatePriceCondition | null;
+  matchPriceMin: number | null;
+  matchPriceMax: number | null;
   items: {
     id: string;
     section: string | null;
@@ -148,6 +156,11 @@ function emptySupplier(): NewSupplierInput {
   return { name: "", email: "", company: "", supplierDirectoryId: null };
 }
 
+function parsePrice(value: string): number | null {
+  const n = Number(value);
+  return value.trim() && !Number.isNaN(n) ? n : null;
+}
+
 function inputClass() {
   return "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
@@ -199,6 +212,7 @@ export type RfpInitialData = {
   predecessorDocument: string;
   basedOnRfpId: string | null;
   basedOnRfpLabel: string | null;
+  selectedTemplateId?: string | null;
   isNextRound?: boolean;
   scoringEnabled: boolean;
   items: NewItemInput[];
@@ -276,6 +290,9 @@ export function RfpForm({
   const [estimatedPrice, setEstimatedPrice] = useState(
     initial?.estimatedPrice ?? "",
   );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    initial?.selectedTemplateId ?? null,
+  );
   const [origin, setOrigin] = useState(initial?.origin ?? "");
   const [predecessorDocument, setPredecessorDocument] = useState(
     initial?.predecessorDocument ?? "",
@@ -288,14 +305,20 @@ export function RfpForm({
   );
   const [loadingBasedOn, setLoadingBasedOn] = useState(false);
   const [items, setItems] = useState<NewItemInput[]>(
-    () => initial?.items ?? syncTemplateItems([], "", ""),
+    () => initial?.items ?? syncTemplateItems([], "", "", null, null),
   );
   const [questions, setQuestions] = useState<NewQuestionInput[]>(
-    () => initial?.questions ?? syncTemplateQuestions([], "", "", "EXTERNAL"),
+    () =>
+      initial?.questions ??
+      syncTemplateQuestions([], "", "", "EXTERNAL", null, null),
   );
   const [internalQuestions, setInternalQuestions] = useState<
     NewQuestionInput[]
-  >(() => initial?.internalQuestions ?? syncTemplateQuestions([], "", "", "INTERNAL"));
+  >(
+    () =>
+      initial?.internalQuestions ??
+      syncTemplateQuestions([], "", "", "INTERNAL", null, null),
+  );
   const [suppliers, setSuppliers] = useState<NewSupplierInput[]>(
     initial?.suppliers && initial.suppliers.length > 0
       ? initial.suppliers
@@ -324,10 +347,13 @@ export function RfpForm({
     prev: NewItemInput[],
     newCommodity: string,
     newRegion: string,
+    newPrice: number | null,
+    newSelectedTemplateId: string | null,
   ) {
-    const matching = templates.filter((t) =>
-      matchesTemplate(t, newCommodity, newRegion),
+    const rawMatching = templates.filter((t) =>
+      matchesTemplate(t, newCommodity, newRegion, newPrice),
     );
+    const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
     const kept = prev.filter(
       (item) =>
@@ -371,10 +397,13 @@ export function RfpForm({
     newCommodity: string,
     newRegion: string,
     areaFilter: "EXTERNAL" | "INTERNAL",
+    newPrice: number | null,
+    newSelectedTemplateId: string | null,
   ) {
-    const matching = templates.filter((t) =>
-      matchesTemplate(t, newCommodity, newRegion),
+    const rawMatching = templates.filter((t) =>
+      matchesTemplate(t, newCommodity, newRegion, newPrice),
     );
+    const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
     const kept = prev.filter(
       (q) =>
@@ -423,25 +452,79 @@ export function RfpForm({
     return [...kept, ...additions];
   }
 
+  // Recomputes which conditional template is actually in effect given the
+  // header values that decide it — a lone match locks itself in, several
+  // matches fall back to whatever the user already picked (or none until
+  // they do), and a stale pick that no longer matches is dropped.
+  function resolveSelection(
+    newCommodity: string,
+    newRegion: string,
+    newPrice: number | null,
+  ): string | null {
+    const rawMatching = templates.filter((t) =>
+      matchesTemplate(t, newCommodity, newRegion, newPrice),
+    );
+    const { conditional } = splitConditionalTemplates(rawMatching);
+    if (conditional.length === 1) return conditional[0].id;
+    return conditional.some((t) => t.id === selectedTemplateId)
+      ? selectedTemplateId
+      : null;
+  }
+
   function handleCommodityChange(value: string) {
     setCommodity(value);
-    setItems((prev) => syncTemplateItems(prev, value, region));
+    const price = parsePrice(estimatedPrice);
+    const nextSelected = resolveSelection(value, region, price);
+    setSelectedTemplateId(nextSelected);
+    setItems((prev) => syncTemplateItems(prev, value, region, price, nextSelected));
     setQuestions((prev) =>
-      syncTemplateQuestions(prev, value, region, "EXTERNAL"),
+      syncTemplateQuestions(prev, value, region, "EXTERNAL", price, nextSelected),
     );
     setInternalQuestions((prev) =>
-      syncTemplateQuestions(prev, value, region, "INTERNAL"),
+      syncTemplateQuestions(prev, value, region, "INTERNAL", price, nextSelected),
     );
   }
 
   function handleRegionChange(value: string) {
     setRegion(value);
-    setItems((prev) => syncTemplateItems(prev, commodity, value));
+    const price = parsePrice(estimatedPrice);
+    const nextSelected = resolveSelection(commodity, value, price);
+    setSelectedTemplateId(nextSelected);
+    setItems((prev) => syncTemplateItems(prev, commodity, value, price, nextSelected));
     setQuestions((prev) =>
-      syncTemplateQuestions(prev, commodity, value, "EXTERNAL"),
+      syncTemplateQuestions(prev, commodity, value, "EXTERNAL", price, nextSelected),
     );
     setInternalQuestions((prev) =>
-      syncTemplateQuestions(prev, commodity, value, "INTERNAL"),
+      syncTemplateQuestions(prev, commodity, value, "INTERNAL", price, nextSelected),
+    );
+  }
+
+  function handleEstimatedPriceChange(value: string) {
+    setEstimatedPrice(value);
+    const price = parsePrice(value);
+    const nextSelected = resolveSelection(commodity, region, price);
+    setSelectedTemplateId(nextSelected);
+    setItems((prev) => syncTemplateItems(prev, commodity, region, price, nextSelected));
+    setQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "EXTERNAL", price, nextSelected),
+    );
+    setInternalQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "INTERNAL", price, nextSelected),
+    );
+  }
+
+  function handleTemplateSelectionChange(value: string) {
+    const nextSelected = value || null;
+    setSelectedTemplateId(nextSelected);
+    const price = parsePrice(estimatedPrice);
+    setItems((prev) =>
+      syncTemplateItems(prev, commodity, region, price, nextSelected),
+    );
+    setQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "EXTERNAL", price, nextSelected),
+    );
+    setInternalQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "INTERNAL", price, nextSelected),
     );
   }
 
@@ -856,6 +939,11 @@ export function RfpForm({
         origin,
         predecessorDocument,
         basedOnRfpId,
+        selectedTemplateId: resolveSelection(
+          commodity,
+          region,
+          parsePrice(estimatedPrice),
+        ),
         isNextRound: initial?.isNextRound ?? false,
         scoringEnabled: weightingEnabled || weightingQuestionsEnabled,
         saveAsDraft,
@@ -1044,8 +1132,43 @@ export function RfpForm({
               className={inputClass()}
               placeholder="Ej. 30000"
               value={estimatedPrice}
-              onChange={(e) => setEstimatedPrice(e.target.value)}
+              onChange={(e) => handleEstimatedPriceChange(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Plantilla
+            </label>
+            {(() => {
+              const rawMatching = templates.filter((t) =>
+                matchesTemplate(t, commodity, region, parsePrice(estimatedPrice)),
+              );
+              const { conditional } = splitConditionalTemplates(rawMatching);
+              if (conditional.length <= 1) {
+                return (
+                  <input
+                    disabled
+                    className={`${inputClass()} disabled:bg-slate-50 disabled:text-slate-500`}
+                    value={conditional[0]?.name ?? "Ninguna plantilla específica aplica"}
+                    readOnly
+                  />
+                );
+              }
+              return (
+                <select
+                  className={inputClass()}
+                  value={selectedTemplateId ?? ""}
+                  onChange={(e) => handleTemplateSelectionChange(e.target.value)}
+                >
+                  <option value="">Selecciona una plantilla</option>
+                  {conditional.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">

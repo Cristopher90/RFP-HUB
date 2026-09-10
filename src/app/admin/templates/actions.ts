@@ -57,11 +57,16 @@ export type TemplateQuestionInput = {
   lockRoles: UserRole[];
 };
 
+export type TemplatePriceCondition = "GREATER_THAN" | "LESS_THAN" | "BETWEEN";
+
 export type SaveTemplateInput = {
   name: string;
   description: string;
   matchCommodity: string;
   matchRegion: string;
+  matchPriceCondition: TemplatePriceCondition | null;
+  matchPriceMin: string;
+  matchPriceMax: string;
   active: boolean;
   hideResponsesUntilClosed: boolean;
   items: TemplateItemInput[];
@@ -148,11 +153,26 @@ export async function saveTemplate(
     }))
     .filter((q) => q.text.length > 0);
 
+  const matchPriceMin = input.matchPriceMin.trim() ? Number(input.matchPriceMin) : null;
+  const matchPriceMax = input.matchPriceMax.trim() ? Number(input.matchPriceMax) : null;
+  if (input.matchPriceCondition === "BETWEEN" && (matchPriceMin === null || matchPriceMax === null)) {
+    return { error: "Indica el rango completo (mínimo y máximo) para la condición de precio." };
+  }
+  if (input.matchPriceCondition === "GREATER_THAN" && matchPriceMin === null) {
+    return { error: "Indica el valor mínimo para la condición de precio." };
+  }
+  if (input.matchPriceCondition === "LESS_THAN" && matchPriceMax === null) {
+    return { error: "Indica el valor máximo para la condición de precio." };
+  }
+
   const data = {
     name,
     description: input.description.trim() || null,
     matchCommodity: input.matchCommodity.trim() || null,
     matchRegion: input.matchRegion.trim() || null,
+    matchPriceCondition: input.matchPriceCondition,
+    matchPriceMin: input.matchPriceCondition ? matchPriceMin : null,
+    matchPriceMax: input.matchPriceCondition ? matchPriceMax : null,
     active: input.active,
     hideResponsesUntilClosed: input.hideResponsesUntilClosed,
   };

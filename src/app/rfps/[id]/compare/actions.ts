@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { matchesTemplate } from "@/lib/templateMatch";
+import { matchesTemplate, resolveAppliedTemplates } from "@/lib/templateMatch";
 import {
   pickApprovalWorkflow,
   levelsForStage,
@@ -54,12 +54,17 @@ export async function awardInvitation(
     return sum + (price ? price.unitPrice * item.quantity : 0);
   }, 0);
 
-  const matchingTemplates = (
-    await prisma.rfpTemplate.findMany({
-      where: { active: true },
-      include: { approvalWorkflow: { include: { levels: true } } },
-    })
-  ).filter((t) => matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? ""));
+  const matchingTemplates = resolveAppliedTemplates(
+    (
+      await prisma.rfpTemplate.findMany({
+        where: { active: true },
+        include: { approvalWorkflow: { include: { levels: true } } },
+      })
+    ).filter((t) =>
+      matchesTemplate(t, rfp.commodity ?? "", rfp.region ?? "", rfp.estimatedPrice),
+    ),
+    rfp.selectedTemplateId,
+  );
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
   const levels = levelsForStage(workflow, "AWARD");
