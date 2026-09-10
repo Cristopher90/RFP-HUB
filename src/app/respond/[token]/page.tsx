@@ -4,6 +4,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { syncAwaitingStart } from "@/lib/rfpStatus";
 import { getViewerPreferences } from "@/lib/preferences";
 import { localeForLanguage } from "@/i18n/locale";
+import { getDictionary } from "@/i18n/getDictionary";
 import { ResponseForm } from "./ResponseForm";
 
 export default async function RespondPage({
@@ -14,6 +15,7 @@ export default async function RespondPage({
   const locale = localeForLanguage(preferences.language);
   const dateOptions = { locale, timeZone: preferences.timeZone };
   const currencyOptions = { locale, currency: preferences.currency };
+  const dictionary = getDictionary(preferences.language);
 
   const invitation = await prisma.invitation.findUnique({
     where: { token },
@@ -81,22 +83,22 @@ export default async function RespondPage({
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs font-medium uppercase tracking-wide text-violet-600">
-          Invitación a cotizar
+          {dictionary.respondPage.invitationLabel}
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
           {rfp.title}
         </h1>
         <p className="mt-2 text-sm text-slate-500">{rfp.description}</p>
         <div className="mt-4 flex flex-wrap gap-4 text-sm text-slate-500">
-          <span>Comprador: {rfp.buyerName}</span>
-          <span>Fecha límite: {formatDate(rfp.deadlineAt, dateOptions)}</span>
+          <span>{dictionary.respondPage.buyer}: {rfp.buyerName}</span>
+          <span>{dictionary.respondPage.deadline}: {formatDate(rfp.deadlineAt, dateOptions)}</span>
           <span>
-            Proveedor: {supplier.name} ({supplier.company})
+            {dictionary.respondPage.supplier}: {supplier.name} ({supplier.company})
           </span>
-          {rfp.commodity && <span>Commodity: {rfp.commodity}</span>}
-          {rfp.region && <span>Región: {rfp.region}</span>}
+          {rfp.commodity && <span>{dictionary.respondPage.commodity}: {rfp.commodity}</span>}
+          {rfp.region && <span>{dictionary.respondPage.region}: {rfp.region}</span>}
           {rfp.startDate && (
-            <span>Inicio: {formatDateTime(rfp.startDate, dateOptions)}</span>
+            <span>{dictionary.respondPage.start}: {formatDateTime(rfp.startDate, dateOptions)}</span>
           )}
         </div>
       </div>
@@ -104,7 +106,7 @@ export default async function RespondPage({
       {response ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
           <h2 className="text-base font-semibold text-emerald-800">
-            ¡Gracias! Tu cotización fue enviada el{" "}
+            {dictionary.respondPage.thanksPrefix}{" "}
             {formatDateTime(response.submittedAt, dateOptions)}.
           </h2>
           <div className="mt-4 overflow-hidden rounded-lg border border-emerald-100 bg-white">
@@ -112,8 +114,8 @@ export default async function RespondPage({
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-2">Artículo</th>
-                  <th className="px-4 py-2">Precio unitario</th>
+                  <th className="px-4 py-2">{dictionary.respondPage.item}</th>
+                  <th className="px-4 py-2">{dictionary.respondPage.unitPrice}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -152,7 +154,7 @@ export default async function RespondPage({
                         rel="noreferrer"
                         className="text-violet-600 underline hover:text-violet-700"
                       >
-                        {filename ?? "Ver archivo"}
+                        {filename ?? dictionary.respondPage.viewFile}
                       </a>
                     </div>
                   );
@@ -173,18 +175,15 @@ export default async function RespondPage({
         </div>
       ) : isNotYetPublished ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Esta RFP todavía no fue publicada por el comprador. Vuelve a
-          revisar este link más adelante.
+          {dictionary.respondPage.notYetPublished}
         </div>
       ) : isClosed ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Esta RFP ya fue cerrada por el comprador y ya no acepta nuevas
-          cotizaciones.
+          {dictionary.respondPage.closedMessage}
         </div>
       ) : isAwaitingStart ? (
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Esta RFP todavía no comienza. Podrás enviar tu cotización a partir
-          del {formatDateTime(rfp.startDate!, dateOptions)}.
+          {dictionary.respondPage.notStartedPrefix} {formatDateTime(rfp.startDate!, dateOptions)}.
         </div>
       ) : (
         <ResponseForm

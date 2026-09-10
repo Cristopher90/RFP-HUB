@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { submitResponse } from "./actions";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type Item = {
   id: string;
@@ -37,6 +38,7 @@ function inputClass() {
 }
 
 function SubmitButton() {
+  const { t } = usePreferences();
   const { pending } = useFormStatus();
   return (
     <button
@@ -44,7 +46,7 @@ function SubmitButton() {
       disabled={pending}
       className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
     >
-      {pending ? "Enviando..." : "Enviar cotización"}
+      {pending ? t("responseForm.sending") : t("responseForm.submitQuote")}
     </button>
   );
 }
@@ -62,6 +64,7 @@ export function ResponseForm({
   rfpCommodity: string | null;
   rfpRegion: string | null;
 }) {
+  const { t } = usePreferences();
   const [state, formAction] = useActionState(
     async (_prevState: { error: string | null }, formData: FormData) =>
       submitResponse(token, formData),
@@ -95,10 +98,10 @@ export function ResponseForm({
       {prerequisites.length > 0 && (
         <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
           <h2 className="text-base font-semibold text-amber-900">
-            Requisitos para participar
+            {t("responseForm.prerequisitesTitle")}
           </h2>
           <p className="mt-1 text-sm text-amber-700">
-            Debes aceptar lo siguiente antes de poder enviar tu cotización.
+            {t("responseForm.prerequisitesHint")}
           </p>
           <div className="mt-4 space-y-3">
             {prerequisites.map((q) => (
@@ -121,7 +124,7 @@ export function ResponseForm({
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">
-          Precios por artículo
+          {t("responseForm.pricesByItemTitle")}
         </h2>
         <div className="mt-4 space-y-3">
           {items.map((item) => {
@@ -171,7 +174,7 @@ export function ResponseForm({
                     step={(1 / 10 ** item.decimals).toFixed(item.decimals)}
                     required
                     className={inputClass()}
-                    placeholder="Precio unitario (USD)"
+                    placeholder={t("responseForm.unitPricePlaceholder")}
                   />
                 </div>
               </div>
@@ -183,7 +186,7 @@ export function ResponseForm({
       {regularQuestions.length > 0 && (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-slate-900">
-            Preguntas del comprador
+            {t("responseForm.buyerQuestionsTitle")}
           </h2>
           <div className="mt-4 space-y-4">
             {regularQuestions.map((q) =>
@@ -201,7 +204,7 @@ export function ResponseForm({
                 >
                   <p className="font-medium text-slate-700">{q.text}</p>
                   <p className="text-slate-500">
-                    {q.buyerAnswerValue || "— sin responder —"}
+                    {q.buyerAnswerValue || t("responseForm.notAnswered")}
                   </p>
                 </div>
               ) : (
@@ -212,7 +215,7 @@ export function ResponseForm({
                   {q.type === "NUMBER" &&
                     (q.numberMin !== null || q.numberMax !== null) && (
                       <span className="ml-1 text-xs font-normal text-slate-400">
-                        (entre {q.numberMin ?? "–∞"} y {q.numberMax ?? "∞"})
+                        ({t("responseForm.between")} {q.numberMin ?? "–∞"} {t("responseForm.and")} {q.numberMax ?? "∞"})
                       </span>
                     )}
                 </label>
@@ -230,7 +233,7 @@ export function ResponseForm({
                     }
                   >
                     <option value="" disabled>
-                      Selecciona una opción
+                      {t("responseForm.selectOption")}
                     </option>
                     {(JSON.parse(q.options ?? "[]") as string[]).map(
                       (opt) => (
@@ -254,7 +257,7 @@ export function ResponseForm({
                     }
                   >
                     <option value="" disabled>
-                      Selecciona una opción
+                      {t("responseForm.selectOption")}
                     </option>
                     <option value="Sí">Sí</option>
                     <option value="No">No</option>
@@ -328,7 +331,7 @@ export function ResponseForm({
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <label className="mb-1 block text-sm font-medium text-slate-700">
-          Notas adicionales
+          {t("responseForm.additionalNotes")}
         </label>
         <textarea name="notes" rows={3} className={inputClass()} />
       </section>
