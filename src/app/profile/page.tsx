@@ -2,12 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { getDictionary } from "@/i18n/getDictionary";
+import { CURRENCIES } from "@/lib/profileOptions";
 import { ProfileForm } from "./ProfileForm";
-
-// Common ISO 4217 currencies covering this app's known clients/suppliers
-// (Mexico, Spain, US, Argentina, Brazil, UK) — a small curated list is
-// proportionate here, unlike timezones which use the full IANA set below.
-const CURRENCIES = ["USD", "MXN", "EUR", "ARS", "BRL", "GBP"];
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();

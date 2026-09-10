@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { formatRfpNumber } from "@/lib/format";
+import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
 import type {
@@ -59,8 +60,7 @@ export default async function EditRfpPage({
 
   function toDatetimeLocalInput(date: Date | null) {
     if (!date) return "";
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    return utcToZonedTime(date, user.timezone);
   }
 
   const items: NewItemInput[] = rfp.items.map((i) => ({

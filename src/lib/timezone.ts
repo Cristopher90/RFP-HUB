@@ -9,11 +9,17 @@ export function zonedTimeToUtc(localDateTimeString: string, timeZone: string): D
   return new Date(guess.getTime() - offsetMinutes * 60_000);
 }
 
-// Offset (in minutes) that `timeZone` is ahead of UTC at the instant `date`
-// represents, e.g. +120 for CEST. On a DST transition where the local wall
-// clock is ambiguous or skipped, this picks whichever instant Intl resolves
-// to rather than throwing.
-function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
+// The read-side counterpart to zonedTimeToUtc: formats a stored UTC instant
+// back into a "datetime-local" string (e.g. "2026-09-10T14:30") in the given
+// IANA timezone, for pre-filling a datetime-local input with the value the
+// owning user would recognize — instead of native Date getters, which read
+// the server process's own runtime timezone.
+export function utcToZonedTime(date: Date, timeZone: string): string {
+  const parts = getZonedDateParts(date, timeZone);
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function getZonedDateParts(date: Date, timeZone: string): Record<string, string> {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     hourCycle: "h23",
@@ -24,10 +30,18 @@ function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
     minute: "2-digit",
     second: "2-digit",
   });
-  const parts = formatter.formatToParts(date).reduce<Record<string, string>>((acc, part) => {
+  return formatter.formatToParts(date).reduce<Record<string, string>>((acc, part) => {
     acc[part.type] = part.value;
     return acc;
   }, {});
+}
+
+// Offset (in minutes) that `timeZone` is ahead of UTC at the instant `date`
+// represents, e.g. +120 for CEST. On a DST transition where the local wall
+// clock is ambiguous or skipped, this picks whichever instant Intl resolves
+// to rather than throwing.
+function getTimeZoneOffsetMinutes(date: Date, timeZone: string): number {
+  const parts = getZonedDateParts(date, timeZone);
   const asUtc = Date.UTC(
     Number(parts.year),
     Number(parts.month) - 1,

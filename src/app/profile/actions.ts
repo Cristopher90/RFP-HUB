@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
+import { CURRENCIES } from "@/lib/profileOptions";
 
 export type ProfileFormInput = {
   language: string;
@@ -19,11 +20,11 @@ export async function updateOwnProfile(
   if (!SUPPORTED_LANGUAGES.includes(input.language)) {
     return { error: "Idioma no soportado." };
   }
-  if (!input.timezone.trim()) {
-    return { error: "La zona horaria es obligatoria." };
+  if (!Intl.supportedValuesOf("timeZone").includes(input.timezone.trim())) {
+    return { error: "La zona horaria no es válida." };
   }
-  if (!input.currency.trim()) {
-    return { error: "La moneda es obligatoria." };
+  if (!CURRENCIES.includes(input.currency.trim().toUpperCase())) {
+    return { error: "La moneda no es válida." };
   }
 
   const data = {
