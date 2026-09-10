@@ -50,6 +50,7 @@ export default async function EditTemplatePage({
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     items: template.items.map((i) => ({
+      id: i.id,
       section: i.section,
       name: i.name,
       description: i.description ?? "",
@@ -63,6 +64,7 @@ export default async function EditTemplatePage({
       lockRoles: i.lockRoles,
     })),
     questions: template.questions.map((q) => ({
+      id: q.id,
       clientKey: questionClientKeyById.get(q.id)!,
       section: q.section,
       text: q.text,

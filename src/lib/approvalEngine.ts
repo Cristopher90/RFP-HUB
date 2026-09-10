@@ -379,6 +379,18 @@ export async function findPendingApprovalsForUser(userId: string) {
   return results;
 }
 
+// Companion to findPendingApprovalsForUser: RFPs this user has already
+// decided on (approve or reject), regardless of whether the stage since
+// moved past them — so an approver keeps being able to consult an RFP
+// after acting on it instead of it disappearing from their list.
+export async function findDecidedRfpIdsForUser(userId: string): Promise<string[]> {
+  const decisions = await prisma.rfpApprovalDecision.findMany({
+    where: { userId },
+    select: { approval: { select: { rfpId: true } } },
+  });
+  return [...new Set(decisions.map((d) => d.approval.rfpId))];
+}
+
 export type ApprovalLevelView = {
   id: string;
   order: number;

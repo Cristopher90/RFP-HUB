@@ -5,7 +5,7 @@ import { requireClientScope } from "@/lib/clientScope";
 import { formatDate, formatRfpNumber } from "@/lib/format";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RfpFilters } from "@/components/RfpFilters";
-import { findPendingApprovalsForUser } from "@/lib/approvalEngine";
+import { findPendingApprovalsForUser, findDecidedRfpIdsForUser } from "@/lib/approvalEngine";
 import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
@@ -27,12 +27,17 @@ export default async function Home({
   const commodityFilter = typeof sp.commodity === "string" ? sp.commodity : "";
   const regionFilter = typeof sp.region === "string" ? sp.region : "";
   const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
+  const clientFilter = typeof sp.client === "string" ? sp.client : "";
 
   // An APPROVER never creates RFPs, so "Mis RFPs" (createdByUserId) makes
-  // no sense for them — their whole list is just the RFPs they have (or
-  // had) an approval decision to make on.
+  // no sense for them — their whole list is the RFPs they still need to
+  // decide on, plus the ones they already decided on (so an approval
+  // doesn't make the RFP disappear — they can still consult it).
   const pendingApprovals = await findPendingApprovalsForUser(user.id);
-  const assignedRfpIds = pendingApprovals.map((p) => p.rfpId);
+  const decidedRfpIds = isApprover ? await findDecidedRfpIdsForUser(user.id) : [];
+  const assignedRfpIds = [
+    ...new Set([...pendingApprovals.map((p) => p.rfpId), ...decidedRfpIds]),
+  ];
 
   const where = {
     // Soft-deleted RFPs stay in the DB but never show up in normal
@@ -50,9 +55,12 @@ export default async function Home({
     ...(tab === "all" && creatorFilter
       ? { createdByUserId: creatorFilter }
       : {}),
+    ...(tab === "all" && scope.isSuperAdmin && clientFilter
+      ? { clientId: clientFilter }
+      : {}),
   };
 
-  const [rfps, commodities, regions, creators] = await Promise.all([
+  const [rfps, commodities, regions, creators, clients] = await Promise.all([
     prisma.rfp.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -60,6 +68,7 @@ export default async function Home({
         items: true,
         invitations: { include: { response: true } },
         createdBy: true,
+        client: true,
       },
     }),
     prisma.commodity.findMany({ where: scope.where, orderBy: { description: "asc" } }),
@@ -67,7 +76,12 @@ export default async function Home({
     canSeeAll
       ? prisma.user.findMany({ where: scope.where, orderBy: { name: "asc" } })
       : null,
+    tab === "all" && scope.isSuperAdmin
+      ? prisma.client.findMany({ orderBy: { description: "asc" } })
+      : null,
   ]);
+
+  const showClientColumn = scope.isSuperAdmin && tab === "all";
 
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
@@ -76,6 +90,7 @@ export default async function Home({
     if (statusFilter) params.set("status", statusFilter);
     if (target === "all" && creatorFilter)
       params.set("creator", creatorFilter);
+    if (target === "all" && clientFilter) params.set("client", clientFilter);
     params.set("tab", target);
     return `/?${params.toString()}`;
   }
@@ -154,6 +169,11 @@ export default async function Home({
               ? creators.map((u) => ({ id: u.id, name: u.name }))
               : undefined
           }
+          clients={
+            tab === "all" && clients
+              ? clients.map((c) => ({ id: c.id, description: c.description }))
+              : undefined
+          }
         />
       </div>
 
@@ -180,6 +200,7 @@ export default async function Home({
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-5 py-3">RFP</th>
+                {showClientColumn && <th className="px-5 py-3">Cliente</th>}
                 <th className="px-5 py-3">Estado</th>
                 <th className="px-5 py-3">Commodity</th>
                 <th className="px-5 py-3">Región</th>
@@ -208,6 +229,12 @@ export default async function Home({
                         </span>
                       </Link>
                     </td>
+                    {showClientColumn && (
+                      <td className="px-5 py-4 text-slate-600">
+                        {rfp.client.icon ? `${rfp.client.icon} ` : ""}
+                        {rfp.client.description}
+                      </td>
+                    )}
                     <td className="px-5 py-4">
                       <StatusBadge status={rfp.status} />
                     </td>
@@ -236,7 +263,7 @@ export default async function Home({
                     <td className="px-5 py-4 text-right">
                       <Link
                         href={`/rfps/${rfp.id}`}
-                        className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                        className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
                       >
                         Ver &rarr;
                       </Link>

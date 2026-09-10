@@ -66,9 +66,10 @@ export async function searchPreviousRfps(filters: {
 // "Copiar"/"basar en una RFP anterior". mode "based_on" pulls each item's
 // historicalPrice from the winning (awarded) unit price of that same item
 // in the source RFP; mode "blank" copies structure only, no historical
-// pricing. Neither mode carries over template-lock metadata (id,
-// sourceTemplate*Id, locked) — the new RFP re-derives its own template
-// matches from its own (initially blank) commodity/region.
+// pricing. Both modes carry over each item/question's sourceTemplate*Id
+// (and lock state) exactly as the edit flow does, so that re-picking the
+// same commodity/región on the copy recognizes this content as already
+// present instead of re-adding the matching template's rows on top of it.
 export async function buildItemsFromSourceRfp(
   sourceRfpId: string,
   mode: "blank" | "based_on",
@@ -80,6 +81,8 @@ export async function buildItemsFromSourceRfp(
       suppliers: NewSupplierInput[];
       sourceTitle: string;
       sourceNumber: number;
+      sourceCommodity: string | null;
+      sourceRegion: string | null;
     }
   | { error: string }
 > {
@@ -124,6 +127,8 @@ export async function buildItemsFromSourceRfp(
     customFields: item.customFields
       ? (JSON.parse(item.customFields) as { label: string; value: string }[])
       : [],
+    sourceTemplateItemId: item.sourceTemplateItemId,
+    locked: item.locked,
   }));
 
   function mapQuestions(
@@ -161,6 +166,8 @@ export async function buildItemsFromSourceRfp(
           | null,
         dependsOnValue: q.dependsOnValue ?? "",
         buyerAnswerValue: q.buyerAnswerValue ?? "",
+        sourceTemplateQuestionId: q.sourceTemplateQuestionId,
+        locked: q.locked,
       }));
   }
 
@@ -168,6 +175,7 @@ export async function buildItemsFromSourceRfp(
     name: inv.supplier.name,
     email: inv.supplier.email,
     company: inv.supplier.company,
+    supplierDirectoryId: inv.supplier.supplierDirectoryId,
   }));
 
   return {
@@ -177,5 +185,7 @@ export async function buildItemsFromSourceRfp(
     suppliers,
     sourceTitle: source.title,
     sourceNumber: source.number,
+    sourceCommodity: source.commodity,
+    sourceRegion: source.region,
   };
 }

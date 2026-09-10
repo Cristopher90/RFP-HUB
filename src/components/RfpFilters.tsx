@@ -25,10 +25,12 @@ export function RfpFilters({
   commodities,
   regions,
   creators,
+  clients,
 }: {
   commodities: CategoryOption[];
   regions: CategoryOption[];
   creators?: { id: string; name: string }[];
+  clients?: { id: string; description: string }[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -45,7 +47,8 @@ export function RfpFilters({
     searchParams.get("commodity") ||
     searchParams.get("region") ||
     searchParams.get("status") ||
-    searchParams.get("creator");
+    searchParams.get("creator") ||
+    searchParams.get("client");
 
   const commodityFilter = searchParams.get("commodity") ?? "";
   const regionFilter = searchParams.get("region") ?? "";
@@ -117,13 +120,27 @@ export function RfpFilters({
           ))}
         </select>
       )}
+      {clients && (
+        <select
+          className={selectClass()}
+          value={searchParams.get("client") ?? ""}
+          onChange={(e) => setParam("client", e.target.value)}
+        >
+          <option value="">Todos los clientes</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.description}
+            </option>
+          ))}
+        </select>
+      )}
       {hasFilters && (
         <button
           type="button"
           onClick={() => {
             const params = new URLSearchParams(searchParams.toString());
-            ["commodity", "region", "status", "creator"].forEach((k) =>
-              params.delete(k),
+            ["commodity", "region", "status", "creator", "client"].forEach(
+              (k) => params.delete(k),
             );
             router.push(`${pathname}?${params.toString()}`);
           }}

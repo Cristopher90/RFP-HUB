@@ -8,6 +8,7 @@ import { serializeScoringConfig } from "@/lib/questionScoring";
 import type { UserRole } from "@/generated/prisma/enums";
 
 export type TemplateItemInput = {
+  id?: string; // presente al editar un artículo existente: id real en DB
   section: string | null;
   name: string;
   description: string;
@@ -36,6 +37,7 @@ export type TemplateQuestionVisibility =
 export type TemplateQuestionResponder = "SUPPLIER" | "BUYER";
 
 export type TemplateQuestionInput = {
+  id?: string; // presente al editar una pregunta existente: id real en DB
   clientKey: string;
   section: string | null;
   text: string;
@@ -97,6 +99,7 @@ export async function saveTemplate(
 
   const items = input.items
     .map((item) => ({
+      id: item.id,
       section: item.section?.trim() || null,
       name: item.name.trim(),
       description: item.description.trim() || null,
@@ -115,6 +118,7 @@ export async function saveTemplate(
 
   const questions = input.questions
     .map((q) => ({
+      id: q.id,
       clientKey: q.clientKey,
       section: q.section?.trim() || null,
       text: q.text.trim(),
@@ -157,47 +161,73 @@ export async function saveTemplate(
     ? await prisma.rfpTemplate.update({ where: { id: templateId }, data })
     : await prisma.rfpTemplate.create({ data: { ...data, clientId } });
 
-  // Replace items/questions wholesale — simplest consistent model for a
-  // form-based full-save editor.
-  await prisma.templateItem.deleteMany({ where: { templateId: template.id } });
-  await prisma.templateQuestion.deleteMany({
+  // Items/questions: update existing (by id), create new, delete removed —
+  // never wholesale delete+recreate. RFPs (and RFP copies) remember which
+  // TemplateItem/TemplateQuestion row they came from via sourceTemplate*Id;
+  // recreating rows with fresh ids on every save would sever that link and
+  // make every RFP built from this template look like it's missing this
+  // content, re-adding it as a duplicate the next time templates re-sync.
+  const existingItems = await prisma.templateItem.findMany({
     where: { templateId: template.id },
+    select: { id: true },
   });
+  const existingItemIds = new Set(existingItems.map((i) => i.id));
+  const submittedItemIds = new Set(items.map((i) => i.id).filter(Boolean));
+  for (const id of existingItemIds) {
+    if (!submittedItemIds.has(id)) {
+      await prisma.templateItem.delete({ where: { id } });
+    }
+  }
+  for (const [order, { id, ...item }] of items.entries()) {
+    if (id && existingItemIds.has(id)) {
+      await prisma.templateItem.update({ where: { id }, data: { ...item, order } });
+    } else {
+      await prisma.templateItem.create({
+        data: { ...item, clientId, templateId: template.id, order },
+      });
+    }
+  }
 
-  await prisma.templateItem.createMany({
-    data: items.map((item, order) => ({
-      ...item,
-      clientId,
-      templateId: template.id,
-      order,
-    })),
+  const existingQuestions = await prisma.templateQuestion.findMany({
+    where: { templateId: template.id },
+    select: { id: true },
   });
-
+  const existingQuestionIds = new Set(existingQuestions.map((q) => q.id));
+  const submittedQuestionIds = new Set(questions.map((q) => q.id).filter(Boolean));
+  for (const id of existingQuestionIds) {
+    if (!submittedQuestionIds.has(id)) {
+      await prisma.templateQuestion.delete({ where: { id } });
+    }
+  }
   const realIdByClientKey = new Map<string, string>();
   for (const [order, q] of questions.entries()) {
-    const created = await prisma.templateQuestion.create({
-      data: {
-        clientId,
-        templateId: template.id,
-        section: q.section,
-        text: q.text,
-        type: q.type,
-        required: q.required,
-        weight: q.weight,
-        isPrerequisite: q.isPrerequisite,
-        visibility: q.visibility,
-        respondedBy: q.respondedBy,
-        numberMin: q.numberMin,
-        numberMax: q.numberMax,
-        scoringConfig: q.scoringConfig,
-        dependsOnHeaderField: q.dependsOnHeaderField,
-        dependsOnValue: q.dependsOnValue || null,
-        options: q.options,
-        lockRoles: q.lockRoles,
-        order,
-      },
-    });
-    realIdByClientKey.set(q.clientKey, created.id);
+    const data = {
+      section: q.section,
+      text: q.text,
+      type: q.type,
+      required: q.required,
+      weight: q.weight,
+      isPrerequisite: q.isPrerequisite,
+      visibility: q.visibility,
+      respondedBy: q.respondedBy,
+      numberMin: q.numberMin,
+      numberMax: q.numberMax,
+      scoringConfig: q.scoringConfig,
+      dependsOnHeaderField: q.dependsOnHeaderField,
+      dependsOnValue: q.dependsOnValue || null,
+      options: q.options,
+      lockRoles: q.lockRoles,
+      order,
+    };
+    if (q.id && existingQuestionIds.has(q.id)) {
+      await prisma.templateQuestion.update({ where: { id: q.id }, data });
+      realIdByClientKey.set(q.clientKey, q.id);
+    } else {
+      const created = await prisma.templateQuestion.create({
+        data: { ...data, clientId, templateId: template.id },
+      });
+      realIdByClientKey.set(q.clientKey, created.id);
+    }
   }
   for (const q of questions) {
     if (!q.dependsOnQuestionKey) continue;
