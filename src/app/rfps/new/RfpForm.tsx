@@ -1144,12 +1144,12 @@ export function RfpForm({
                 matchesTemplate(t, commodity, region, parsePrice(estimatedPrice)),
               );
               const { conditional } = splitConditionalTemplates(rawMatching);
-              if (conditional.length <= 1) {
+              if (conditional.length === 0) {
                 return (
                   <input
                     disabled
                     className={`${inputClass()} disabled:bg-slate-50 disabled:text-slate-500`}
-                    value={conditional[0]?.name ?? "Ninguna plantilla específica aplica"}
+                    value="Ninguna plantilla específica aplica"
                     readOnly
                   />
                 );

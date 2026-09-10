@@ -2,9 +2,8 @@ import Link from "next/link";
 import packageJson from "../../package.json";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
-import { formatDate, formatRfpNumber } from "@/lib/format";
-import { StatusBadge } from "@/components/StatusBadge";
 import { RfpFilters } from "@/components/RfpFilters";
+import { RfpTable, type RfpRow } from "@/components/RfpTable";
 import { findPendingApprovalsForUser, findDecidedRfpIdsForUser } from "@/lib/approvalEngine";
 import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import type { RfpStatus } from "@/generated/prisma/enums";
@@ -83,6 +82,24 @@ export default async function Home({
 
   const showClientColumn = scope.isSuperAdmin && tab === "all";
 
+  const rfpRows: RfpRow[] = rfps.map((rfp) => ({
+    id: rfp.id,
+    number: rfp.number,
+    title: rfp.title,
+    status: rfp.status,
+    commodity: rfp.commodity,
+    region: rfp.region,
+    creatorName:
+      `${rfp.createdBy?.name ?? ""} ${rfp.createdBy?.lastName ?? ""}`.trim() || "—",
+    itemCount: rfp.items.length,
+    invitationCount: rfp.invitations.length,
+    respondedCount: rfp.invitations.filter((inv) => inv.response).length,
+    deadlineAt: rfp.deadlineAt.toISOString(),
+    clientLabel: showClientColumn
+      ? `${rfp.client.icon ? `${rfp.client.icon} ` : ""}${rfp.client.description}`
+      : null,
+  }));
+
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
     if (commodityFilter) params.set("commodity", commodityFilter);
@@ -96,7 +113,7 @@ export default async function Home({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-10">
+    <div className="mx-auto max-w-[1600px] px-6 py-10">
       <div className="mb-8 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -194,87 +211,7 @@ export default async function Home({
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-3">RFP</th>
-                {showClientColumn && <th className="px-5 py-3">Cliente</th>}
-                <th className="px-5 py-3">Estado</th>
-                <th className="px-5 py-3">Commodity</th>
-                <th className="px-5 py-3">Región</th>
-                <th className="px-5 py-3">Creador</th>
-                <th className="px-5 py-3">Art&iacute;culos</th>
-                <th className="px-5 py-3">Proveedores</th>
-                <th className="px-5 py-3">Respuestas</th>
-                <th className="px-5 py-3">Cierre</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rfps.map((rfp) => {
-                const responded = rfp.invitations.filter(
-                  (inv) => inv.response,
-                ).length;
-                return (
-                  <tr key={rfp.id} className="hover:bg-slate-50">
-                    <td className="px-5 py-4">
-                      <Link href={`/rfps/${rfp.id}`} className="group flex items-start gap-2.5">
-                        <span className="mt-0.5 inline-flex shrink-0 items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500">
-                          {formatRfpNumber(rfp.number)}
-                        </span>
-                        <span className="font-medium text-slate-900 group-hover:text-violet-600">
-                          {rfp.title}
-                        </span>
-                      </Link>
-                    </td>
-                    {showClientColumn && (
-                      <td className="px-5 py-4 text-slate-600">
-                        {rfp.client.icon ? `${rfp.client.icon} ` : ""}
-                        {rfp.client.description}
-                      </td>
-                    )}
-                    <td className="px-5 py-4">
-                      <StatusBadge status={rfp.status} />
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {rfp.commodity ?? "—"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {rfp.region ?? "—"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {`${rfp.createdBy?.name ?? ""} ${rfp.createdBy?.lastName ?? ""}`.trim() ||
-                        "—"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {rfp.items.length}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {rfp.invitations.length}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {responded} / {rfp.invitations.length}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {formatDate(rfp.deadlineAt)}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/rfps/${rfp.id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
-                      >
-                        Ver &rarr;
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        </div>
+        <RfpTable rfps={rfpRows} showClientColumn={showClientColumn} />
       )}
 
       <p className="mt-8 text-center text-xs text-slate-300">
