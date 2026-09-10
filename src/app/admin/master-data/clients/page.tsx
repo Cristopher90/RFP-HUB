@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { ClientsForm } from "./ClientsForm";
+import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function ClientsPage() {
   const scope = await requireClientScope();
   if (!scope.isSuperAdmin) redirect("/");
+  const dictionary = getDictionary(scope.user.language);
 
   const clients = await prisma.client.findMany({
     orderBy: { description: "asc" },
@@ -18,14 +20,13 @@ export default async function ClientsPage() {
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"
       >
-        &larr; Configuración
+        {dictionary.masterDataScreen.backToSettings}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        Datos maestros &middot; Clientes
+        {dictionary.masterDataScreen.titlePrefix} &middot; {dictionary.clientsPage.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
-        Cada cliente aísla sus propios datos maestros, plantillas y RFPs.
-        Solo el Super Administrador ve y edita esta lista.
+        {dictionary.clientsPage.subtitle}
       </p>
       <div className="mt-8">
         <ClientsForm

@@ -6,6 +6,7 @@ import { saveClientList, clearClientList } from "../actions";
 import type { MasterDataItemInput } from "../actions";
 import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 type ClientRow = {
   clientKey: string;
@@ -26,6 +27,7 @@ function inputClass() {
 // screens, clients have no hierarchy (no "Padre") and aren't themselves
 // scoped by a clientId, since a Client IS the tenant boundary. ADMIN-only.
 export function ClientsForm({ initial }: { initial: ClientRow[] }) {
+  const { t } = usePreferences();
   const [rows, setRows] = useState<ClientRow[]>(
     initial.length > 0 ? initial : [emptyRow()],
   );
@@ -110,7 +112,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
       )}
       {success && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          Cambios guardados.
+          {t("clientsForm.savedChanges")}
         </div>
       )}
       {clearTable.error && (
@@ -121,7 +123,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-900">Clientes</h2>
+          <h2 className="text-base font-semibold text-slate-900">{t("clientsForm.title")}</h2>
           <div className="flex items-center gap-4">
             {selectedKeys.size > 0 && (
               <button
@@ -129,7 +131,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                 onClick={removeSelected}
                 className="text-sm font-medium text-red-600 hover:text-red-700"
               >
-                Borrar seleccionados ({selectedKeys.size})
+                {t("clientsForm.deleteSelected")} ({selectedKeys.size})
               </button>
             )}
             <button
@@ -137,7 +139,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
               disabled={clearTable.pending}
               onClick={() =>
                 clearTable.run(
-                  "Esto borra TODOS los clientes de la organización de forma permanente. ¿Continuar?",
+                  t("clientsForm.deleteAllConfirm"),
                   () => {
                     setRows([emptyRow()]);
                     setSelectedKeys(new Set());
@@ -147,14 +149,14 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
               }
               className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
             >
-              {clearTable.pending ? "Borrando..." : "Borrar tabla"}
+              {clearTable.pending ? t("clientsForm.deleting") : t("clientsForm.deleteTable")}
             </button>
             <button
               type="button"
               onClick={() => setRows((prev) => [...prev, emptyRow()])}
               className="text-sm font-medium text-violet-600 hover:text-violet-700"
             >
-              + Agregar
+              {t("clientsForm.add")}
             </button>
           </div>
         </div>
@@ -172,9 +174,9 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                     onChange={toggleSelectPage}
                   />
                 </th>
-                <th className="px-3 pb-1">Código</th>
-                <th className="px-3 pb-1">Nombre</th>
-                <th className="px-3 pb-1">Ícono</th>
+                <th className="px-3 pb-1">{t("clientsForm.code")}</th>
+                <th className="px-3 pb-1">{t("clientsForm.name")}</th>
+                <th className="px-3 pb-1">{t("clientsForm.icon")}</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
             </thead>
@@ -191,7 +193,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                   <td className="px-3 py-2">
                     <input
                       className={inputClass()}
-                      placeholder="Ej. BASELINE"
+                      placeholder={t("clientsForm.codePlaceholder")}
                       value={row.code}
                       onChange={(e) => updateRow(row.clientKey, { code: e.target.value })}
                     />
@@ -199,7 +201,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                   <td className="px-3 py-2">
                     <input
                       className={inputClass()}
-                      placeholder="Ej. Cliente BASELINE"
+                      placeholder={t("clientsForm.namePlaceholder")}
                       value={row.description}
                       onChange={(e) =>
                         updateRow(row.clientKey, { description: e.target.value })
@@ -222,7 +224,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
                       disabled={rows.length === 1}
                       className="text-sm text-slate-400 hover:text-red-600 disabled:opacity-30"
                     >
-                      Quitar
+                      {t("clientsForm.remove")}
                     </button>
                   </td>
                 </tr>
@@ -246,7 +248,7 @@ export function ClientsForm({ initial }: { initial: ClientRow[] }) {
           disabled={pending}
           className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
         >
-          {pending ? "Guardando..." : "Guardar cambios"}
+          {pending ? t("common.saving") : t("clientsForm.saveChanges")}
         </button>
       </div>
     </form>
