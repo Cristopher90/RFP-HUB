@@ -25,7 +25,6 @@ export default async function NewRfpPage({
     origins,
     supplierDirectory,
     itemCatalog,
-    creators,
   ] = await Promise.all([
     prisma.rfpTemplate.findMany({
       where: { active: true, ...scope.where },
@@ -55,10 +54,6 @@ export default async function NewRfpPage({
       where: scope.where,
       include: { catalogList: true },
       orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
-    }),
-    prisma.user.findMany({
-      where: scope.where,
-      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -136,7 +131,6 @@ export default async function NewRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
-          creators={creators}
           initial={initial}
           templates={templates.map((t) => ({
             id: t.id,

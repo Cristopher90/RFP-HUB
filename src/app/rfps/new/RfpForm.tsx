@@ -231,7 +231,6 @@ export function RfpForm({
   supplierDirectory,
   itemCatalog,
   allowFreeTextItems,
-  creators,
   mode = "create",
   rfpId,
   initial,
@@ -271,7 +270,6 @@ export function RfpForm({
   }[];
   itemCatalog: ItemCatalogEntry[];
   allowFreeTextItems: boolean;
-  creators: { id: string; name: string }[];
   mode?: "create" | "edit";
   rfpId?: string;
   initial?: RfpInitialData;
@@ -1240,7 +1238,6 @@ export function RfpForm({
               <PreviousRfpPicker
                 commodities={commodities.map((c) => c.description)}
                 regions={regions.map((r) => r.description)}
-                creators={creators}
                 excludeRfpId={rfpId}
                 onSelect={(rfp) => handleBasedOnSelect(rfp)}
                 triggerLabel={

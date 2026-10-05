@@ -10,18 +10,17 @@ function selectClass() {
 }
 
 // Search-popup picker for "basar en una RFP anterior" / "Copiar": filters
-// by título, commodity, región y creador — same shape as SupplierSearchPicker.
+// by título, commodity y región — same shape as SupplierSearchPicker. The
+// server only returns RFPs created by the current user.
 export function PreviousRfpPicker({
   commodities,
   regions,
-  creators,
   excludeRfpId,
   onSelect,
   triggerLabel,
 }: {
   commodities: string[];
   regions: string[];
-  creators: { id: string; name: string }[];
   excludeRfpId?: string;
   onSelect: (rfp: PreviousRfpResult) => void;
   triggerLabel?: string;
@@ -33,7 +32,6 @@ export function PreviousRfpPicker({
   const [query, setQuery] = useState("");
   const [commodity, setCommodity] = useState("");
   const [region, setRegion] = useState("");
-  const [creatorId, setCreatorId] = useState("");
 
   useEffect(() => {
     if (!open || all.length > 0) return;
@@ -50,11 +48,9 @@ export function PreviousRfpPicker({
       if (q && !r.title.toLowerCase().includes(q)) return false;
       if (commodity && r.commodity !== commodity) return false;
       if (region && r.region !== region) return false;
-      if (creatorId && r.creatorName !== creators.find((c) => c.id === creatorId)?.name)
-        return false;
       return true;
     });
-  }, [all, query, commodity, region, creatorId, creators]);
+  }, [all, query, commodity, region]);
 
   return (
     <div>
@@ -108,18 +104,6 @@ export function PreviousRfpPicker({
                     </option>
                   ))}
                 </select>
-                <select
-                  className={selectClass()}
-                  value={creatorId}
-                  onChange={(e) => setCreatorId(e.target.value)}
-                >
-                  <option value="">{t("previousRfpPicker.allCreators")}</option>
-                  {creators.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
             <div className="max-h-80 overflow-y-auto">
@@ -134,7 +118,6 @@ export function PreviousRfpPicker({
                       <th className="px-4 py-2">{t("previousRfpPicker.rfpHeader")}</th>
                       <th className="px-4 py-2">{t("previousRfpPicker.commodityHeader")}</th>
                       <th className="px-4 py-2">{t("previousRfpPicker.regionHeader")}</th>
-                      <th className="px-4 py-2">{t("previousRfpPicker.creatorHeader")}</th>
                       <th className="px-4 py-2">{t("previousRfpPicker.statusHeader")}</th>
                     </tr>
                   </thead>
@@ -162,9 +145,6 @@ export function PreviousRfpPicker({
                         </td>
                         <td className="px-4 py-2 text-slate-500">
                           {r.region ?? "—"}
-                        </td>
-                        <td className="px-4 py-2 text-slate-500">
-                          {r.creatorName}
                         </td>
                         <td className="px-4 py-2 text-slate-500">{statusLabel(dictionary, r.status)}</td>
                       </tr>

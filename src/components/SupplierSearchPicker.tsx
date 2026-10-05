@@ -83,7 +83,14 @@ export function SupplierSearchPicker({
     return [primary, ...extra];
   }
 
+  // A supplier can only be invited once at least one contact user has been
+  // created for it (Proveedores → Usuarios de proveedor).
+  function hasContactUser(dir: SupplierDirectoryEntry) {
+    return (dir.contacts?.length ?? 0) > 0;
+  }
+
   function pickDir(dir: SupplierDirectoryEntry) {
+    if (!hasContactUser(dir)) return;
     setPickedDir(dir);
     setCheckedEmails(new Set([dir.email]));
   }
@@ -216,17 +223,29 @@ export function SupplierSearchPicker({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {results.map((s) => (
+                        {results.map((s) => {
+                          const selectable = hasContactUser(s);
+                          return (
                           <tr
                             key={s.id}
                             onClick={() => pickDir(s)}
-                            className="cursor-pointer hover:bg-violet-50"
+                            aria-disabled={!selectable}
+                            className={
+                              selectable
+                                ? "cursor-pointer hover:bg-violet-50"
+                                : "cursor-not-allowed opacity-50"
+                            }
                           >
                             <td className="px-4 py-2 text-slate-500">
                               {s.code}
                             </td>
                             <td className="px-4 py-2 font-medium text-slate-800">
                               {s.companyName}
+                              {!selectable && (
+                                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                                  {t("supplierSearchPicker.noContactUser")}
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-slate-600">
                               {s.contactFirstName} {s.contactLastName}
@@ -238,7 +257,8 @@ export function SupplierSearchPicker({
                               {s.phone}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   )}

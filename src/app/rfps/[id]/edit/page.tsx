@@ -33,7 +33,7 @@ export default async function EditRfpPage({
   const dictionary = getDictionary(user.language);
 
   const rfpWhere = { clientId: rfp.clientId };
-  const [templates, commodities, regions, origins, supplierDirectory, itemCatalog, creators] =
+  const [templates, commodities, regions, origins, supplierDirectory, itemCatalog] =
     await Promise.all([
       prisma.rfpTemplate.findMany({
         where: { active: true, ...rfpWhere },
@@ -55,7 +55,6 @@ export default async function EditRfpPage({
         include: { catalogList: true },
         orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
       }),
-      prisma.user.findMany({ where: rfpWhere, orderBy: { name: "asc" } }),
     ]);
 
   function toDatetimeLocalInput(date: Date | null) {
@@ -191,7 +190,6 @@ export default async function EditRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
-          creators={creators}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,

@@ -22,27 +22,26 @@ export type PreviousRfpResult = {
 };
 
 // Searchable-picker backend for "basar en una RFP anterior" / "Copiar":
-// title text + creator/commodity/región filters, same dimensions as the
-// RFP list's own RfpFilters.
+// title text + commodity/región filters. Only ever returns RFPs created by
+// the caller — enforced here, not in the picker UI.
 export async function searchPreviousRfps(filters: {
   title?: string;
   commodity?: string;
   region?: string;
-  creatorId?: string;
   excludeRfpId?: string;
 }): Promise<PreviousRfpResult[]> {
-  await requireUser();
+  const user = await requireUser();
 
   const rfps = await prisma.rfp.findMany({
     where: {
       status: { not: "DELETED" },
+      createdByUserId: user.id,
       ...(filters.excludeRfpId ? { id: { not: filters.excludeRfpId } } : {}),
       ...(filters.title
         ? { title: { contains: filters.title } }
         : {}),
       ...(filters.commodity ? { commodity: filters.commodity } : {}),
       ...(filters.region ? { region: filters.region } : {}),
-      ...(filters.creatorId ? { createdByUserId: filters.creatorId } : {}),
     },
     orderBy: { number: "desc" },
     take: 50,
