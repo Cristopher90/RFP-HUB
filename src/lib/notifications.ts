@@ -1,22 +1,29 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { formatDateTime, formatRfpNumber } from "@/lib/format";
 import { DEFAULT_PREFERENCES } from "@/lib/preferences";
-import { appUrl, fill, sendEmail } from "@/lib/mailer";
+import { appUrl, defer, sendEmail } from "@/lib/mailer";
+import { renderTemplate, resolveTemplate } from "@/lib/emailTemplates";
+import type { EmailKind } from "@/lib/emailKinds";
 
-// Email notifications for the RFP lifecycle. Every function here swallows
-// its own errors (sendEmail never throws, and lookups are guarded) — a
-// failed email must never fail the action that triggered it.
+// Email notifications for the RFP lifecycle. Texts come from the client's
+// editable templates (see emailTemplates.ts) and every attempt is recorded in
+// EmailLog by sendEmail. Every public function here is non-blocking (it runs
+// after the response, via defer) and swallows its own errors — a failed email
+// must never fail, or slow down, the action that triggered it.
 
 export type MailRecipient = { email: string; language: string; timeZone: string };
 
-type RfpRef = { id: string; number: number; title: string };
-
-function rfpLabel(rfp: RfpRef): string {
-  return `${formatRfpNumber(rfp.number)} — ${rfp.title}`;
-}
+type RfpRef = {
+  id: string;
+  clientId: string;
+  number: number;
+  title: string;
+  buyerName?: string;
+  deadlineAt?: Date | null;
+  startDate?: Date | null;
+};
 
 function when(date: Date, recipient: MailRecipient): string {
   return formatDateTime(date, {
@@ -25,18 +32,56 @@ function when(date: Date, recipient: MailRecipient): string {
   });
 }
 
+// Renders the client's template for `kind` and sends it. `extra` supplies the
+// kind-specific placeholders (reason, supplier, counts, ...); anything not
+// provided is an empty string, which makes lines that use it disappear.
+async function deliver(options: {
+  kind: EmailKind;
+  rfp: RfpRef;
+  recipient: MailRecipient;
+  ctaPath: string;
+  extra?: Record<string, string>;
+  showStartDate?: boolean;
+}): Promise<boolean> {
+  const { kind, rfp, recipient, ctaPath, extra, showStartDate } = options;
+  const template = await resolveTemplate(rfp.clientId, kind, recipient.language);
+  const vars: Record<string, string> = {
+    rfp: `${formatRfpNumber(rfp.number)} — ${rfp.title}`,
+    title: rfp.title,
+    number: formatRfpNumber(rfp.number),
+    buyer: rfp.buyerName ?? "",
+    deadline: rfp.deadlineAt ? when(rfp.deadlineAt, recipient) : "",
+    startDate: showStartDate && rfp.startDate ? when(rfp.startDate, recipient) : "",
+    reason: "",
+    supplier: "",
+    responses: "",
+    invited: "",
+    ...extra,
+  };
+  const rendered = renderTemplate(template, vars);
+  return sendEmail(
+    recipient.email,
+    rendered.subject,
+    {
+      heading: rendered.heading,
+      paragraphs: rendered.paragraphs,
+      ctaLabel: rendered.cta,
+      ctaUrl: appUrl(ctaPath),
+    },
+    { kind, clientId: rfp.clientId, rfpId: rfp.id },
+  );
+}
+
 export async function sendApprovalRequestEmail(
   recipient: MailRecipient,
   rfp: RfpRef,
   stage: "PUBLISH" | "AWARD",
 ): Promise<void> {
-  const d = getDictionary(recipient.language).emails;
-  const vars = { rfp: rfpLabel(rfp) };
-  await sendEmail(recipient.email, fill(d.approval.subject, vars), {
-    heading: d.approval.heading,
-    paragraphs: [fill(stage === "PUBLISH" ? d.approval.publishBody : d.approval.awardBody, vars)],
-    ctaLabel: d.approval.cta,
-    ctaUrl: appUrl(stage === "AWARD" ? `/rfps/${rfp.id}/compare` : `/rfps/${rfp.id}`),
+  await deliver({
+    kind: stage === "PUBLISH" ? "approvalPublish" : "approvalAward",
+    rfp,
+    recipient,
+    ctaPath: stage === "AWARD" ? `/rfps/${rfp.id}/compare` : `/rfps/${rfp.id}`,
   });
 }
 
@@ -50,12 +95,10 @@ export type StatusEmailKind =
   | "awardRejected"
   | "awardRevoked";
 
-// Tells the RFP's creator that its status changed. Skipped when the creator
-// is the one who made the change (they already know).
-export async function notifyCreatorOfStatusChange(
+async function notifyCreatorOfStatusChangeNow(
   rfpId: string,
   kind: StatusEmailKind,
-  options: { actorUserId?: string; reason?: string } = {},
+  options: { actorUserId?: string; reason?: string },
 ): Promise<void> {
   try {
     const rfp = await prisma.rfp.findUnique({
@@ -67,27 +110,25 @@ export async function notifyCreatorOfStatusChange(
     });
     const creator = rfp?.createdBy;
     if (!rfp || !creator) return;
+    // The creator made this change themselves — nothing to tell them.
     if (options.actorUserId && options.actorUserId === creator.id) return;
 
     const recipient = { email: creator.email, language: creator.language, timeZone: creator.timezone };
-    const d = getDictionary(creator.language).emails;
     const awarded = rfp.invitations.find((i) => i.id === rfp.awardedInvitationId);
-    const vars = {
-      rfp: rfpLabel(rfp),
-      reason: options.reason ?? "—",
-      supplier: awarded?.supplier.company || awarded?.supplier.name || "—",
-      responses: String(rfp.invitations.filter((i) => i.response).length),
-      invited: String(rfp.invitations.length),
-      date: rfp.startDate ? when(rfp.startDate, recipient) : "—",
-    };
-    const useAwaiting =
-      kind === "published" && rfp.status === "AWAITING_START" && rfp.startDate;
-    const template = useAwaiting ? d.status.awaitingStart : d.status[kind];
-    await sendEmail(creator.email, fill(template.subject, vars), {
-      heading: template.heading,
-      paragraphs: [fill(template.body, vars)],
-      ctaLabel: d.status.cta,
-      ctaUrl: appUrl(kind.startsWith("award") ? `/rfps/${rfp.id}/compare` : `/rfps/${rfp.id}`),
+    const awaitingStart =
+      kind === "published" && rfp.status === "AWAITING_START" && Boolean(rfp.startDate);
+    await deliver({
+      kind: awaitingStart ? "awaitingStart" : kind,
+      rfp,
+      recipient,
+      ctaPath: kind.startsWith("award") ? `/rfps/${rfp.id}/compare` : `/rfps/${rfp.id}`,
+      showStartDate: awaitingStart,
+      extra: {
+        reason: options.reason ?? "—",
+        supplier: awarded?.supplier.company || awarded?.supplier.name || "—",
+        responses: String(rfp.invitations.filter((i) => i.response).length),
+        invited: String(rfp.invitations.length),
+      },
     });
   } catch (error) {
     console.error("[notify:status]", rfpId, kind, error);
@@ -97,7 +138,7 @@ export async function notifyCreatorOfStatusChange(
 // Emails every invitation of a published RFP that hasn't been emailed yet.
 // Idempotent: `notifiedAt` is only stamped once a message actually went
 // out, so calling it from several publish paths never double-sends.
-export async function sendPendingInvitations(rfpId: string): Promise<void> {
+async function sendPendingInvitationsNow(rfpId: string): Promise<void> {
   try {
     const rfp = await prisma.rfp.findUnique({
       where: { id: rfpId },
@@ -116,21 +157,12 @@ export async function sendPendingInvitations(rfpId: string): Promise<void> {
         language: portalUser?.language ?? DEFAULT_PREFERENCES.language,
         timeZone: portalUser?.timezone ?? DEFAULT_PREFERENCES.timeZone,
       };
-      const d = getDictionary(recipient.language).emails.invitation;
-      const vars = {
-        rfp: rfpLabel(rfp),
-        buyer: rfp.buyerName,
-        date: when(rfp.deadlineAt, recipient),
-      };
-      const paragraphs = [fill(d.intro, vars), fill(d.deadline, vars)];
-      if (rfp.status === "AWAITING_START" && rfp.startDate) {
-        paragraphs.push(fill(d.startsAt, { date: when(rfp.startDate, recipient) }));
-      }
-      const sent = await sendEmail(email, fill(d.subject, vars), {
-        heading: d.heading,
-        paragraphs,
-        ctaLabel: d.cta,
-        ctaUrl: appUrl(`/respond/${invitation.token}`),
+      const sent = await deliver({
+        kind: "invitation",
+        rfp,
+        recipient,
+        ctaPath: `/respond/${invitation.token}`,
+        showStartDate: rfp.status === "AWAITING_START",
       });
       if (sent) {
         await prisma.invitation.update({
@@ -147,7 +179,7 @@ export async function sendPendingInvitations(rfpId: string): Promise<void> {
 // Tells the creator a supplier answered — except on blind RFPs
 // (hideResponsesUntilClosed) still OPEN, where the buyer isn't meant to know
 // anything about responses until the RFP closes.
-export async function notifySupplierResponded(
+async function notifySupplierRespondedNow(
   rfpId: string,
   invitationId: string,
 ): Promise<void> {
@@ -164,20 +196,37 @@ export async function notifySupplierResponded(
     if (rfp.hideResponsesUntilClosed && rfp.status === "OPEN") return;
 
     const invitation = rfp.invitations.find((i) => i.id === invitationId);
-    const d = getDictionary(creator.language).emails.supplierResponded;
-    const vars = {
-      rfp: rfpLabel(rfp),
-      supplier: invitation ? invitation.supplier.company || invitation.supplier.name : "—",
-      responses: String(rfp.invitations.filter((i) => i.response).length),
-      invited: String(rfp.invitations.length),
-    };
-    await sendEmail(creator.email, fill(d.subject, vars), {
-      heading: d.heading,
-      paragraphs: [fill(d.body, vars)],
-      ctaLabel: d.cta,
-      ctaUrl: appUrl(`/rfps/${rfp.id}/compare`),
+    await deliver({
+      kind: "supplierResponded",
+      rfp,
+      recipient: { email: creator.email, language: creator.language, timeZone: creator.timezone },
+      ctaPath: `/rfps/${rfp.id}/compare`,
+      extra: {
+        supplier: invitation ? invitation.supplier.company || invitation.supplier.name : "—",
+        responses: String(rfp.invitations.filter((i) => i.response).length),
+        invited: String(rfp.invitations.length),
+      },
     });
   } catch (error) {
     console.error("[notify:response]", rfpId, error);
   }
+}
+
+export async function notifyCreatorOfStatusChange(
+  rfpId: string,
+  kind: StatusEmailKind,
+  options: { actorUserId?: string; reason?: string } = {},
+): Promise<void> {
+  defer(() => notifyCreatorOfStatusChangeNow(rfpId, kind, options));
+}
+
+export async function sendPendingInvitations(rfpId: string): Promise<void> {
+  defer(() => sendPendingInvitationsNow(rfpId));
+}
+
+export async function notifySupplierResponded(
+  rfpId: string,
+  invitationId: string,
+): Promise<void> {
+  defer(() => notifySupplierRespondedNow(rfpId, invitationId));
 }

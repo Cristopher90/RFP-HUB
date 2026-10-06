@@ -116,6 +116,30 @@ export default async function AdminPage() {
       </CollapsibleSection>
 
       <CollapsibleSection
+        title={dictionary.adminDashboard.emailsTitle}
+        subtitle={dictionary.adminDashboard.emailsSubtitle}
+        storageKey="admin-hub-emails"
+        className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/email-templates"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.adminDashboard.emailTemplatesLink}
+          </Link>
+          {scope.isSuperAdmin && (
+            <Link
+              href="/admin/email-log"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              {dictionary.nav.emailLog}
+            </Link>
+          )}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         title={dictionary.adminDashboard.templatesTitle}
         subtitle={dictionary.adminDashboard.templatesSubtitle}
         storageKey="admin-hub-templates"

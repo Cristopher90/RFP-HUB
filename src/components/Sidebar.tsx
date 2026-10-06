@@ -34,6 +34,14 @@ export async function Sidebar() {
             {dictionary.nav.systemTables}
           </Link>
         )}
+        {user.role === "ADMIN" && (
+          <Link
+            href="/admin/email-log"
+            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
+          >
+            {dictionary.nav.emailLog}
+          </Link>
+        )}
       </nav>
     </aside>
   );

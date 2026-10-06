@@ -31,6 +31,8 @@ export const SYSTEM_TABLES = [
   { key: "response", label: "Response", model: "response" },
   { key: "answer", label: "Answer", model: "answer" },
   { key: "item-price", label: "ItemPrice", model: "itemPrice" },
+  { key: "email-template", label: "EmailTemplate", model: "emailTemplate" },
+  { key: "email-log", label: "EmailLog", model: "emailLog" },
 ] as const;
 
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];

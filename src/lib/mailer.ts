@@ -1,5 +1,7 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
+import { after } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 // SMTP config comes from env. With no SMTP_HOST set nothing is sent — the
 // message is just logged — so local dev (which points at the live database)
@@ -17,12 +19,28 @@ function getTransporter(): Transporter | null {
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT ?? 587),
       secure: process.env.SMTP_SECURE === "true",
+      // Short timeouts: an unreachable/blocked SMTP host must fail fast
+      // instead of holding a connection open for minutes.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
       auth: process.env.SMTP_USER
         ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
         : undefined,
     });
   }
   return transporter;
+}
+
+// Runs an email task after the response has been sent, so a slow or
+// unreachable SMTP server can never keep a user's action (publish, approve,
+// respond...) hanging. Falls back to fire-and-forget outside a request.
+export function defer(task: () => Promise<void>): void {
+  try {
+    after(task);
+  } catch {
+    void task();
+  }
 }
 
 export function appUrl(path: string): string {
@@ -66,32 +84,66 @@ function renderText(content: EmailContent): string {
   return lines.join("\n");
 }
 
+export type EmailMeta = { kind: string; clientId?: string | null; rfpId?: string | null };
+
+async function writeLog(
+  meta: EmailMeta,
+  to: string,
+  sentTo: string,
+  subject: string,
+  status: "SENT" | "FAILED" | "NOT_SENT",
+  error?: string,
+) {
+  try {
+    await prisma.emailLog.create({
+      data: {
+        clientId: meta.clientId ?? null,
+        rfpId: meta.rfpId ?? null,
+        kind: meta.kind,
+        toEmail: to,
+        sentTo,
+        subject,
+        status,
+        error: error ? error.slice(0, 1000) : null,
+      },
+    });
+  } catch (logError) {
+    console.error("[mail:log-error]", logError);
+  }
+}
+
 // Never throws: a mail problem must not break the RFP action that triggered
-// it. Returns whether the message was actually handed to SMTP.
+// it. Every attempt is recorded in EmailLog (sent, failed, or not sent for
+// lack of SMTP). Returns whether the message was actually handed to SMTP.
 export async function sendEmail(
   to: string,
   subject: string,
   content: EmailContent,
+  meta: EmailMeta,
 ): Promise<boolean> {
+  const redirectTo = process.env.MAIL_REDIRECT_TO;
+  const finalTo = redirectTo || to;
+  const finalSubject = redirectTo ? `[${to}] ${subject}` : subject;
   try {
-    const redirectTo = process.env.MAIL_REDIRECT_TO;
-    const finalTo = redirectTo || to;
-    const finalSubject = redirectTo ? `[${to}] ${subject}` : subject;
     const transport = getTransporter();
     if (!transport) {
       console.log(`[mail:not-sent] to=${finalTo} subject=${finalSubject}`);
+      await writeLog(meta, to, finalTo, subject, "NOT_SENT");
       return false;
     }
-    await transport.sendMail({
+    const info = await transport.sendMail({
       from: process.env.MAIL_FROM ?? process.env.SMTP_USER,
       to: finalTo,
       subject: finalSubject,
       text: renderText(content),
       html: renderHtml(content),
     });
+    console.log(`[mail:sent] to=${finalTo} subject=${finalSubject} id=${info.messageId}`);
+    await writeLog(meta, to, finalTo, subject, "SENT");
     return true;
   } catch (error) {
     console.error("[mail:error]", to, subject, error);
+    await writeLog(meta, to, finalTo, subject, "FAILED", error instanceof Error ? error.message : String(error));
     return false;
   }
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
 import { getDictionary } from "@/i18n/getDictionary";
 import { notifyCreatorOfStatusChange, sendApprovalRequestEmail } from "@/lib/notifications";
+import { defer } from "@/lib/mailer";
 import type { ApprovalStageKind, ApproverMode } from "@/generated/prisma/enums";
 
 export type LevelConfig = {
@@ -180,13 +181,20 @@ async function getActiveApproval(rfpId: string, stage: ApprovalStageKind) {
 // Emails whoever can decide the currently-active level of a stage. Uses the
 // same canDecide/hasAlreadyDecided gate as the UI, so the people notified are
 // exactly the people who'll see Aprobar/Rechazar. Never throws.
-async function notifyActiveLevelApprovers(rfpId: string, stage: ApprovalStageKind) {
+async function notifyActiveLevelApproversNow(rfpId: string, stage: ApprovalStageKind) {
   try {
     const { active } = await getActiveApproval(rfpId, stage);
     if (!active) return;
     const rfp = await prisma.rfp.findUnique({
       where: { id: rfpId },
-      select: { id: true, number: true, title: true },
+      select: {
+        id: true,
+        clientId: true,
+        number: true,
+        title: true,
+        buyerName: true,
+        deadlineAt: true,
+      },
     });
     if (!rfp) return;
 
@@ -216,6 +224,10 @@ async function notifyActiveLevelApprovers(rfpId: string, stage: ApprovalStageKin
   } catch (error) {
     console.error("[notify:approvers]", rfpId, stage, error);
   }
+}
+
+function notifyActiveLevelApprovers(rfpId: string, stage: ApprovalStageKind) {
+  defer(() => notifyActiveLevelApproversNow(rfpId, stage));
 }
 
 // Creates one RfpApproval row per level (re-sequenced 0..n-1 so gaps in the

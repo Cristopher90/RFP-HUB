@@ -119,6 +119,8 @@ model Client {
   answers              Answer[]
   itemPrices           ItemPrice[]
   userApprovalGroups   UserApprovalGroup[]
+  emailTemplates       EmailTemplate[]
+  emailLogs            EmailLog[]
 }
 
 model User {
@@ -680,4 +682,46 @@ model ItemPrice {
   item     RfpItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@unique([responseId, itemId])
+}
+
+// Texto editable de cada correo, por cliente e idioma. Si no hay fila, se usa
+// el texto por defecto del diccionario.
+model EmailTemplate {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  kind      String // ver EMAIL_KINDS en src/lib/emailKinds.ts
+  language  String // "es" | "en"
+  subject   String
+  heading   String
+  body      String // párrafos separados por salto de línea
+  cta       String
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, kind, language])
+}
+
+enum EmailLogStatus {
+  SENT
+  FAILED
+  NOT_SENT // intento registrado pero sin SMTP configurado
+}
+
+// Cada correo que la app intentó enviar (enviado, fallido o no enviado por
+// falta de SMTP). rfpId no es FK para conservar el registro aunque se borre la RFP.
+model EmailLog {
+  id        String         @id @default(cuid())
+  clientId  String?
+  client    Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  rfpId     String?
+  kind      String
+  toEmail   String // destinatario real previsto
+  sentTo    String // a dónde se envió de verdad (distinto si hay MAIL_REDIRECT_TO)
+  subject   String
+  status    EmailLogStatus
+  error     String?
+  createdAt DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([clientId, createdAt])
 }
