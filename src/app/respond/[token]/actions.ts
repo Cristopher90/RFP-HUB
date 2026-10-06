@@ -9,6 +9,7 @@ import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { computeAutoScore } from "@/lib/questionScoring";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
+import { notifySupplierResponded } from "@/lib/notifications";
 
 export async function submitResponse(token: string, formData: FormData) {
   const preferences = await getViewerPreferences();
@@ -150,6 +151,8 @@ export async function submitResponse(token: string, formData: FormData) {
     });
     return response;
   });
+
+  await notifySupplierResponded(invitation.rfpId, invitation.id);
 
   revalidatePath(`/respond/${token}`);
   revalidatePath(`/rfps/${invitation.rfpId}`);

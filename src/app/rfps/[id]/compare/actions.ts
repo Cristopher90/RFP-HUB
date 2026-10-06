@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser } from "@/lib/auth";
 import {
   matchesTemplate,
   resolveAppliedTemplates,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/approvalEngine";
 import { addAwardedItemsToCatalog } from "@/lib/itemCatalog";
 import { getDictionary } from "@/i18n/getDictionary";
+import { notifyCreatorOfStatusChange } from "@/lib/notifications";
 
 export type AwardCriteria = "ITEMS" | "QUESTIONS" | "WEIGHTED" | "PRICE";
 
@@ -116,6 +117,9 @@ export async function awardInvitation(
       },
     });
   }
+  await notifyCreatorOfStatusChange(rfpId, completed ? "awarded" : "awardPending", {
+    actorUserId: user.id,
+  });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
   return { status: completed ? "AWARDED" : "PENDING" } as const;
@@ -144,6 +148,7 @@ export async function approveAward(rfpId: string) {
         awardedAt: new Date(),
       },
     });
+    await notifyCreatorOfStatusChange(rfpId, "awarded", { actorUserId: user.id });
   }
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
@@ -181,6 +186,8 @@ export async function revokeAward(rfpId: string) {
     data: { awardedInvitationId: null, awardedAt: null },
   });
   await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
+  const actor = await getCurrentUser();
+  await notifyCreatorOfStatusChange(rfpId, "awardRevoked", { actorUserId: actor?.id });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
 }

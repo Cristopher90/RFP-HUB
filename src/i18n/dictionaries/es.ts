@@ -1044,6 +1044,77 @@ export const es = {
     invalidCurrency: "La moneda no es válida.",
     sessionNotFound: "Sesión no encontrada.",
   },
+  emails: {
+    invitation: {
+      subject: "Invitación a cotizar: {rfp}",
+      heading: "Te invitaron a cotizar",
+      intro: "{buyer} te invita a cotizar en la RFP {rfp}.",
+      deadline: "Fecha límite de respuesta: {date}",
+      startsAt: "La RFP abre el {date}; hasta entonces no podrás enviar tu cotización.",
+      cta: "Responder la RFP",
+    },
+    approval: {
+      subject: "Aprobación pendiente: {rfp}",
+      heading: "Tienes una aprobación pendiente",
+      publishBody: "La RFP {rfp} espera tu aprobación para publicarse.",
+      awardBody: "La RFP {rfp} espera tu aprobación para adjudicarse.",
+      cta: "Revisar y decidir",
+    },
+    status: {
+      cta: "Ver la RFP",
+      published: {
+        subject: "RFP publicada: {rfp}",
+        heading: "Tu RFP fue publicada",
+        body: "La RFP {rfp} ya está abierta y se invitó a los proveedores.",
+      },
+      awaitingStart: {
+        subject: "RFP aprobada: {rfp}",
+        heading: "Tu RFP fue aprobada",
+        body: "La RFP {rfp} abrirá el {date}; las invitaciones ya se enviaron a los proveedores.",
+      },
+      publishRejected: {
+        subject: "RFP rechazada: {rfp}",
+        heading: "Rechazaron la publicación de tu RFP",
+        body: "La aprobación para publicar la RFP {rfp} fue rechazada y volvió a borrador. Motivo: {reason}",
+      },
+      closed: {
+        subject: "RFP cerrada: {rfp}",
+        heading: "Tu RFP fue cerrada",
+        body: "La RFP {rfp} se cerró. Respuestas recibidas: {responses} de {invited}.",
+      },
+      reopened: {
+        subject: "RFP reabierta: {rfp}",
+        heading: "Tu RFP fue reabierta",
+        body: "La RFP {rfp} volvió a recibir cotizaciones.",
+      },
+      awardPending: {
+        subject: "Adjudicación pendiente: {rfp}",
+        heading: "Adjudicación pendiente de aprobación",
+        body: "La adjudicación de la RFP {rfp} está esperando aprobación.",
+      },
+      awarded: {
+        subject: "RFP adjudicada: {rfp}",
+        heading: "Tu RFP fue adjudicada",
+        body: "La RFP {rfp} fue adjudicada a {supplier}.",
+      },
+      awardRejected: {
+        subject: "Adjudicación rechazada: {rfp}",
+        heading: "Rechazaron la adjudicación de tu RFP",
+        body: "La adjudicación de la RFP {rfp} fue rechazada. Motivo: {reason}",
+      },
+      awardRevoked: {
+        subject: "Adjudicación revocada: {rfp}",
+        heading: "Se revocó la adjudicación",
+        body: "Se quitó la adjudicación de la RFP {rfp}.",
+      },
+    },
+    supplierResponded: {
+      subject: "Nueva respuesta en {rfp}",
+      heading: "Un proveedor respondió",
+      body: "{supplier} respondió a la RFP {rfp}. Respuestas recibidas: {responses} de {invited}.",
+      cta: "Abrir monitor y adjudicación",
+    },
+  },
 };
 
 export type Dictionary = typeof es;

@@ -14,6 +14,7 @@ import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
+import { sendPendingInvitations } from "@/lib/notifications";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -467,5 +468,6 @@ export async function createRfp(
     }
   }
 
+  await sendPendingInvitations(rfp.id);
   redirect(`/rfps/${rfp.id}`);
 }

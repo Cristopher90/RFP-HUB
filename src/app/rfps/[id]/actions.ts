@@ -6,7 +6,7 @@ import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser, requireUser } from "@/lib/auth";
 import { validateAndShapeRfp, type CreateRfpInput } from "../new/actions";
 import {
   pickApprovalWorkflow,
@@ -23,6 +23,7 @@ import {
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
+import { notifyCreatorOfStatusChange, sendPendingInvitations } from "@/lib/notifications";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -58,6 +59,7 @@ export async function inviteSupplier(
   await prisma.invitation.create({
     data: { rfpId, supplierId: supplier.id, clientId: rfp.clientId },
   });
+  await sendPendingInvitations(rfpId);
 
   revalidatePath(`/rfps/${rfpId}`);
   return { error: null };
@@ -68,6 +70,8 @@ export async function closeRfp(rfpId: string) {
     where: { id: rfpId },
     data: { status: "CLOSED", closedAt: new Date() },
   });
+  const actor = await getCurrentUser();
+  await notifyCreatorOfStatusChange(rfpId, "closed", { actorUserId: actor?.id });
   revalidatePath(`/rfps/${rfpId}`);
 }
 
@@ -80,6 +84,8 @@ export async function reopenRfp(rfpId: string) {
     where: { id: rfpId },
     data: { status: resolveOpenStatus(rfp.startDate), closedAt: null },
   });
+  const actor = await getCurrentUser();
+  await notifyCreatorOfStatusChange(rfpId, "reopened", { actorUserId: actor?.id });
   revalidatePath(`/rfps/${rfpId}`);
 }
 
@@ -195,6 +201,7 @@ export async function publishRfp(rfpId: string) {
       });
     }
   }
+  await sendPendingInvitations(rfpId);
   revalidatePath(`/rfps/${rfpId}`);
 }
 
@@ -391,6 +398,7 @@ export async function updateRfp(
     }
   }
 
+  await sendPendingInvitations(rfpId);
   revalidatePath(`/rfps/${rfpId}`);
   redirect(`/rfps/${rfpId}`);
 }
@@ -414,6 +422,8 @@ export async function approvePublish(rfpId: string) {
       where: { id: rfpId },
       data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date() },
     });
+    await sendPendingInvitations(rfpId);
+    await notifyCreatorOfStatusChange(rfpId, "published", { actorUserId: user.id });
   }
   revalidatePath(`/rfps/${rfpId}`);
 }

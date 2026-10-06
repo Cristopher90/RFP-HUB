@@ -630,6 +630,7 @@ model Invitation {
   status     InvitationStatus @default(INVITED)
   invitedAt  DateTime         @default(now())
   viewedAt   DateTime?
+  notifiedAt DateTime? // cuándo se envió el correo de invitación (una sola vez por invitación)
 
   rfp      Rfp       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
   supplier Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/format";
 import { getDictionary } from "@/i18n/getDictionary";
+import { notifyCreatorOfStatusChange, sendApprovalRequestEmail } from "@/lib/notifications";
 import type { ApprovalStageKind, ApproverMode } from "@/generated/prisma/enums";
 
 export type LevelConfig = {
@@ -176,6 +177,47 @@ async function getActiveApproval(rfpId: string, stage: ApprovalStageKind) {
   return { approvals, active, rejected };
 }
 
+// Emails whoever can decide the currently-active level of a stage. Uses the
+// same canDecide/hasAlreadyDecided gate as the UI, so the people notified are
+// exactly the people who'll see Aprobar/Rechazar. Never throws.
+async function notifyActiveLevelApprovers(rfpId: string, stage: ApprovalStageKind) {
+  try {
+    const { active } = await getActiveApproval(rfpId, stage);
+    if (!active) return;
+    const rfp = await prisma.rfp.findUnique({
+      where: { id: rfpId },
+      select: { id: true, number: true, title: true },
+    });
+    if (!rfp) return;
+
+    const candidateIds =
+      active.mode === "USERS"
+        ? (JSON.parse(active.userIds ?? "[]") as string[])
+        : (
+            await prisma.userApprovalGroup.findMany({
+              where: { approvalGroupId: active.approvalGroupId ?? "" },
+              select: { userId: true },
+            })
+          ).map((m) => m.userId);
+
+    for (const userId of new Set(candidateIds)) {
+      const decider = await loadDeciderUser(userId);
+      if (!decider) continue;
+      if (!(await canDecide(active, decider))) continue;
+      if (await hasAlreadyDecided(active.id, userId)) continue;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) continue;
+      await sendApprovalRequestEmail(
+        { email: user.email, language: user.language, timeZone: user.timezone },
+        rfp,
+        stage,
+      );
+    }
+  } catch (error) {
+    console.error("[notify:approvers]", rfpId, stage, error);
+  }
+}
+
 // Creates one RfpApproval row per level (re-sequenced 0..n-1 so gaps in the
 // configured `order` never matter), stamping activatedAt on the first level
 // only (later levels get it once they actually become active), and
@@ -219,6 +261,7 @@ export async function startStage(params: {
       stage,
       userId: requesterId,
       decision: "APPROVED",
+      skipNotify: true,
     });
     if (!result.ok) break;
     if (result.stageCompleted) return { completed: true };
@@ -226,6 +269,7 @@ export async function startStage(params: {
   const remaining = await prisma.rfpApproval.count({
     where: { rfpId, stage, status: { not: "APPROVED" } },
   });
+  if (remaining > 0) await notifyActiveLevelApprovers(rfpId, stage);
   return { completed: remaining === 0 };
 }
 
@@ -235,8 +279,9 @@ export async function recordDecision(input: {
   userId: string;
   decision: "APPROVED" | "REJECTED";
   reason?: string | null;
+  skipNotify?: boolean;
 }): Promise<{ ok: true; stageCompleted: boolean } | { ok: false; error: string }> {
-  const { rfpId, stage, userId, decision, reason } = input;
+  const { rfpId, stage, userId, decision, reason, skipNotify } = input;
 
   const user = await loadDeciderUser(userId);
   if (!user) return { ok: false, error: getDictionary("es").approvalEngineErrors.userNotFound };
@@ -269,6 +314,13 @@ export async function recordDecision(input: {
       where: { id: active.id },
       data: { status: "REJECTED", rejectedReason: reason.trim() },
     });
+    if (!skipNotify) {
+      await notifyCreatorOfStatusChange(
+        rfpId,
+        stage === "PUBLISH" ? "publishRejected" : "awardRejected",
+        { actorUserId: userId, reason: reason.trim() },
+      );
+    }
     return { ok: true, stageCompleted: false };
   }
 
@@ -314,6 +366,7 @@ export async function recordDecision(input: {
   const remaining = await prisma.rfpApproval.count({
     where: { rfpId, stage, status: { not: "APPROVED" } },
   });
+  if (remaining > 0 && !skipNotify) await notifyActiveLevelApprovers(rfpId, stage);
   return { ok: true, stageCompleted: remaining === 0 };
 }
 

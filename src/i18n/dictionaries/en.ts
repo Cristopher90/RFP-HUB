@@ -1040,4 +1040,75 @@ export const en: Dictionary = {
     invalidCurrency: "The currency isn't valid.",
     sessionNotFound: "Session not found.",
   },
+  emails: {
+    invitation: {
+      subject: "Invitation to quote: {rfp}",
+      heading: "You've been invited to quote",
+      intro: "{buyer} invites you to quote on RFP {rfp}.",
+      deadline: "Response deadline: {date}",
+      startsAt: "The RFP opens on {date}; you won't be able to submit your quote until then.",
+      cta: "Respond to the RFP",
+    },
+    approval: {
+      subject: "Approval pending: {rfp}",
+      heading: "You have a pending approval",
+      publishBody: "RFP {rfp} is waiting for your approval to be published.",
+      awardBody: "RFP {rfp} is waiting for your approval to be awarded.",
+      cta: "Review and decide",
+    },
+    status: {
+      cta: "View the RFP",
+      published: {
+        subject: "RFP published: {rfp}",
+        heading: "Your RFP was published",
+        body: "RFP {rfp} is now open and suppliers have been invited.",
+      },
+      awaitingStart: {
+        subject: "RFP approved: {rfp}",
+        heading: "Your RFP was approved",
+        body: "RFP {rfp} will open on {date}; invitations were already sent to suppliers.",
+      },
+      publishRejected: {
+        subject: "RFP rejected: {rfp}",
+        heading: "Your RFP's publication was rejected",
+        body: "Approval to publish RFP {rfp} was rejected and it went back to draft. Reason: {reason}",
+      },
+      closed: {
+        subject: "RFP closed: {rfp}",
+        heading: "Your RFP was closed",
+        body: "RFP {rfp} was closed. Responses received: {responses} of {invited}.",
+      },
+      reopened: {
+        subject: "RFP reopened: {rfp}",
+        heading: "Your RFP was reopened",
+        body: "RFP {rfp} is receiving quotes again.",
+      },
+      awardPending: {
+        subject: "Award pending: {rfp}",
+        heading: "Award pending approval",
+        body: "The award for RFP {rfp} is waiting for approval.",
+      },
+      awarded: {
+        subject: "RFP awarded: {rfp}",
+        heading: "Your RFP was awarded",
+        body: "RFP {rfp} was awarded to {supplier}.",
+      },
+      awardRejected: {
+        subject: "Award rejected: {rfp}",
+        heading: "Your RFP's award was rejected",
+        body: "The award for RFP {rfp} was rejected. Reason: {reason}",
+      },
+      awardRevoked: {
+        subject: "Award revoked: {rfp}",
+        heading: "The award was revoked",
+        body: "The award for RFP {rfp} was removed.",
+      },
+    },
+    supplierResponded: {
+      subject: "New response on {rfp}",
+      heading: "A supplier responded",
+      body: "{supplier} responded to RFP {rfp}. Responses received: {responses} of {invited}.",
+      cta: "Open monitor and award",
+    },
+  },
 };
