@@ -1462,6 +1462,10 @@ export const es = {
     selectClient: "Selecciona un cliente para editar sus correos.",
   },
   emailTemplatesForm: {
+    search: "Buscar tipo de mensaje...",
+    expandAll: "Expandir todo",
+    collapseAll: "Contraer todo",
+    noMatch: "Ningún mensaje coincide con la búsqueda.",
     languageLabel: "Idioma del destinatario",
     spanish: "Español",
     english: "Inglés",

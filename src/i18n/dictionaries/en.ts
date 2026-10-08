@@ -1458,6 +1458,10 @@ export const en: Dictionary = {
     selectClient: "Select a client to edit its emails.",
   },
   emailTemplatesForm: {
+    search: "Search message type...",
+    expandAll: "Expand all",
+    collapseAll: "Collapse all",
+    noMatch: "No message matches the search.",
     languageLabel: "Recipient language",
     spanish: "Spanish",
     english: "English",
