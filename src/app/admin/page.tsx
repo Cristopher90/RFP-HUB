@@ -112,6 +112,12 @@ export default async function AdminPage() {
           >
             {dictionary.adminDashboard.usersLink}
           </Link>
+          <Link
+            href="/admin/buyer-groups"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.adminDashboard.buyerGroupsLink}
+          </Link>
         </div>
       </CollapsibleSection>
 
@@ -129,10 +135,10 @@ export default async function AdminPage() {
             {dictionary.adminDashboard.requestTemplatesLink}
           </Link>
           <Link
-            href="/admin/buyer-groups"
+            href="/admin/request-rfp-mapping"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
-            {dictionary.adminDashboard.buyerGroupsLink}
+            {dictionary.adminDashboard.requestRfpMappingLink}
           </Link>
         </div>
       </CollapsibleSection>

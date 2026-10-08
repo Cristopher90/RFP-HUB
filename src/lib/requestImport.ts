@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { HeaderMapping, LinesMapping } from "@/lib/requestFields";
+import type { HeaderMapping, ImportMode, LinesMapping } from "@/lib/requestFields";
 
 // Reads purchase-request Excel files in the browser (the same way RFP Excel
 // import does) and turns them into plain documents the server action stores.
@@ -102,6 +102,7 @@ export function toIsoDate(value: unknown): string | null {
 }
 
 export type ParseTemplate = {
+  importMode: ImportMode;
   headerSheet: string;
   linesSheet: string;
   headerMapping: HeaderMapping;
@@ -173,15 +174,29 @@ export async function parseRequestsFile(
     defval: "",
     raw: true,
   });
+  // One file per request: the first header row is the request and every line
+  // belongs to it (no document number needed on the lines).
+  const single = template.importMode === "SINGLE" ? [...documents.values()][0] : null;
+  if (single) {
+    documents.clear();
+    documents.set("single", single);
+  }
   let orphanLines = 0;
   lineRows.forEach((row) => {
-    const documentNumber = text(cell(row, lm.documentNumber));
     const description = text(cell(row, lm.description));
-    if (!documentNumber || !description) return;
-    const lineType = lm.documentType ? text(cell(row, lm.documentType)) : "";
-    const doc = lineType
-      ? documents.get(`${lineType}\u0000${documentNumber}`)
-      : byNumber.get(documentNumber);
+    if (!description) return;
+    let doc: ParsedDocument | undefined;
+    let documentNumber = single?.documentNumber ?? "";
+    if (single) {
+      doc = single;
+    } else {
+      documentNumber = text(cell(row, lm.documentNumber));
+      if (!documentNumber) return;
+      const lineType = lm.documentType ? text(cell(row, lm.documentType)) : "";
+      doc = lineType
+        ? documents.get(`${lineType}\u0000${documentNumber}`)
+        : byNumber.get(documentNumber);
+    }
     if (!doc) {
       orphanLines++;
       return;

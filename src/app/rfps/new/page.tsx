@@ -79,7 +79,6 @@ export default async function NewRfpPage({
       },
       include: {
         lines: { orderBy: { order: "asc" } },
-        template: true,
         rfp: { select: { status: true, awardedInvitationId: true } },
       },
     });
@@ -90,7 +89,11 @@ export default async function NewRfpPage({
     ) {
       redirect("/requests");
     }
-    const built = buildRfpFromRequest(request, request.template?.rfpMapping, commodities);
+    // How a request fills the RFP is a per-client setting (Settings → Request to RFP mapping).
+    const rfpMapping = await prisma.requestRfpMapping.findUnique({
+      where: { clientId: request.clientId },
+    });
+    const built = buildRfpFromRequest(request, rfpMapping?.mapping, commodities);
     purchaseRequestId = request.id;
     purchaseRequestLabel = `${request.documentType} ${request.documentNumber}`;
     initial = {

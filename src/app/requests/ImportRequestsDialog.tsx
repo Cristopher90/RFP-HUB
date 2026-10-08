@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { parseRequestsFile, type ImportIssue } from "@/lib/requestImport";
-import type { HeaderMapping, LinesMapping } from "@/lib/requestFields";
+import type { HeaderMapping, ImportMode, LinesMapping } from "@/lib/requestFields";
 import { importPurchaseRequests } from "./actions";
 
 type Template = {
   id: string;
   name: string;
+  importMode: ImportMode;
   headerSheet: string;
   linesSheet: string;
   headerMapping: HeaderMapping;

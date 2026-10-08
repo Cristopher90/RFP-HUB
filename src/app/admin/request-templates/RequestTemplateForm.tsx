@@ -5,30 +5,25 @@ import { useRouter } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { readWorkbookInfo, type WorkbookInfo } from "@/lib/requestImport";
 import {
-  DEFAULT_RFP_MAPPING,
   HEADER_FIELDS,
-  LINE_FIELDS,
-  REQUEST_PLACEHOLDERS,
+  IMPORT_MODES,
   REQUIRED_HEADER_FIELDS,
-  REQUIRED_LINE_FIELDS,
-  RFP_ITEM_SOURCES,
-  RFP_ITEM_TARGETS,
+  lineFieldsFor,
+  requiredLineFields,
   type HeaderMapping,
+  type ImportMode,
   type LinesMapping,
-  type RfpItemSource,
-  type RfpItemTarget,
-  type RfpMapping,
 } from "@/lib/requestFields";
 import { deleteRequestImportTemplate, saveRequestImportTemplate } from "./actions";
 
 type Initial = {
   id: string;
   name: string;
+  importMode: ImportMode;
   headerSheet: string;
   linesSheet: string;
   headerMapping: HeaderMapping;
   linesMapping: LinesMapping;
-  rfpMapping: RfpMapping | null;
 };
 
 function inputClass() {
@@ -50,15 +45,11 @@ export function RequestTemplateForm({
   const router = useRouter();
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
+  const [importMode, setImportMode] = useState<ImportMode>(initial?.importMode ?? "MASS");
   const [headerSheet, setHeaderSheet] = useState(initial?.headerSheet ?? "");
   const [linesSheet, setLinesSheet] = useState(initial?.linesSheet ?? "");
   const [headerMapping, setHeaderMapping] = useState<HeaderMapping>(initial?.headerMapping ?? {});
   const [linesMapping, setLinesMapping] = useState<LinesMapping>(initial?.linesMapping ?? {});
-  const [rfpMapping, setRfpMapping] = useState<RfpMapping>(
-    initial?.rfpMapping ?? DEFAULT_RFP_MAPPING,
-  );
-  const [showRfp, setShowRfp] = useState(false);
-  const [rfpTouched, setRfpTouched] = useState(Boolean(initial?.rfpMapping));
   const [workbook, setWorkbook] = useState<WorkbookInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -74,34 +65,27 @@ export function RequestTemplateForm({
   }
 
   const sheetNames = useMemo(
-    () => unique([...(workbook?.sheets.map((s) => s.name) ?? []), initial?.headerSheet, initial?.linesSheet]),
+    () =>
+      unique([
+        ...(workbook?.sheets.map((s) => s.name) ?? []),
+        initial?.headerSheet,
+        initial?.linesSheet,
+      ]),
     [workbook, initial],
   );
-  const columnsOf = (sheet: string, saved: (string | undefined)[]) =>
-    unique([...(workbook?.sheets.find((s) => s.name === sheet)?.headers ?? []), ...saved]);
+  const columnsOf = (sheet: string, savedColumns: (string | undefined)[]) =>
+    unique([...(workbook?.sheets.find((s) => s.name === sheet)?.headers ?? []), ...savedColumns]);
   const headerColumns = columnsOf(headerSheet, Object.values(initial?.headerMapping ?? {}));
   const lineColumns = columnsOf(linesSheet, Object.values(initial?.linesMapping ?? {}));
-
-  function touchRfp(patch: Partial<RfpMapping>) {
-    setRfpTouched(true);
-    setSaved(false);
-    setRfpMapping((prev) => ({ ...prev, ...patch }));
-  }
+  const visibleLineFields = lineFieldsFor(importMode);
+  const requiredLines = requiredLineFields(importMode);
 
   function handleSave() {
     setError(null);
     setSaved(false);
     startTransition(async () => {
       const result = await saveRequestImportTemplate(
-        {
-          id: initial?.id,
-          name,
-          headerSheet,
-          linesSheet,
-          headerMapping,
-          linesMapping,
-          rfpMapping: rfpTouched ? rfpMapping : null,
-        },
+        { id: initial?.id, name, importMode, headerSheet, linesSheet, headerMapping, linesMapping },
         targetClientId,
       );
       if ("error" in result) {
@@ -183,6 +167,37 @@ export function RequestTemplateForm({
             />
           </div>
           <div>
+            <label className={labelClass}>{t("requestTemplateForm.importMode")}</label>
+            <div className="space-y-2">
+              {IMPORT_MODES.map((mode) => (
+                <label key={mode} className="flex items-start gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name={`${idBase}-mode`}
+                    className="mt-1"
+                    checked={importMode === mode}
+                    onChange={() => {
+                      setSaved(false);
+                      setImportMode(mode);
+                    }}
+                  />
+                  <span>
+                    <span className="font-medium">
+                      {t(mode === "MASS" ? "requestTemplateForm.modeMass" : "requestTemplateForm.modeSingle")}
+                    </span>
+                    <span className="block text-xs text-slate-500">
+                      {t(
+                        mode === "MASS"
+                          ? "requestTemplateForm.modeMassHint"
+                          : "requestTemplateForm.modeSingleHint",
+                      )}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className={labelClass}>{t("requestTemplateForm.sampleFile")}</label>
             <input
               type="file"
@@ -244,7 +259,7 @@ export function RequestTemplateForm({
                 columns: headerColumns,
                 value: headerMapping[field] ?? "",
                 onChange: (v) => setHeaderMapping((prev) => ({ ...prev, [field]: v })),
-                })}
+              })}
             </div>
           ))}
           <div>
@@ -267,115 +282,22 @@ export function RequestTemplateForm({
           {t("requestTemplateForm.linesMappingTitle")}
         </h2>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {LINE_FIELDS.map((field) => (
+          {visibleLineFields.map((field) => (
             <div key={field}>
               <label className={labelClass}>
                 {t(`requestLineFields.${field}`)}
-                {REQUIRED_LINE_FIELDS.includes(field) && " *"}
+                {requiredLines.includes(field) && " *"}
               </label>
               {renderColumnInput({
                 listId: `${idBase}-l-${field}`,
                 columns: lineColumns,
                 value: linesMapping[field] ?? "",
                 onChange: (v) => setLinesMapping((prev) => ({ ...prev, [field]: v })),
-                })}
+              })}
             </div>
           ))}
         </div>
       </section>
-
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowRfp((v) => !v)}
-          className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
-        >
-          {showRfp ? t("requestTemplateForm.hideRfpMapping") : t("requestTemplateForm.mapToRfp")}
-        </button>
-      </div>
-
-      {showRfp && (
-        <section className={sectionClass}>
-          <h2 className="text-base font-semibold text-slate-900">
-            {t("requestTemplateForm.rfpMappingTitle")}
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">{t("requestTemplateForm.rfpMappingHint")}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-            <span>{t("requestTemplateForm.placeholdersHint")}</span>
-            {REQUEST_PLACEHOLDERS.map((p) => (
-              <code key={p} className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
-                {`{${p}}`}
-              </code>
-            ))}
-          </div>
-          <div className="mt-4 space-y-4">
-            <div>
-              <label className={labelClass}>{t("requestTemplateForm.titleTemplate")}</label>
-              <input
-                className={inputClass()}
-                value={rfpMapping.titleTemplate}
-                onChange={(e) => touchRfp({ titleTemplate: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>{t("requestTemplateForm.descriptionTemplate")}</label>
-              <textarea
-                className={inputClass()}
-                rows={2}
-                value={rfpMapping.descriptionTemplate}
-                onChange={(e) => touchRfp({ descriptionTemplate: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>{t("requestTemplateForm.predecessorTemplate")}</label>
-              <input
-                className={inputClass()}
-                value={rfpMapping.predecessorTemplate}
-                onChange={(e) => touchRfp({ predecessorTemplate: e.target.value })}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={rfpMapping.estimatedFromLines}
-                onChange={(e) => touchRfp({ estimatedFromLines: e.target.checked })}
-              />
-              {t("requestTemplateForm.estimatedFromLines")}
-            </label>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-slate-800">
-                {t("requestTemplateForm.itemsTitle")}
-              </h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {RFP_ITEM_TARGETS.map((target: RfpItemTarget) => (
-                  <div key={target}>
-                    <label className={labelClass}>{t(`rfpItemFields.${target}`)}</label>
-                    <select
-                      className={inputClass()}
-                      value={rfpMapping.item[target]}
-                      onChange={(e) =>
-                        touchRfp({
-                          item: {
-                            ...rfpMapping.item,
-                            [target]: e.target.value as RfpItemSource | "",
-                          },
-                        })
-                      }
-                    >
-                      <option value="">{t("requestTemplateForm.notMapped")}</option>
-                      {RFP_ITEM_SOURCES.map((source) => (
-                        <option key={source} value={source}>
-                          {t(`requestLineFields.${source}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
 
       <div className="flex items-center justify-between">
         {initial ? (

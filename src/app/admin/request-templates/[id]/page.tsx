@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { getDictionary } from "@/i18n/getDictionary";
-import { normalizeRfpMapping, type HeaderMapping, type LinesMapping } from "@/lib/requestFields";
+import type { HeaderMapping, ImportMode, LinesMapping } from "@/lib/requestFields";
 import { RequestTemplateForm } from "../RequestTemplateForm";
 
 export default async function EditRequestTemplatePage({
@@ -35,11 +35,11 @@ export default async function EditRequestTemplatePage({
           initial={{
             id: template.id,
             name: template.name,
+            importMode: template.importMode as ImportMode,
             headerSheet: template.headerSheet,
             linesSheet: template.linesSheet,
             headerMapping: template.headerMapping as HeaderMapping,
             linesMapping: template.linesMapping as LinesMapping,
-            rfpMapping: template.rfpMapping ? normalizeRfpMapping(template.rfpMapping) : null,
           }}
         />
       </div>

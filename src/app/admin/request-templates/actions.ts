@@ -9,23 +9,22 @@ import {
   HEADER_FIELDS,
   LINE_FIELDS,
   REQUIRED_HEADER_FIELDS,
-  REQUIRED_LINE_FIELDS,
-  RFP_ITEM_SOURCES,
-  RFP_ITEM_TARGETS,
-  normalizeRfpMapping,
+  isImportMode,
+  lineFieldsFor,
+  requiredLineFields,
   type HeaderMapping,
+  type ImportMode,
   type LinesMapping,
-  type RfpMapping,
 } from "@/lib/requestFields";
 
 export type RequestTemplateInput = {
   id?: string;
   name: string;
+  importMode: ImportMode;
   headerSheet: string;
   linesSheet: string;
   headerMapping: HeaderMapping;
   linesMapping: LinesMapping;
-  rfpMapping: RfpMapping | null;
 };
 
 async function requireTemplatesScope(targetClientId?: string) {
@@ -51,40 +50,28 @@ export async function saveRequestImportTemplate(
   const linesSheet = str(input.linesSheet);
   if (!name) return { error: d.templateNameRequired };
   if (!headerSheet || !linesSheet) return { error: d.sheetsRequired };
+  const importMode: ImportMode = isImportMode(input.importMode) ? input.importMode : "MASS";
 
   const dictionary = getDictionary(scope.user.language);
   const headerMapping: HeaderMapping = {};
   for (const field of HEADER_FIELDS) headerMapping[field] = str(input.headerMapping?.[field]);
   headerMapping.documentTypeFixed = str(input.headerMapping?.documentTypeFixed, 50);
+  // In single-request mode the lines have no document number/type column.
   const linesMapping: LinesMapping = {};
-  for (const field of LINE_FIELDS) linesMapping[field] = str(input.linesMapping?.[field]);
+  const lineFields = lineFieldsFor(importMode);
+  for (const field of LINE_FIELDS) {
+    linesMapping[field] = lineFields.includes(field) ? str(input.linesMapping?.[field]) : "";
+  }
 
   for (const field of REQUIRED_HEADER_FIELDS) {
     if (!headerMapping[field]) {
       return { error: d.missingMapping.replace("{field}", dictionary.requestHeaderFields[field]) };
     }
   }
-  for (const field of REQUIRED_LINE_FIELDS) {
+  for (const field of requiredLineFields(importMode)) {
     if (!linesMapping[field]) {
       return { error: d.missingMapping.replace("{field}", dictionary.requestLineFields[field]) };
     }
-  }
-
-  let rfpMapping: RfpMapping | null = null;
-  if (input.rfpMapping) {
-    const normalized = normalizeRfpMapping(input.rfpMapping);
-    const item = { ...normalized.item };
-    for (const target of RFP_ITEM_TARGETS) {
-      const source = item[target];
-      if (source !== "" && !(RFP_ITEM_SOURCES as readonly string[]).includes(source)) item[target] = "";
-    }
-    rfpMapping = {
-      titleTemplate: str(normalized.titleTemplate, 300),
-      descriptionTemplate: str(normalized.descriptionTemplate, 1000),
-      predecessorTemplate: str(normalized.predecessorTemplate, 300),
-      estimatedFromLines: Boolean(normalized.estimatedFromLines),
-      item,
-    };
   }
 
   const duplicate = await prisma.requestImportTemplate.findFirst({
@@ -95,11 +82,11 @@ export async function saveRequestImportTemplate(
 
   const data = {
     name,
+    importMode,
     headerSheet,
     linesSheet,
     headerMapping: headerMapping as object,
     linesMapping: linesMapping as object,
-    rfpMapping: (rfpMapping ?? undefined) as object | undefined,
   };
 
   if (input.id) {
@@ -108,10 +95,7 @@ export async function saveRequestImportTemplate(
       select: { id: true },
     });
     if (!existing) return { error: d.templateNotFound };
-    await prisma.requestImportTemplate.update({
-      where: { id: existing.id },
-      data: { ...data, rfpMapping: rfpMapping ? (rfpMapping as object) : undefined },
-    });
+    await prisma.requestImportTemplate.update({ where: { id: existing.id }, data });
     revalidatePath("/admin/request-templates");
     return { success: true, id: existing.id };
   }

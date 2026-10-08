@@ -26,10 +26,29 @@ export const LINE_FIELDS = [
 ] as const;
 export type LineField = (typeof LINE_FIELDS)[number];
 
+// MASS: one file holds many requests and each line carries its document
+// number to link back to its header. SINGLE: one file per request, so every
+// line belongs to the header's request and needs no document number.
+export const IMPORT_MODES = ["MASS", "SINGLE"] as const;
+export type ImportMode = (typeof IMPORT_MODES)[number];
+
+export function isImportMode(value: string): value is ImportMode {
+  return (IMPORT_MODES as readonly string[]).includes(value);
+}
+
 // Must be mapped for a template to be usable. The document type can instead
 // be a fixed value (documentTypeFixed) when the file has no such column.
 export const REQUIRED_HEADER_FIELDS: HeaderField[] = ["documentNumber"];
-export const REQUIRED_LINE_FIELDS: LineField[] = ["documentNumber", "description", "quantity"];
+
+export function lineFieldsFor(mode: ImportMode): LineField[] {
+  return mode === "SINGLE"
+    ? LINE_FIELDS.filter((f) => f !== "documentNumber" && f !== "documentType")
+    : [...LINE_FIELDS];
+}
+
+export function requiredLineFields(mode: ImportMode): LineField[] {
+  return mode === "SINGLE" ? ["description", "quantity"] : ["documentNumber", "description", "quantity"];
+}
 
 // Excel column header per field ("" = not mapped).
 export type HeaderMapping = Partial<Record<HeaderField, string>> & { documentTypeFixed?: string };

@@ -124,6 +124,7 @@ model Client {
   buyerGroups            BuyerGroup[]
   requestImportTemplates RequestImportTemplate[]
   purchaseRequests       PurchaseRequest[]
+  requestRfpMapping      RequestRfpMapping?
 }
 
 model User {
@@ -765,18 +766,18 @@ model BuyerGroupMember {
   @@unique([groupId, userId])
 }
 
-// Cómo leer un Excel de solicitudes (qué pestañas y columnas) y cómo convertir
-// una solicitud en una RFP. Los mapeos guardan nombres de columna del Excel.
+// Cómo leer un Excel de solicitudes (qué pestañas y columnas). Los mapeos
+// guardan nombres de columna del Excel.
 model RequestImportTemplate {
   id            String   @id @default(cuid())
   clientId      String
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   name          String
+  importMode    String   @default("MASS") // "MASS": varias solicitudes por archivo (líneas enlazadas por n.º de documento); "SINGLE": un archivo por solicitud
   headerSheet   String // pestaña con las cabeceras de las solicitudes
   linesSheet    String // pestaña con las líneas
   headerMapping Json // campo de la solicitud -> columna del Excel
   linesMapping  Json // campo de la línea -> columna del Excel
-  rfpMapping    Json? // cómo llenar la RFP a partir de la solicitud
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -829,4 +830,15 @@ model PurchaseRequestLine {
   commodity       String?
 
   @@index([requestId])
+}
+
+// Cómo se llena una RFP nueva a partir de una solicitud ya cargada. Es una
+// configuración por cliente (no depende de la plantilla de importación): mapea
+// campos de la tabla de solicitudes a campos de la RFP.
+model RequestRfpMapping {
+  id        String   @id @default(cuid())
+  clientId  String   @unique
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  mapping   Json
+  updatedAt DateTime @updatedAt
 }

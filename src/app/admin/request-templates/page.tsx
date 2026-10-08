@@ -3,13 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
+import { isImportMode } from "@/lib/requestFields";
 
 export default async function RequestTemplatesPage({
   searchParams,
 }: PageProps<"/admin/request-templates">) {
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } = await requireMasterDataScope(sp);
-  const d = getDictionary(scope.user.language).requestTemplatesPage;
+  const dictionary = getDictionary(scope.user.language);
+  const d = dictionary.requestTemplatesPage;
   const query = effectiveClientId ? `?clientId=${effectiveClientId}` : "";
 
   const templates = effectiveClientId
@@ -47,6 +49,7 @@ export default async function RequestTemplatesPage({
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-5 py-3">{d.name}</th>
+                <th className="px-5 py-3">{d.mode}</th>
                 <th className="px-5 py-3">{d.sheets}</th>
                 <th className="px-5 py-3" />
               </tr>
@@ -54,7 +57,7 @@ export default async function RequestTemplatesPage({
             <tbody className="divide-y divide-slate-100">
               {templates.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-5 py-8 text-center text-slate-400">
+                  <td colSpan={4} className="px-5 py-8 text-center text-slate-400">
                     {d.none}
                   </td>
                 </tr>
@@ -62,6 +65,11 @@ export default async function RequestTemplatesPage({
               {templates.map((tpl) => (
                 <tr key={tpl.id} className="hover:bg-slate-50">
                   <td className="px-5 py-3 font-medium text-slate-800">{tpl.name}</td>
+                  <td className="px-5 py-3 text-slate-600">
+                    {isImportMode(tpl.importMode) && tpl.importMode === "SINGLE"
+                      ? dictionary.requestTemplateForm.modeSingle
+                      : dictionary.requestTemplateForm.modeMass}
+                  </td>
                   <td className="px-5 py-3 text-slate-600">
                     {tpl.headerSheet} / {tpl.linesSheet}
                   </td>

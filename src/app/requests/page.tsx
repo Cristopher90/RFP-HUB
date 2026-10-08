@@ -8,7 +8,7 @@ import { zonedTimeToUtc } from "@/lib/timezone";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { canGenerateRfp, requireRequestsScope, visibilityWhere } from "@/lib/requestAccess";
 import { deriveRequestStatus, isRequestStatus, statusWhere } from "@/lib/requestStatus";
-import { BUYER_ROLES, type HeaderMapping, type LinesMapping } from "@/lib/requestFields";
+import { BUYER_ROLES, type HeaderMapping, type ImportMode, type LinesMapping } from "@/lib/requestFields";
 import { RequestFilters } from "./RequestFilters";
 import { RequestsTable, type RequestRow } from "./RequestsTable";
 import { ImportRequestsDialog } from "./ImportRequestsDialog";
@@ -193,6 +193,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,
+            importMode: t.importMode as ImportMode,
             headerSheet: t.headerSheet,
             linesSheet: t.linesSheet,
             headerMapping: t.headerMapping as HeaderMapping,
