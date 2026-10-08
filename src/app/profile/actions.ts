@@ -5,12 +5,15 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { CURRENCIES } from "@/lib/profileOptions";
+import { isColorMode, isTheme } from "@/lib/themes";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export type ProfileFormInput = {
   language: string;
   timezone: string;
   currency: string;
+  theme: string;
+  colorMode: string;
 };
 
 const SUPPORTED_LANGUAGES = ["es", "en"];
@@ -34,7 +37,13 @@ export async function updateOwnProfile(
     return { error: dictionary.profileActions.invalidCurrency };
   }
 
+  if (!isTheme(input.theme) || !isColorMode(input.colorMode)) {
+    return { error: dictionary.profileActions.invalidTheme };
+  }
+
   const data = {
+    theme: input.theme,
+    colorMode: input.colorMode,
     language: input.language,
     timezone: input.timezone.trim(),
     currency: input.currency.trim().toUpperCase(),

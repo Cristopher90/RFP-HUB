@@ -26,3 +26,275 @@
 .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
+
+/* ---------- Themes ---------- */
+/* Accent: each theme remaps the violet scale (the UI's primary color). */
+html[data-theme="blue"] {
+  --color-violet-50: #eff6ff;
+  --color-violet-100: #dbeafe;
+  --color-violet-200: #bfdbfe;
+  --color-violet-300: #93c5fd;
+  --color-violet-400: #60a5fa;
+  --color-violet-500: #3b82f6;
+  --color-violet-600: #2563eb;
+  --color-violet-700: #1d4ed8;
+  --color-violet-800: #1e40af;
+  --color-violet-900: #1e3a8a;
+  --color-violet-950: #172554;
+  --color-indigo-50: #eff6ff;
+  --color-indigo-100: #eff6ff;
+  --color-indigo-200: #dbeafe;
+  --color-indigo-300: #bfdbfe;
+  --color-indigo-400: #93c5fd;
+  --color-indigo-500: #60a5fa;
+  --color-indigo-600: #3b82f6;
+  --color-indigo-700: #2563eb;
+  --color-indigo-800: #1d4ed8;
+  --color-indigo-900: #1e40af;
+  --color-indigo-950: #1e3a8a;
+}
+html[data-theme="emerald"] {
+  --color-violet-50: #ecfdf5;
+  --color-violet-100: #d1fae5;
+  --color-violet-200: #a7f3d0;
+  --color-violet-300: #6ee7b7;
+  --color-violet-400: #34d399;
+  --color-violet-500: #10b981;
+  --color-violet-600: #059669;
+  --color-violet-700: #047857;
+  --color-violet-800: #065f46;
+  --color-violet-900: #064e3b;
+  --color-violet-950: #022c22;
+  --color-indigo-50: #ecfdf5;
+  --color-indigo-100: #ecfdf5;
+  --color-indigo-200: #d1fae5;
+  --color-indigo-300: #a7f3d0;
+  --color-indigo-400: #6ee7b7;
+  --color-indigo-500: #34d399;
+  --color-indigo-600: #10b981;
+  --color-indigo-700: #059669;
+  --color-indigo-800: #047857;
+  --color-indigo-900: #065f46;
+  --color-indigo-950: #064e3b;
+}
+html[data-theme="orange"] {
+  --color-violet-50: #fff7ed;
+  --color-violet-100: #ffedd5;
+  --color-violet-200: #fed7aa;
+  --color-violet-300: #fdba74;
+  --color-violet-400: #fb923c;
+  --color-violet-500: #f97316;
+  --color-violet-600: #ea580c;
+  --color-violet-700: #c2410c;
+  --color-violet-800: #9a3412;
+  --color-violet-900: #7c2d12;
+  --color-violet-950: #431407;
+  --color-indigo-50: #fff7ed;
+  --color-indigo-100: #fff7ed;
+  --color-indigo-200: #ffedd5;
+  --color-indigo-300: #fed7aa;
+  --color-indigo-400: #fdba74;
+  --color-indigo-500: #fb923c;
+  --color-indigo-600: #f97316;
+  --color-indigo-700: #ea580c;
+  --color-indigo-800: #c2410c;
+  --color-indigo-900: #9a3412;
+  --color-indigo-950: #7c2d12;
+}
+html[data-theme="rose"] {
+  --color-violet-50: #fff1f2;
+  --color-violet-100: #ffe4e6;
+  --color-violet-200: #fecdd3;
+  --color-violet-300: #fda4af;
+  --color-violet-400: #fb7185;
+  --color-violet-500: #f43f5e;
+  --color-violet-600: #e11d48;
+  --color-violet-700: #be123c;
+  --color-violet-800: #9f1239;
+  --color-violet-900: #881337;
+  --color-violet-950: #4c0519;
+  --color-indigo-50: #fff1f2;
+  --color-indigo-100: #fff1f2;
+  --color-indigo-200: #ffe4e6;
+  --color-indigo-300: #fecdd3;
+  --color-indigo-400: #fda4af;
+  --color-indigo-500: #fb7185;
+  --color-indigo-600: #f43f5e;
+  --color-indigo-700: #e11d48;
+  --color-indigo-800: #be123c;
+  --color-indigo-900: #9f1239;
+  --color-indigo-950: #881337;
+}
+
+/* Dark mode: slate/status scales are inverted (tints become deep, text becomes light). */
+html[data-mode="dark"] {
+  color-scheme: dark;
+  --color-slate-50: #0b1220;
+  --color-slate-100: #1a2540;
+  --color-slate-200: #26324f;
+  --color-slate-300: #374364;
+  --color-slate-400: #6b7a94;
+  --color-slate-500: #8b9ab4;
+  --color-slate-600: #a8b5cc;
+  --color-slate-700: #c3cde0;
+  --color-slate-800: #dde3ef;
+  --color-slate-900: #eef1f7;
+  --color-slate-950: #ffffff;
+  --color-red-50: #450a0a;
+  --color-red-100: #7f1d1d;
+  --color-red-200: #991b1b;
+  --color-red-300: #b91c1c;
+  --color-red-400: #dc2626;
+  --color-red-500: #ef4444;
+  --color-red-600: #ef4444;
+  --color-red-700: #f87171;
+  --color-red-800: #fca5a5;
+  --color-red-900: #fecaca;
+  --color-red-950: #fee2e2;
+  --color-emerald-50: #022c22;
+  --color-emerald-100: #064e3b;
+  --color-emerald-200: #065f46;
+  --color-emerald-300: #047857;
+  --color-emerald-400: #059669;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #10b981;
+  --color-emerald-700: #34d399;
+  --color-emerald-800: #6ee7b7;
+  --color-emerald-900: #a7f3d0;
+  --color-emerald-950: #d1fae5;
+  --color-amber-50: #451a03;
+  --color-amber-100: #78350f;
+  --color-amber-200: #92400e;
+  --color-amber-300: #b45309;
+  --color-amber-400: #d97706;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #f59e0b;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+  --color-amber-950: #fef3c7;
+  --color-blue-50: #172554;
+  --color-blue-100: #1e3a8a;
+  --color-blue-200: #1e40af;
+  --color-blue-300: #1d4ed8;
+  --color-blue-400: #2563eb;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #3b82f6;
+  --color-blue-700: #60a5fa;
+  --color-blue-800: #93c5fd;
+  --color-blue-900: #bfdbfe;
+  --color-blue-950: #dbeafe;
+  --color-sky-50: #082f49;
+  --color-sky-100: #0c4a6e;
+  --color-sky-200: #075985;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0284c7;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #0ea5e9;
+  --color-sky-700: #38bdf8;
+  --color-sky-800: #7dd3fc;
+  --color-sky-900: #bae6fd;
+  --color-sky-950: #e0f2fe;
+  --color-indigo-50: #1e1b4b;
+  --color-indigo-100: #312e81;
+  --color-indigo-200: #3730a3;
+  --color-indigo-300: #4338ca;
+  --color-indigo-400: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #6366f1;
+  --color-indigo-700: #818cf8;
+  --color-indigo-800: #a5b4fc;
+  --color-indigo-900: #c7d2fe;
+  --color-indigo-950: #e0e7ff;
+  --surface: #121a2e;
+}
+html[data-mode="dark"] {
+  --color-violet-50: #2e1065;
+  --color-violet-100: #4c1d95;
+  --color-violet-200: #5b21b6;
+  --color-violet-300: #6d28d9;
+  --color-violet-400: #7c3aed;
+  --color-violet-500: #8b5cf6;
+  --color-violet-600: #8b5cf6;
+  --color-violet-700: #a78bfa;
+  --color-violet-800: #c4b5fd;
+  --color-violet-900: #ddd6fe;
+  --color-violet-950: #ede9fe;
+}
+html[data-mode="dark"][data-theme="blue"] {
+  --color-violet-50: #172554;
+  --color-violet-100: #1e3a8a;
+  --color-violet-200: #1e40af;
+  --color-violet-300: #1d4ed8;
+  --color-violet-400: #2563eb;
+  --color-violet-500: #3b82f6;
+  --color-violet-600: #3b82f6;
+  --color-violet-700: #60a5fa;
+  --color-violet-800: #93c5fd;
+  --color-violet-900: #bfdbfe;
+  --color-violet-950: #dbeafe;
+}
+html[data-mode="dark"][data-theme="emerald"] {
+  --color-violet-50: #022c22;
+  --color-violet-100: #064e3b;
+  --color-violet-200: #065f46;
+  --color-violet-300: #047857;
+  --color-violet-400: #059669;
+  --color-violet-500: #10b981;
+  --color-violet-600: #10b981;
+  --color-violet-700: #34d399;
+  --color-violet-800: #6ee7b7;
+  --color-violet-900: #a7f3d0;
+  --color-violet-950: #d1fae5;
+}
+html[data-mode="dark"][data-theme="orange"] {
+  --color-violet-50: #431407;
+  --color-violet-100: #7c2d12;
+  --color-violet-200: #9a3412;
+  --color-violet-300: #c2410c;
+  --color-violet-400: #ea580c;
+  --color-violet-500: #f97316;
+  --color-violet-600: #f97316;
+  --color-violet-700: #fb923c;
+  --color-violet-800: #fdba74;
+  --color-violet-900: #fed7aa;
+  --color-violet-950: #ffedd5;
+}
+html[data-mode="dark"][data-theme="rose"] {
+  --color-violet-50: #4c0519;
+  --color-violet-100: #881337;
+  --color-violet-200: #9f1239;
+  --color-violet-300: #be123c;
+  --color-violet-400: #e11d48;
+  --color-violet-500: #f43f5e;
+  --color-violet-600: #f43f5e;
+  --color-violet-700: #fb7185;
+  --color-violet-800: #fda4af;
+  --color-violet-900: #fecdd3;
+  --color-violet-950: #ffe4e6;
+}
+
+/* Surfaces that use white (cards, inputs, header). text-white is untouched. */
+html[data-mode="dark"] .bg-white,
+html[data-mode="dark"] .focus\:bg-white:focus,
+html[data-mode="dark"] .hover\:bg-white:hover {
+  background-color: var(--surface);
+}
+html[data-mode="dark"] .bg-white\/80 {
+  background-color: color-mix(in oklab, var(--surface) 80%, transparent);
+}
+html[data-mode="dark"] .bg-white\/60 {
+  background-color: color-mix(in oklab, var(--surface) 60%, transparent);
+}
+html[data-mode="dark"] .overflow-x-auto {
+  scrollbar-color: #374364 #1a2540;
+}
+html[data-mode="dark"] .overflow-x-auto::-webkit-scrollbar-track {
+  background: #1a2540;
+}
+html[data-mode="dark"] .overflow-x-auto::-webkit-scrollbar-thumb {
+  background-color: #374364;
+}
+html[data-mode="dark"] .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background-color: #64748b;
+}

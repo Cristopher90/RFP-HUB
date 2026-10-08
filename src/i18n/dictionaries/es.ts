@@ -44,12 +44,23 @@ export const es = {
   },
   profile: {
     title: "Mi perfil",
-    subtitle: "Preferencias de idioma, zona horaria y moneda para tu cuenta.",
+    subtitle: "Preferencias de apariencia, idioma, zona horaria y moneda para tu cuenta.",
     language: "Idioma",
     timezone: "Zona horaria",
     currency: "Moneda",
     save: "Guardar cambios",
     saved: "Preferencias guardadas.",
+    appearance: "Apariencia",
+    theme: "Color principal",
+    colorMode: "Modo",
+    theme_violet: "Violeta",
+    theme_blue: "Azul",
+    theme_emerald: "Verde",
+    theme_orange: "Naranja",
+    theme_rose: "Rosa",
+    mode_light: "Claro",
+    mode_dark: "Oscuro",
+    mode_system: "Según el sistema",
   },
   roles: {
     APPROVER: "Aprobador",
@@ -1178,6 +1189,7 @@ export const es = {
     invalidTimezone: "La zona horaria no es válida.",
     invalidCurrency: "La moneda no es válida.",
     sessionNotFound: "Sesión no encontrada.",
+    invalidTheme: "El tema elegido no es válido.",
   },
   emails: {
     invitation: {

@@ -55,12 +55,25 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang={preferences.language}
+      data-theme={preferences.theme}
+      data-mode={preferences.colorMode === "dark" ? "dark" : "light"}
+      data-color-mode={preferences.colorMode}
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* "System" mode: follow the OS before first paint (and while it changes). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){var d=document.documentElement;if(d.dataset.colorMode!=='system')return;var m=window.matchMedia('(prefers-color-scheme: dark)');function a(){d.dataset.mode=m.matches?'dark':'light'}a();m.addEventListener('change',a)})()",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
         <div
           aria-hidden
-          className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(80%_60%_at_50%_-10%,rgba(99,49,222,0.10),rgba(99,49,222,0))]"
+          className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(80%_60%_at_50%_-10%,color-mix(in_oklab,var(--color-violet-600)_12%,transparent),transparent)]"
         />
         <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">

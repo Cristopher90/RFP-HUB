@@ -145,6 +145,8 @@ model User {
   timezone           String    @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
   currency           String    @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
   language           String    @default("es") // idioma de la interfaz ("es" o "en")
+  theme              String    @default("violet") // color principal de la interfaz
+  colorMode          String    @default("light") // "light", "dark" o "system"
 
   // Permisos del módulo de Solicitudes (los administradores tienen todo implícito)
   canImportRequests     Boolean @default(false) // puede importar solicitudes
@@ -300,6 +302,8 @@ model SupplierUser {
   timezone            String             @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
   currency            String             @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
   language            String             @default("es") // idioma de la interfaz ("es" o "en")
+  theme               String             @default("violet") // color principal de la interfaz
+  colorMode           String             @default("light") // "light", "dark" o "system"
   links               SupplierUserLink[]
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { COLOR_MODES, THEMES } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -28,9 +29,24 @@ export function ProfileForm({
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // Previews the chosen appearance straight away; it only persists on save.
+  function previewAppearance(theme: string, colorMode: string) {
+    const root = document.documentElement;
+    const dark =
+      colorMode === "dark" ||
+      (colorMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    root.setAttribute("data-theme", theme);
+    root.setAttribute("data-color-mode", colorMode);
+    root.setAttribute("data-mode", dark ? "dark" : "light");
+  }
+
   function update(patch: Partial<ProfileFormInput>) {
-    setForm((prev) => ({ ...prev, ...patch }));
+    const next = { ...form, ...patch };
+    setForm(next);
     setSaved(false);
+    if (patch.theme !== undefined || patch.colorMode !== undefined) {
+      previewAppearance(next.theme, next.colorMode);
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -58,6 +74,64 @@ export function ProfileForm({
           {t("profile.saved")}
         </div>
       )}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-slate-700">{t("profile.appearance")}</h2>
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.theme")}</p>
+            <div className="flex flex-wrap gap-3">
+              {THEMES.map((theme) => (
+                <label
+                  key={theme.value}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    form.theme === theme.value
+                      ? "border-violet-500 ring-1 ring-violet-500"
+                      : "border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    className="sr-only"
+                    checked={form.theme === theme.value}
+                    onChange={() => update({ theme: theme.value })}
+                  />
+                  <span
+                    className="inline-block h-4 w-4 rounded-full"
+                    style={{ backgroundColor: theme.swatch }}
+                  />
+                  {t(`profile.theme_${theme.value}`)}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.colorMode")}</p>
+            <div className="flex flex-wrap gap-3">
+              {COLOR_MODES.map((mode) => (
+                <label
+                  key={mode}
+                  className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${
+                    form.colorMode === mode
+                      ? "border-violet-500 ring-1 ring-violet-500"
+                      : "border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="colorMode"
+                    className="sr-only"
+                    checked={form.colorMode === mode}
+                    onChange={() => update({ colorMode: mode })}
+                  />
+                  {t(`profile.mode_${mode}`)}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="space-y-4">

@@ -43,12 +43,23 @@ export const en: Dictionary = {
   },
   profile: {
     title: "My profile",
-    subtitle: "Language, timezone and currency preferences for your account.",
+    subtitle: "Appearance, language, time zone and currency preferences for your account.",
     language: "Language",
     timezone: "Timezone",
     currency: "Currency",
     save: "Save changes",
     saved: "Preferences saved.",
+    appearance: "Appearance",
+    theme: "Accent color",
+    colorMode: "Mode",
+    theme_violet: "Violet",
+    theme_blue: "Blue",
+    theme_emerald: "Green",
+    theme_orange: "Orange",
+    theme_rose: "Rose",
+    mode_light: "Light",
+    mode_dark: "Dark",
+    mode_system: "Follow system",
   },
   roles: {
     APPROVER: "Approver",
@@ -1174,6 +1185,7 @@ export const en: Dictionary = {
     invalidTimezone: "The timezone isn't valid.",
     invalidCurrency: "The currency isn't valid.",
     sessionNotFound: "Session not found.",
+    invalidTheme: "The selected theme is not valid.",
   },
   emails: {
     invitation: {

@@ -25,6 +25,8 @@ export default async function ProfilePage() {
             language: activeSession.language,
             timezone: activeSession.timezone,
             currency: activeSession.currency,
+            theme: activeSession.theme,
+            colorMode: activeSession.colorMode,
           }}
           timezones={timezones}
           currencies={CURRENCIES}
