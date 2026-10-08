@@ -362,6 +362,7 @@ model RfpTemplate {
   updatedAt                        DateTime                @updatedAt
 
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
+  minSuppliers             Int? // cantidad mínima de proveedores a invitar para poder publicar una RFP con esta plantilla
 
   approvalWorkflowId String?
   approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)

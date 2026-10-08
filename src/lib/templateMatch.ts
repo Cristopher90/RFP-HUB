@@ -122,3 +122,17 @@ export function resolveAppliedTemplates<T extends MatchableTemplate & { id: stri
       : (conditional.find((t) => t.id === selectedTemplateId) ?? null);
   return selected ? [...always, selected] : always;
 }
+
+// The strictest minimum-suppliers rule among the applied templates (the one
+// that asks for the most invitations), or null when none sets one.
+export function strictestMinSuppliers(
+  templates: { name: string; minSuppliers: number | null }[],
+): { min: number; templateName: string } | null {
+  let strictest: { min: number; templateName: string } | null = null;
+  for (const t of templates) {
+    if (t.minSuppliers && (!strictest || t.minSuppliers > strictest.min)) {
+      strictest = { min: t.minSuppliers, templateName: t.name };
+    }
+  }
+  return strictest;
+}

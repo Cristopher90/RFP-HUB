@@ -7,6 +7,7 @@ import {
   matchesTemplate,
   resolveAppliedTemplates,
   ancestorChain,
+  strictestMinSuppliers,
 } from "@/lib/templateMatch";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
@@ -297,6 +298,20 @@ export async function validateAndShapeRfp(
   }
   const questions = shapeQuestions(input.questions);
   const suppliers = shapeSuppliers(input.suppliers);
+
+  // A template can require a minimum number of invited suppliers; drafts are
+  // exempt, only publishing has to meet it.
+  if (!input.saveAsDraft) {
+    const rule = strictestMinSuppliers(matchingTemplates);
+    if (rule && suppliers.length < rule.min) {
+      return {
+        error: dictionary.rfpActions.minSuppliersRequired
+          .replace("{min}", String(rule.min))
+          .replace("{template}", rule.templateName)
+          .replace("{count}", String(suppliers.length)),
+      };
+    }
+  }
 
   return { items, questions, suppliers, matchingTemplates, estimatedPrice };
 }

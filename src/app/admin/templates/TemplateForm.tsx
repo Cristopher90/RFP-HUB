@@ -200,6 +200,7 @@ export function TemplateForm({
     matchPriceMax: number | null;
     active: boolean;
     hideResponsesUntilClosed: boolean;
+    minSuppliers: number | null;
     items: TemplateItemInput[];
     questions: TemplateQuestionInput[];
   };
@@ -228,6 +229,9 @@ export function TemplateForm({
   const [active, setActive] = useState(initial?.active ?? true);
   const [hideResponsesUntilClosed, setHideResponsesUntilClosed] = useState(
     initial?.hideResponsesUntilClosed ?? false,
+  );
+  const [minSuppliers, setMinSuppliers] = useState(
+    initial?.minSuppliers != null ? String(initial.minSuppliers) : "",
   );
   const [items, setItems] = useState<TemplateItemInput[]>(
     initial?.items && initial.items.length > 0 ? initial.items : [emptyItem()],
@@ -527,6 +531,7 @@ export function TemplateForm({
       matchPriceMax,
       active,
       hideResponsesUntilClosed,
+      minSuppliers,
       items,
       questions: [...questions, ...internalQuestions],
     };
@@ -720,6 +725,26 @@ export function TemplateForm({
               />
               {t("templateForm.blindOfferLabel")}
             </label>
+          </div>
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-min-suppliers`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("templateForm.minSuppliersLabel")}
+            </label>
+            <input
+              id={`${idBase}-min-suppliers`}
+              type="number"
+              min={1}
+              max={99}
+              step={1}
+              className={inputClass()}
+              style={{ maxWidth: "10rem" }}
+              value={minSuppliers}
+              onChange={(e) => setMinSuppliers(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">{t("templateForm.minSuppliersHelp")}</p>
           </div>
         </div>
       </CollapsibleSection>

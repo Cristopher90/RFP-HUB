@@ -54,6 +54,7 @@ export default async function EditTemplatePage({
     matchPriceMax: template.matchPriceMax,
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
+    minSuppliers: template.minSuppliers,
     items: template.items.map((i) => ({
       id: i.id,
       section: i.section,

@@ -20,7 +20,10 @@ export function DraftActions({ rfpId }: { rfpId: string }) {
       <button
         type="button"
         disabled={pending}
-        onClick={() => startTransition(async () => { await publishRfp(rfpId); })}
+        onClick={() => startTransition(async () => {
+            const result = await publishRfp(rfpId);
+            if (result?.error) alert(result.error);
+          })}
         className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700 disabled:opacity-60"
       >
         {t("draftActions.publish")}

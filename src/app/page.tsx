@@ -101,6 +101,7 @@ export default async function Home({
     itemCount: rfp.items.length,
     invitationCount: rfp.invitations.length,
     respondedCount: rfp.invitations.filter((inv) => inv.response).length,
+    startsAt: (rfp.startDate ?? rfp.publishedAt)?.toISOString() ?? null,
     deadlineAt: rfp.deadlineAt.toISOString(),
     clientLabel: showClientColumn
       ? `${rfp.client.icon ? `${rfp.client.icon} ` : ""}${rfp.client.description}`

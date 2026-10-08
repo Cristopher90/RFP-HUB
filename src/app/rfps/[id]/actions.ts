@@ -19,6 +19,7 @@ import {
   matchesTemplate,
   resolveAppliedTemplates,
   ancestorChain,
+  strictestMinSuppliers,
 } from "@/lib/templateMatch";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
@@ -149,7 +150,10 @@ export async function deleteRfpDraft(rfpId: string) {
 export async function publishRfp(rfpId: string) {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
-  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
+  const rfp = await prisma.rfp.findUnique({
+    where: { id: rfpId },
+    include: { _count: { select: { invitations: true } } },
+  });
   if (!rfp || rfp.status !== "DRAFT") {
     return { error: dictionary.rfpIdActions.onlyDraftCanBePublished };
   }
@@ -170,6 +174,16 @@ export async function publishRfp(rfpId: string) {
     ),
     rfp.selectedTemplateId,
   );
+
+  const minRule = strictestMinSuppliers(matchingTemplates);
+  if (minRule && rfp._count.invitations < minRule.min) {
+    return {
+      error: dictionary.rfpActions.minSuppliersRequired
+        .replace("{min}", String(minRule.min))
+        .replace("{template}", minRule.templateName)
+        .replace("{count}", String(rfp._count.invitations)),
+    };
+  }
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
   const levels = levelsForStage(workflow, "PUBLISH");

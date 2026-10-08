@@ -72,6 +72,7 @@ export type SaveTemplateInput = {
   matchPriceMax: string;
   active: boolean;
   hideResponsesUntilClosed: boolean;
+  minSuppliers: string;
   items: TemplateItemInput[];
   questions: TemplateQuestionInput[];
 };
@@ -169,6 +170,15 @@ export async function saveTemplate(
     return { error: dictionary.templatesActions.priceMaxRequired };
   }
 
+  const minSuppliersRaw = input.minSuppliers.trim();
+  const minSuppliers = minSuppliersRaw ? Number(minSuppliersRaw) : null;
+  if (
+    minSuppliers !== null &&
+    (!Number.isInteger(minSuppliers) || minSuppliers < 1 || minSuppliers > 99)
+  ) {
+    return { error: dictionary.templatesActions.minSuppliersInvalid };
+  }
+
   const data = {
     name,
     description: input.description.trim() || null,
@@ -185,6 +195,7 @@ export async function saveTemplate(
     matchPriceMax: input.matchPriceCondition ? matchPriceMax : null,
     active: input.active,
     hideResponsesUntilClosed: input.hideResponsesUntilClosed,
+    minSuppliers,
   };
 
   const template = templateId
