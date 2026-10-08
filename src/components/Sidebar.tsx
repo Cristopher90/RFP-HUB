@@ -27,6 +27,12 @@ export async function Sidebar() {
             {dictionary.nav.requests}
           </Link>
         )}
+        <Link
+          href="/reports"
+          className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
+        >
+          {dictionary.nav.reports}
+        </Link>
         {ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN && (
           <Link
             href="/admin"
