@@ -140,6 +140,7 @@ export const en: Dictionary = {
     byDay: "Day",
     byMonth: "Month",
     byYear: "Year",
+    sortHint: "Click to sort (high to low, then low to high)",
     collapseAll: "Collapse all",
     expandAll: "Expand all",
     view: "View →",

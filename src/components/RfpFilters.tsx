@@ -5,6 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TreePickerField } from "@/components/TreePickerField";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { statusLabel } from "@/i18n/labels";
+import { saveUserPref } from "@/lib/userPrefsActions";
+
+import { RFP_FILTERS_PREF_KEY } from "@/lib/prefKeys";
 
 function selectClass() {
   return "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -47,6 +50,7 @@ export function RfpFilters({
     const params = new URLSearchParams(searchParams.toString());
     if (value) params.set(key, value);
     else params.delete(key);
+    saveUserPref(RFP_FILTERS_PREF_KEY, params.toString()).catch(() => {});
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -173,6 +177,7 @@ export function RfpFilters({
             ["commodity", "region", "status", "client", ...ADVANCED_PARAMS].forEach(
               (k) => params.delete(k),
             );
+            saveUserPref(RFP_FILTERS_PREF_KEY, params.toString()).catch(() => {});
             router.push(`${pathname}?${params.toString()}`);
           }}
           className="text-sm font-medium text-slate-500 hover:text-slate-700"

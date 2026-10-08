@@ -11,6 +11,9 @@ import { RfpCalendar } from "@/components/RfpCalendar";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { getDictionary } from "@/i18n/getDictionary";
 import { zonedTimeToUtc } from "@/lib/timezone";
+import { readUserPref } from "@/lib/userPrefs";
+import { RFP_FILTERS_PREF_KEY, RFP_FILTER_PARAMS } from "@/lib/prefKeys";
+import { redirect } from "next/navigation";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
 export default async function Home({
@@ -20,6 +23,19 @@ export default async function Home({
   const { user } = scope;
   const sp = await searchParams;
   const dictionary = getDictionary(user.language);
+
+  // Opening the list with no filters at all (e.g. from the sidebar) restores
+  // the filters this user last used.
+  if (Object.keys(sp).length === 0) {
+    const saved = await readUserPref(user.id, RFP_FILTERS_PREF_KEY);
+    if (saved) {
+      const restored = new URLSearchParams();
+      for (const [key, value] of new URLSearchParams(saved)) {
+        if (RFP_FILTER_PARAMS.includes(key) && value) restored.set(key, value);
+      }
+      if (restored.size > 0) redirect(`/?${restored.toString()}`);
+    }
+  }
 
   // ADMIN sees every client's RFPs on "Todas"; CLIENT_ADMIN sees every RFP
   // within their own client; everyone else only ever sees "Mis RFPs".

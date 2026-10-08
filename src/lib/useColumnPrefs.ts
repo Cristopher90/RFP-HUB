@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadPref, useSavePref } from "@/lib/userPrefsClient";
 
 export type ColumnDef<K extends string> = {
   key: K;
@@ -16,7 +17,7 @@ type StoredPrefs<K extends string> = {
 };
 
 // Per-table column layout (order, visibility, width), persisted to
-// localStorage so a buyer's preferred layout survives a reload. Keyed by
+// the database (per user) so a person's preferred layout follows them. Keyed by
 // storageKey so each master-data table (commodities/regions/origins/
 // suppliers) keeps its own independent layout.
 export function useColumnPrefs<K extends string>(
@@ -36,42 +37,30 @@ export function useColumnPrefs<K extends string>(
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    // Hydrate from localStorage only after mount (not in a lazy useState
-    // initializer) so the server-rendered defaults match the client's
-    // first render and avoid a hydration mismatch; the layout then
-    // upgrades to the saved prefs a tick later.
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as StoredPrefs<K>;
-        const knownOrder = (parsed.order ?? []).filter((k) =>
-          allKeys.includes(k),
-        );
+    // Load the user's saved layout from the server after mount (not in a lazy
+    // useState initializer) so the first client render matches the server's
+    // defaults and avoids a hydration mismatch.
+    let cancelled = false;
+    loadPref<StoredPrefs<K>>(storageKey).then((parsed) => {
+      if (cancelled) return;
+      if (parsed) {
+        const knownOrder = (parsed.order ?? []).filter((k) => allKeys.includes(k));
         const missing = allKeys.filter((k) => !knownOrder.includes(k));
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setOrder([...knownOrder, ...missing]);
-        setHidden(
-          new Set((parsed.hidden ?? []).filter((k) => allKeys.includes(k))),
-        );
+        setHidden(new Set((parsed.hidden ?? []).filter((k) => allKeys.includes(k))));
         setWidths((prev) => ({ ...prev, ...parsed.widths }));
       }
-    } catch {
-      // ignore malformed/unavailable localStorage
-    }
-    setLoaded(true);
+      setLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
     // Only read stored prefs once on mount for this storageKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
-  useEffect(() => {
-    if (!loaded) return;
-    const toStore: StoredPrefs<K> = { order, hidden: [...hidden], widths };
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(toStore));
-    } catch {
-      // ignore write failures (private mode, quota, ...)
-    }
-  }, [order, hidden, widths, loaded, storageKey]);
+  const toStore: StoredPrefs<K> = { order, hidden: [...hidden], widths };
+  useSavePref(storageKey, toStore, loaded);
 
   function toggleVisible(key: K) {
     setHidden((prev) => {

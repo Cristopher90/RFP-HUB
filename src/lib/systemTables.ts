@@ -38,6 +38,7 @@ export const SYSTEM_TABLES = [
   { key: "request-import-template", label: "RequestImportTemplate", model: "requestImportTemplate" },
   { key: "purchase-request", label: "PurchaseRequest", model: "purchaseRequest" },
   { key: "purchase-request-line", label: "PurchaseRequestLine", model: "purchaseRequestLine" },
+  { key: "user-preference", label: "UserPreference", model: "userPreference" },
 ] as const;
 
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];

@@ -103,10 +103,14 @@ export function ColumnSettingsMenu<K extends string>({
 export function ResizableTh({
   width,
   onResize,
+  onSort,
+  sortHint,
   children,
 }: {
   width: number;
   onResize: (width: number) => void;
+  onSort?: () => void;
+  sortHint?: string;
   children: React.ReactNode;
 }) {
   const { t } = usePreferences();
@@ -133,7 +137,18 @@ export function ResizableTh({
       style={{ width, minWidth: width }}
       className="relative px-3 pb-1 text-left"
     >
-      <span className="pr-2">{children}</span>
+      {onSort ? (
+        <button
+          type="button"
+          onClick={onSort}
+          title={sortHint}
+          className="pr-2 text-left uppercase tracking-wide hover:text-slate-800"
+        >
+          {children}
+        </button>
+      ) : (
+        <span className="pr-2">{children}</span>
+      )}
       <span
         onMouseDown={handleMouseDown}
         title={t("columnSettingsMenu.dragToResize")}

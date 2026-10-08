@@ -7,6 +7,7 @@ import { usePreferences } from "@/i18n/PreferencesProvider";
 import type { Dictionary } from "@/i18n/getDictionary";
 import { StatusBadge } from "@/components/StatusBadge";
 import { statusLabel } from "@/i18n/labels";
+import { loadPref, useSavePref } from "@/lib/userPrefsClient";
 import { useColumnPrefs, type ColumnDef } from "@/lib/useColumnPrefs";
 import { ColumnSettingsMenu, ResizableTh } from "@/components/ColumnSettingsMenu";
 import type { RfpStatus } from "@/generated/prisma/enums";
@@ -38,6 +39,9 @@ type ColumnKey =
   | "respuestas"
   | "inicio"
   | "cierre";
+
+type SortKey = ColumnKey | "rfp";
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
 
 type GroupBy = "none" | "estado" | "commodity" | "region" | "creador" | "inicio" | "cierre";
 type DatePart = "day" | "month" | "year";
@@ -86,37 +90,85 @@ export function RfpTable({
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [datePart, setDatePart] = useState<DatePart>("month");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [sort, setSort] = useState<SortState>(null);
   const [groupingLoaded, setGroupingLoaded] = useState(false);
 
-  // Hydrate after mount (not in a lazy initializer) so the server-rendered
-  // markup matches the first client render.
+  // Loaded from the server after mount so the first client render matches
+  // the server-rendered markup.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(GROUPING_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { groupBy?: GroupBy; datePart?: DatePart };
-        if (parsed.groupBy && (parsed.groupBy === "none" || GROUP_OPTIONS.includes(parsed.groupBy))) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setGroupBy(parsed.groupBy);
-        }
-        if (parsed.datePart && ["day", "month", "year"].includes(parsed.datePart)) {
-          setDatePart(parsed.datePart);
-        }
+    let cancelled = false;
+    loadPref<{ groupBy?: GroupBy; datePart?: DatePart; sort?: SortState }>(GROUPING_STORAGE_KEY).then((saved) => {
+      if (cancelled) return;
+      if (saved?.groupBy && (saved.groupBy === "none" || GROUP_OPTIONS.includes(saved.groupBy))) {
+        setGroupBy(saved.groupBy);
       }
-    } catch {
-      // ignore malformed/unavailable localStorage
-    }
-    setGroupingLoaded(true);
+      if (saved?.datePart && ["day", "month", "year"].includes(saved.datePart)) {
+        setDatePart(saved.datePart);
+      }
+      if (saved?.sort && saved.sort.key && ["asc", "desc"].includes(saved.sort.dir)) {
+        setSort(saved.sort);
+      }
+      setGroupingLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (!groupingLoaded) return;
-    try {
-      localStorage.setItem(GROUPING_STORAGE_KEY, JSON.stringify({ groupBy, datePart }));
-    } catch {
-      // ignore write failures
+  useSavePref(GROUPING_STORAGE_KEY, { groupBy, datePart, sort }, groupingLoaded);
+
+  // Clicking a header sorts by it, largest first; a second click flips to
+  // smallest first, a third goes back to the default order.
+  function cycleSort(key: SortKey) {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "desc" };
+      if (prev.dir === "desc") return { key, dir: "asc" };
+      return null;
+    });
+  }
+
+  const sortedRfps = useMemo(() => {
+    if (!sort) return rfps;
+    const sign = sort.dir === "asc" ? 1 : -1;
+    function value(rfp: RfpRow): number | string | null {
+      switch (sort!.key) {
+        case "rfp":
+          return rfp.number;
+        case "cliente":
+          return rfp.clientLabel;
+        case "estado":
+          return statusLabel(dictionary, rfp.status);
+        case "commodity":
+          return rfp.commodity;
+        case "region":
+          return rfp.region;
+        case "creador":
+          return rfp.creatorName;
+        case "articulos":
+          return rfp.itemCount;
+        case "proveedores":
+          return rfp.invitationCount;
+        case "respuestas":
+          return rfp.respondedCount;
+        case "inicio":
+          return rfp.startsAt ? new Date(rfp.startsAt).getTime() : null;
+        case "cierre":
+          return new Date(rfp.deadlineAt).getTime();
+      }
     }
-  }, [groupBy, datePart, groupingLoaded]);
+    return [...rfps].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (va === null || va === "") return vb === null || vb === "" ? 0 : 1; // empty last
+      if (vb === null || vb === "") return -1;
+      if (typeof va === "number" && typeof vb === "number") return (va - vb) * sign;
+      return String(va).localeCompare(String(vb), locale) * sign;
+    });
+  }, [rfps, sort, dictionary, locale]);
+
+  function sortIndicator(key: SortKey) {
+    return sort?.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : "";
+  }
 
   const isDateGroup = groupBy === "inicio" || groupBy === "cierre";
 
@@ -178,7 +230,7 @@ export function RfpTable({
       }
     }
     const byKey = new Map<string, Group>();
-    for (const rfp of rfps) {
+    for (const rfp of sortedRfps) {
       const { key, label } = keyFor(rfp);
       let group = byKey.get(key);
       if (!group) {
@@ -195,7 +247,7 @@ export function RfpTable({
       if (a.key === "" || b.key === "") return a.key === "" ? 1 : -1; // "sin valor" last
       return dateSorted ? a.key.localeCompare(b.key) : a.label.localeCompare(b.label, locale);
     });
-  }, [groupBy, datePart, rfps, dictionary, locale, timeZone]);
+  }, [groupBy, datePart, sortedRfps, dictionary, locale, timeZone]);
 
   const allCollapsed =
     groups !== null && groups.length > 0 && groups.every((g) => collapsed.has(g.key));
@@ -322,11 +374,6 @@ export function RfpTable({
               ))}
             </select>
           </label>
-          {groups && groups.length > 0 && (
-            <button type="button" onClick={toggleAllGroups} className={selectClass}>
-              {allCollapsed ? dictionary.rfpTable.expandAll : dictionary.rfpTable.collapseAll}
-            </button>
-          )}
           {isDateGroup && (
             <select
               aria-label={dictionary.rfpTable.groupDatePart}
@@ -356,14 +403,40 @@ export function RfpTable({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-5 py-3">{dictionary.rfpTable.rfpColumn}</th>
+              <th className="px-5 py-3">
+                <div className="flex items-center gap-2">
+                  {groups && groups.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={toggleAllGroups}
+                      title={allCollapsed ? dictionary.rfpTable.expandAll : dictionary.rfpTable.collapseAll}
+                      aria-label={allCollapsed ? dictionary.rfpTable.expandAll : dictionary.rfpTable.collapseAll}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded border border-slate-300 bg-white text-xs normal-case text-slate-500 hover:bg-slate-100"
+                    >
+                      {allCollapsed ? "▸" : "▾"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => cycleSort("rfp")}
+                    title={dictionary.rfpTable.sortHint}
+                    className="uppercase tracking-wide hover:text-slate-800"
+                  >
+                    {dictionary.rfpTable.rfpColumn}
+                    {sortIndicator("rfp")}
+                  </button>
+                </div>
+              </th>
               {columnPrefs.visibleOrderedDefs.map((def) => (
                 <ResizableTh
                   key={def.key}
                   width={columnPrefs.widths[def.key]}
                   onResize={(w) => columnPrefs.setWidth(def.key, w)}
+                  onSort={() => cycleSort(def.key)}
+                  sortHint={dictionary.rfpTable.sortHint}
                 >
                   {def.label}
+                  {sortIndicator(def.key)}
                 </ResizableTh>
               ))}
               <th className="px-5 py-3" />
@@ -399,7 +472,7 @@ export function RfpTable({
                     </Fragment>
                   );
                 })
-              : rfps.map(renderRow)}
+              : sortedRfps.map(renderRow)}
           </tbody>
         </table>
       </div>

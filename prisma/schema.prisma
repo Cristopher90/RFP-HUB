@@ -843,3 +843,16 @@ model RequestRfpMapping {
   mapping   Json
   updatedAt DateTime @updatedAt
 }
+
+// Preferencias de interfaz guardadas por usuario (disposición de columnas,
+// agrupación y filtros de las listas). userId es el id de un User o de un
+// SupplierUser (cuids, no colisionan), por eso no hay relación.
+model UserPreference {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+}

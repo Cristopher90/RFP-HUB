@@ -141,6 +141,7 @@ export const es = {
     byDay: "Día",
     byMonth: "Mes",
     byYear: "Año",
+    sortHint: "Clic para ordenar (de mayor a menor, luego de menor a mayor)",
     collapseAll: "Contraer todo",
     expandAll: "Expandir todo",
     view: "Ver →",
