@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LEVEL } from "@/lib/roleLabels";
 import { getDictionary } from "@/i18n/getDictionary";
 import { canViewRequests } from "@/lib/requestAccess";
+import { SidebarNav, type SidebarItem } from "@/components/SidebarNav";
 
 export async function Sidebar() {
   const user = await getCurrentUser();
@@ -10,54 +10,26 @@ export async function Sidebar() {
   if (!user) return null;
   const dictionary = getDictionary(user.language);
 
+  const items: SidebarItem[] = [
+    { href: "/", label: dictionary.nav.rfps, icon: "rfps" },
+    ...(canViewRequests(user)
+      ? [{ href: "/requests", label: dictionary.nav.requests, icon: "requests" as const }]
+      : []),
+    { href: "/reports", label: dictionary.nav.reports, icon: "reports" },
+    ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN
+      ? [{ href: "/admin", label: dictionary.nav.settings, icon: "settings" as const }]
+      : []),
+    ...(user.role === "ADMIN"
+      ? [
+          { href: "/admin/system-tables", label: dictionary.nav.systemTables, icon: "systemTables" as const },
+          { href: "/admin/email-log", label: dictionary.nav.emailLog, icon: "emailLog" as const },
+        ]
+      : []),
+  ];
+
   return (
     <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white/60 sm:block">
-      <nav className="sticky top-[73px] flex flex-col gap-1 px-3 py-6 text-sm font-medium text-slate-600">
-        <Link
-          href="/"
-          className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-        >
-          {dictionary.nav.rfps}
-        </Link>
-        {canViewRequests(user) && (
-          <Link
-            href="/requests"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-          >
-            {dictionary.nav.requests}
-          </Link>
-        )}
-        <Link
-          href="/reports"
-          className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-        >
-          {dictionary.nav.reports}
-        </Link>
-        {ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN && (
-          <Link
-            href="/admin"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-          >
-            {dictionary.nav.settings}
-          </Link>
-        )}
-        {user.role === "ADMIN" && (
-          <Link
-            href="/admin/system-tables"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-          >
-            {dictionary.nav.systemTables}
-          </Link>
-        )}
-        {user.role === "ADMIN" && (
-          <Link
-            href="/admin/email-log"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
-          >
-            {dictionary.nav.emailLog}
-          </Link>
-        )}
-      </nav>
+      <SidebarNav items={items} />
     </aside>
   );
 }
