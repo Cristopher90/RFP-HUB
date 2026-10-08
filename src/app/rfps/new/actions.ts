@@ -15,6 +15,8 @@ import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
+import { buyerGroupIdsOf, canGenerateRfp } from "@/lib/requestAccess";
+import { deriveRequestStatus } from "@/lib/requestStatus";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -97,6 +99,7 @@ export type CreateRfpInput = {
   selectedTemplateId: string | null;
   clientId?: string; // solo lo usa un Super Administrador (ADMIN); ignorado para cualquier otro rol
   isNextRound?: boolean;
+  purchaseRequestId?: string; // solicitud de compra de la que se genera esta RFP
   scoringEnabled: boolean;
   saveAsDraft: boolean;
   items: NewItemInput[];
@@ -327,6 +330,22 @@ export async function createRfp(
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
 
+  // An RFP generated from a purchase request: only its assigned buyer (or a
+  // member of the assigned group) may do it, and only while it has no live RFP.
+  if (input.purchaseRequestId) {
+    const request = await prisma.purchaseRequest.findFirst({
+      where: { id: input.purchaseRequestId, clientId },
+      include: { rfp: { select: { status: true, awardedInvitationId: true } } },
+    });
+    if (!request) return { error: dictionary.rfpActions.requestNotAvailable };
+    if (!canGenerateRfp(request, user.id, await buyerGroupIdsOf(user.id))) {
+      return { error: dictionary.rfpActions.requestNotAssigned };
+    }
+    if (deriveRequestStatus(request) !== "NEW") {
+      return { error: dictionary.rfpActions.requestAlreadyHasRfp };
+    }
+  }
+
   // Drafts skip approval entirely — only publishing needs it resolved.
   const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
@@ -395,6 +414,13 @@ export async function createRfp(
       },
     },
   });
+
+  if (input.purchaseRequestId) {
+    await prisma.purchaseRequest.update({
+      where: { id: input.purchaseRequestId },
+      data: { rfpId: rfp.id },
+    });
+  }
 
   // Questions are created sequentially (not as a nested create) so each
   // gets a real id we can use to resolve question-to-question dependencies,

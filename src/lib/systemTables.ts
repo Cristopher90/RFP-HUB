@@ -33,6 +33,11 @@ export const SYSTEM_TABLES = [
   { key: "item-price", label: "ItemPrice", model: "itemPrice" },
   { key: "email-template", label: "EmailTemplate", model: "emailTemplate" },
   { key: "email-log", label: "EmailLog", model: "emailLog" },
+  { key: "buyer-group", label: "BuyerGroup", model: "buyerGroup" },
+  { key: "buyer-group-member", label: "BuyerGroupMember", model: "buyerGroupMember" },
+  { key: "request-import-template", label: "RequestImportTemplate", model: "requestImportTemplate" },
+  { key: "purchase-request", label: "PurchaseRequest", model: "purchaseRequest" },
+  { key: "purchase-request-line", label: "PurchaseRequestLine", model: "purchaseRequestLine" },
 ] as const;
 
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];

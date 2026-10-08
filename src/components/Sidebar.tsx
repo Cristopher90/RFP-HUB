@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LEVEL } from "@/lib/roleLabels";
 import { getDictionary } from "@/i18n/getDictionary";
+import { canViewRequests } from "@/lib/requestAccess";
 
 export async function Sidebar() {
   const user = await getCurrentUser();
@@ -18,6 +19,14 @@ export async function Sidebar() {
         >
           {dictionary.nav.rfps}
         </Link>
+        {canViewRequests(user) && (
+          <Link
+            href="/requests"
+            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900"
+          >
+            {dictionary.nav.requests}
+          </Link>
+        )}
         {ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN && (
           <Link
             href="/admin"

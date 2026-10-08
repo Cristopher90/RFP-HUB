@@ -234,6 +234,7 @@ export function RfpForm({
   mode = "create",
   rfpId,
   initial,
+  purchaseRequestId,
 }: {
   currentUserRole: UserRole;
   currentUserName: string;
@@ -273,9 +274,14 @@ export function RfpForm({
   mode?: "create" | "edit";
   rfpId?: string;
   initial?: RfpInitialData;
+  purchaseRequestId?: string;
 }) {
   const { t, dictionary } = usePreferences();
   const idBase = useId();
+  // Pre-filled from a purchase request: unlike a blank form, nothing has
+  // triggered the commodity/region change that merges in the matching RFP
+  // templates' (possibly locked) items and questions, so do it up front.
+  const seedFromRequest = Boolean(purchaseRequestId && initial);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [buyerName, setBuyerName] = useState(
@@ -291,7 +297,7 @@ export function RfpForm({
     initial?.estimatedPrice ?? "",
   );
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    initial?.selectedTemplateId ?? null,
+    initial?.selectedTemplateId ?? (seedFromRequest ? initialTemplateSelection() : null),
   );
   const [origin, setOrigin] = useState(initial?.origin ?? "");
   const [predecessorDocument, setPredecessorDocument] = useState(
@@ -304,20 +310,44 @@ export function RfpForm({
     initial?.basedOnRfpLabel ?? null,
   );
   const [loadingBasedOn, setLoadingBasedOn] = useState(false);
-  const [items, setItems] = useState<NewItemInput[]>(
-    () => initial?.items ?? syncTemplateItems([], "", "", null, null),
+  const [items, setItems] = useState<NewItemInput[]>(() =>
+    seedFromRequest && initial
+      ? syncTemplateItems(
+          initial.items,
+          initial.commodity,
+          initial.region,
+          parsePrice(initial.estimatedPrice),
+          initialTemplateSelection(),
+        )
+      : (initial?.items ?? syncTemplateItems([], "", "", null, null)),
   );
-  const [questions, setQuestions] = useState<NewQuestionInput[]>(
-    () =>
-      initial?.questions ??
-      syncTemplateQuestions([], "", "", "EXTERNAL", null, null),
+  const [questions, setQuestions] = useState<NewQuestionInput[]>(() =>
+    seedFromRequest && initial
+      ? syncTemplateQuestions(
+          initial.questions,
+          initial.commodity,
+          initial.region,
+          "EXTERNAL",
+          parsePrice(initial.estimatedPrice),
+          initialTemplateSelection(),
+        )
+      : (initial?.questions ??
+        syncTemplateQuestions([], "", "", "EXTERNAL", null, null)),
   );
   const [internalQuestions, setInternalQuestions] = useState<
     NewQuestionInput[]
-  >(
-    () =>
-      initial?.internalQuestions ??
-      syncTemplateQuestions([], "", "", "INTERNAL", null, null),
+  >(() =>
+    seedFromRequest && initial
+      ? syncTemplateQuestions(
+          initial.internalQuestions,
+          initial.commodity,
+          initial.region,
+          "INTERNAL",
+          parsePrice(initial.estimatedPrice),
+          initialTemplateSelection(),
+        )
+      : (initial?.internalQuestions ??
+        syncTemplateQuestions([], "", "", "INTERNAL", null, null)),
   );
   const [suppliers, setSuppliers] = useState<NewSupplierInput[]>(
     initial?.suppliers && initial.suppliers.length > 0
@@ -451,6 +481,22 @@ export function RfpForm({
       return kept.length === prev.length ? prev : kept;
     }
     return [...kept, ...additions];
+  }
+
+  // Same as resolveSelection, but for the very first render when seeding
+  // from a purchase request (no previous pick exists yet).
+  function initialTemplateSelection(): string | null {
+    if (!initial) return null;
+    const rawMatching = templates.filter((tpl) =>
+      matchesTemplate(
+        tpl,
+        ancestorChain(commodities, initial.commodity),
+        ancestorChain(regions, initial.region),
+        parsePrice(initial.estimatedPrice),
+      ),
+    );
+    const { conditional } = splitConditionalTemplates(rawMatching);
+    return conditional.length === 1 ? conditional[0].id : null;
   }
 
   // Recomputes which conditional template is actually in effect given the
@@ -951,6 +997,7 @@ export function RfpForm({
           parsePrice(estimatedPrice),
         ),
         isNextRound: initial?.isNextRound ?? false,
+        purchaseRequestId,
         scoringEnabled: weightingQuestionsEnabled,
         saveAsDraft,
         items,

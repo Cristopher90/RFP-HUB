@@ -94,33 +94,36 @@ model Client {
   currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
   createdAt   DateTime @default(now())
 
-  users                User[]
-  commodities          Commodity[]
-  regions              Region[]
-  origins              Origin[]
-  approvalGroups       ApprovalGroup[]
-  supplierDirectories  SupplierDirectory[]
-  supplierUsers        SupplierUser[]
-  itemCatalogLists     ItemCatalogList[]
-  itemCatalogEntries   ItemCatalogEntry[]
-  templates            RfpTemplate[]
-  approvalWorkflows    ApprovalWorkflow[]
-  approvalLevels       ApprovalLevel[]
-  templateItems        TemplateItem[]
-  templateQuestions    TemplateQuestion[]
-  rfps                 Rfp[]
-  rfpApprovals         RfpApproval[]
-  rfpApprovalDecisions RfpApprovalDecision[]
-  rfpItems             RfpItem[]
-  rfpQuestions         RfpQuestion[]
-  suppliers            Supplier[]
-  invitations          Invitation[]
-  responses            Response[]
-  answers              Answer[]
-  itemPrices           ItemPrice[]
-  userApprovalGroups   UserApprovalGroup[]
-  emailTemplates       EmailTemplate[]
-  emailLogs            EmailLog[]
+  users                  User[]
+  commodities            Commodity[]
+  regions                Region[]
+  origins                Origin[]
+  approvalGroups         ApprovalGroup[]
+  supplierDirectories    SupplierDirectory[]
+  supplierUsers          SupplierUser[]
+  itemCatalogLists       ItemCatalogList[]
+  itemCatalogEntries     ItemCatalogEntry[]
+  templates              RfpTemplate[]
+  approvalWorkflows      ApprovalWorkflow[]
+  approvalLevels         ApprovalLevel[]
+  templateItems          TemplateItem[]
+  templateQuestions      TemplateQuestion[]
+  rfps                   Rfp[]
+  rfpApprovals           RfpApproval[]
+  rfpApprovalDecisions   RfpApprovalDecision[]
+  rfpItems               RfpItem[]
+  rfpQuestions           RfpQuestion[]
+  suppliers              Supplier[]
+  invitations            Invitation[]
+  responses              Response[]
+  answers                Answer[]
+  itemPrices             ItemPrice[]
+  userApprovalGroups     UserApprovalGroup[]
+  emailTemplates         EmailTemplate[]
+  emailLogs              EmailLog[]
+  buyerGroups            BuyerGroup[]
+  requestImportTemplates RequestImportTemplate[]
+  purchaseRequests       PurchaseRequest[]
 }
 
 model User {
@@ -142,7 +145,18 @@ model User {
   currency           String    @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
   language           String    @default("es") // idioma de la interfaz ("es" o "en")
 
-  approvalGroups UserApprovalGroup[]
+  // Permisos del módulo de Solicitudes (los administradores tienen todo implícito)
+  canImportRequests     Boolean @default(false) // puede importar solicitudes
+  canAssignRequests     Boolean @default(false) // puede asignar solicitudes a un comprador o grupo
+  seeUnassignedRequests Boolean @default(false) // ve solicitudes sin asignar
+  seeMyRequests         Boolean @default(false) // ve las asignadas a su usuario (directo o por grupo)
+  seeAssignedRequests   Boolean @default(false) // ve las asignadas a cualquier usuario
+  seeAllRequests        Boolean @default(false) // ve todas
+
+  approvalGroups        UserApprovalGroup[]
+  buyerGroupMemberships BuyerGroupMember[]
+  assignedRequests      PurchaseRequest[]   @relation("RequestAssignee")
+  importedRequests      PurchaseRequest[]   @relation("RequestImporter")
 
   createdRfps       Rfp[]
   approvalDecisions RfpApprovalDecision[]
@@ -500,10 +514,11 @@ model Rfp {
   createdByUserId String?
   createdBy       User?   @relation(fields: [createdByUserId], references: [id])
 
-  items       RfpItem[]
-  questions   RfpQuestion[]
-  invitations Invitation[]
-  approvals   RfpApproval[]
+  items           RfpItem[]
+  questions       RfpQuestion[]
+  invitations     Invitation[]
+  approvals       RfpApproval[]
+  purchaseRequest PurchaseRequest?
 }
 
 // Snapshot en vivo de un nivel de aprobación para una RFP concreta: se crea
@@ -724,4 +739,94 @@ model EmailLog {
 
   @@index([createdAt])
   @@index([clientId, createdAt])
+}
+
+// Grupo de compradores al que se puede asignar una solicitud.
+model BuyerGroup {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  members  BuyerGroupMember[]
+  requests PurchaseRequest[]
+
+  @@unique([clientId, name])
+}
+
+model BuyerGroupMember {
+  id      String     @id @default(cuid())
+  groupId String
+  userId  String
+  group   BuyerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+// Cómo leer un Excel de solicitudes (qué pestañas y columnas) y cómo convertir
+// una solicitud en una RFP. Los mapeos guardan nombres de columna del Excel.
+model RequestImportTemplate {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name          String
+  headerSheet   String // pestaña con las cabeceras de las solicitudes
+  linesSheet    String // pestaña con las líneas
+  headerMapping Json // campo de la solicitud -> columna del Excel
+  linesMapping  Json // campo de la línea -> columna del Excel
+  rfpMapping    Json? // cómo llenar la RFP a partir de la solicitud
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  requests PurchaseRequest[]
+
+  @@unique([clientId, name])
+}
+
+// Solicitud de compra (PR) importada. Su estado (Nuevo, Procesado, En
+// negociación, Negociado) se deriva de la RFP vinculada; solo "cancelada" se guarda.
+model PurchaseRequest {
+  id               String                 @id @default(cuid())
+  clientId         String
+  client           Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documentType     String
+  documentNumber   String
+  creator          String? // quién la creó en el sistema de origen
+  requestDate      DateTime? // fecha de la solicitud (solo fecha, guardada a medianoche UTC)
+  commodity        String? // grupo de artículos
+  importedAt       DateTime               @default(now())
+  importedByUserId String?
+  importedBy       User?                  @relation("RequestImporter", fields: [importedByUserId], references: [id], onDelete: SetNull)
+  templateId       String?
+  template         RequestImportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  assignedUserId   String?
+  assignedUser     User?                  @relation("RequestAssignee", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  assignedGroupId  String?
+  assignedGroup    BuyerGroup?            @relation(fields: [assignedGroupId], references: [id], onDelete: SetNull)
+  cancelled        Boolean                @default(false)
+  rfpId            String?                @unique
+  rfp              Rfp?                   @relation(fields: [rfpId], references: [id], onDelete: SetNull)
+
+  lines PurchaseRequestLine[]
+
+  @@unique([clientId, documentType, documentNumber])
+  @@index([clientId, importedAt])
+}
+
+model PurchaseRequestLine {
+  id              String          @id @default(cuid())
+  requestId       String
+  request         PurchaseRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  order           Int
+  position        String
+  itemCode        String?
+  description     String
+  historicalPrice Float?
+  quantity        Float
+  unit            String?
+  commodity       String?
+
+  @@index([requestId])
 }

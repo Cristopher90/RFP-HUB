@@ -20,6 +20,12 @@ export type UserFormInput = {
   role: UserRole;
   password: string;
   allowFreeTextItems: boolean;
+  canImportRequests: boolean;
+  canAssignRequests: boolean;
+  seeUnassignedRequests: boolean;
+  seeMyRequests: boolean;
+  seeAssignedRequests: boolean;
+  seeAllRequests: boolean;
   approvalGroups: { approvalGroupId: string; limit: string }[];
 };
 
@@ -111,6 +117,12 @@ export async function createUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       allowFreeTextItems: input.allowFreeTextItems,
+      canImportRequests: input.canImportRequests,
+      canAssignRequests: input.canAssignRequests,
+      seeUnassignedRequests: input.seeUnassignedRequests,
+      seeMyRequests: input.seeMyRequests,
+      seeAssignedRequests: input.seeAssignedRequests,
+      seeAllRequests: input.seeAllRequests,
       passwordHash: hashPassword(input.password),
       approvalGroups: { create: approvalGroups },
     },
@@ -171,6 +183,12 @@ export async function updateUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       allowFreeTextItems: input.allowFreeTextItems,
+      canImportRequests: input.canImportRequests,
+      canAssignRequests: input.canAssignRequests,
+      seeUnassignedRequests: input.seeUnassignedRequests,
+      seeMyRequests: input.seeMyRequests,
+      seeAssignedRequests: input.seeAssignedRequests,
+      seeAllRequests: input.seeAllRequests,
       approvalGroups: { create: approvalGroups },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },

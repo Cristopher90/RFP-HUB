@@ -52,6 +52,12 @@ export default async function EditUserPage({
             costCenter: user.costCenter ?? "",
             role: user.role,
             allowFreeTextItems: user.allowFreeTextItems,
+            canImportRequests: user.canImportRequests,
+            canAssignRequests: user.canAssignRequests,
+            seeUnassignedRequests: user.seeUnassignedRequests,
+            seeMyRequests: user.seeMyRequests,
+            seeAssignedRequests: user.seeAssignedRequests,
+            seeAllRequests: user.seeAllRequests,
             approvalGroups: user.approvalGroups.map((g) => ({
               approvalGroupId: g.approvalGroupId,
               limit: String(g.limit),

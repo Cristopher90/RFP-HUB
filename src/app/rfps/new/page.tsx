@@ -5,6 +5,9 @@ import { formatRfpNumber } from "@/lib/format";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { getDictionary } from "@/i18n/getDictionary";
 import { RfpForm, type RfpInitialData } from "./RfpForm";
+import { buildRfpFromRequest } from "@/lib/requestToRfp";
+import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestAccess";
+import { deriveRequestStatus } from "@/lib/requestStatus";
 
 export default async function NewRfpPage({
   searchParams,
@@ -15,6 +18,7 @@ export default async function NewRfpPage({
   const dictionary = getDictionary(user.language);
   const sp = await searchParams;
   const copyFrom = typeof sp.copyFrom === "string" ? sp.copyFrom : null;
+  const fromRequest = typeof sp.fromRequest === "string" ? sp.fromRequest : null;
   const copyMode =
     sp.mode === "based_on" || sp.mode === "next_round" ? sp.mode : "blank";
 
@@ -61,7 +65,55 @@ export default async function NewRfpPage({
   const carriesHistory = copyMode === "based_on" || isNextRound;
 
   let initial: RfpInitialData | undefined;
-  if (copyFrom) {
+  let purchaseRequestId: string | undefined;
+  let purchaseRequestLabel: string | null = null;
+  if (fromRequest) {
+    // Generating an RFP from a purchase request: only its assigned buyer (or
+    // a member of the assigned group) may, and only while it's still new.
+    const groupIds = await buyerGroupIdsOf(user.id);
+    const request = await prisma.purchaseRequest.findFirst({
+      where: {
+        id: fromRequest,
+        ...(scope.isSuperAdmin ? {} : { clientId: user.clientId as string }),
+        ...(visibilityWhere(user, groupIds) as object),
+      },
+      include: {
+        lines: { orderBy: { order: "asc" } },
+        template: true,
+        rfp: { select: { status: true, awardedInvitationId: true } },
+      },
+    });
+    if (
+      !request ||
+      !canGenerateRfp(request, user.id, groupIds) ||
+      deriveRequestStatus(request) !== "NEW"
+    ) {
+      redirect("/requests");
+    }
+    const built = buildRfpFromRequest(request, request.template?.rfpMapping, commodities);
+    purchaseRequestId = request.id;
+    purchaseRequestLabel = `${request.documentType} ${request.documentNumber}`;
+    initial = {
+      title: built.title,
+      description: built.description,
+      buyerName: user.name,
+      deadlineAt: "",
+      commodity: built.commodity,
+      region: "",
+      startDate: "",
+      estimatedPrice: built.estimatedPrice,
+      origin: "",
+      predecessorDocument: built.predecessorDocument,
+      basedOnRfpId: null,
+      basedOnRfpLabel: null,
+      selectedTemplateId: null,
+      scoringEnabled: false,
+      items: built.items,
+      questions: [],
+      internalQuestions: [],
+      suppliers: [],
+    };
+  } else if (copyFrom) {
     // "Siguiente ronda" copies exactly like "basar en RFP anterior" (mismos
     // artículos/proveedores, precio histórico) — solo se marca isNextRound
     // para que createRfp numere y encadene la ronda.
@@ -105,6 +157,11 @@ export default async function NewRfpPage({
       <p className="mt-1 text-sm text-slate-500">
         {dictionary.newRfpPage.subtitle}
       </p>
+      {purchaseRequestLabel && (
+        <p className="mt-2 inline-block rounded-md bg-violet-50 px-3 py-1 text-sm text-violet-700">
+          {dictionary.newRfpPage.fromRequestPrefix} {purchaseRequestLabel}
+        </p>
+      )}
       <div className="mt-8">
         <RfpForm
           currentUserRole={user.role}
@@ -132,6 +189,7 @@ export default async function NewRfpPage({
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
           initial={initial}
+          purchaseRequestId={purchaseRequestId}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,
