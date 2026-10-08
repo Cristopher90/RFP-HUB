@@ -10,6 +10,7 @@ import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import { RfpCalendar } from "@/components/RfpCalendar";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { getDictionary } from "@/i18n/getDictionary";
+import { zonedTimeToUtc } from "@/lib/timezone";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
 export default async function Home({
@@ -32,6 +33,70 @@ export default async function Home({
   const regionFilter = typeof sp.region === "string" ? sp.region : "";
   const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
   const clientFilter = typeof sp.client === "string" ? sp.client : "";
+  const supplierFilter = typeof sp.supplier === "string" ? sp.supplier.trim() : "";
+  const dateParam = (key: string) =>
+    typeof sp[key] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp[key] as string)
+      ? (sp[key] as string)
+      : "";
+  const startFrom = dateParam("startFrom");
+  const startTo = dateParam("startTo");
+  const closeFrom = dateParam("closeFrom");
+  const closeTo = dateParam("closeTo");
+
+  // Date filters are calendar days in the viewer's own timezone: [from 00:00,
+  // to 23:59:59.999] expressed as UTC instants.
+  function dayRange(from: string, to: string) {
+    return {
+      ...(from ? { gte: zonedTimeToUtc(`${from}T00:00`, user.timezone) } : {}),
+      ...(to
+        ? { lte: new Date(zonedTimeToUtc(`${to}T23:59`, user.timezone).getTime() + 59_999) }
+        : {}),
+    };
+  }
+  const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+  const advancedWhere = [
+    // An RFP with no explicit start date starts the day it was published.
+    ...(startFrom || startTo
+      ? [
+          {
+            OR: [
+              { startDate: dayRange(startFrom, startTo) },
+              { startDate: null, publishedAt: dayRange(startFrom, startTo) },
+            ],
+          },
+        ]
+      : []),
+    ...(closeFrom || closeTo ? [{ deadlineAt: dayRange(closeFrom, closeTo) }] : []),
+    // Invited supplier: by name, email or company as invited, or by the
+    // directory entry's code, tax ID (CIF), company name or email.
+    ...(supplierFilter
+      ? [
+          {
+            invitations: {
+              some: {
+                supplier: {
+                  OR: [
+                    { name: contains(supplierFilter) },
+                    { email: contains(supplierFilter) },
+                    { company: contains(supplierFilter) },
+                    {
+                      supplierDirectory: {
+                        OR: [
+                          { code: contains(supplierFilter) },
+                          { taxId: contains(supplierFilter) },
+                          { companyName: contains(supplierFilter) },
+                          { email: contains(supplierFilter) },
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        ]
+      : []),
+  ];
 
   // An APPROVER never creates RFPs, so "Mis RFPs" (createdByUserId) makes
   // no sense for them — their whole list is the RFPs they still need to
@@ -54,6 +119,7 @@ export default async function Home({
       : tab === "mine"
         ? { createdByUserId: user.id }
         : scope.where),
+    ...(advancedWhere.length > 0 ? { AND: advancedWhere } : {}),
     ...(commodityFilter ? { commodity: commodityFilter } : {}),
     ...(regionFilter ? { region: regionFilter } : {}),
     ...(tab === "all" && creatorFilter
@@ -129,6 +195,11 @@ export default async function Home({
     if (target === "all" && creatorFilter)
       params.set("creator", creatorFilter);
     if (target === "all" && clientFilter) params.set("client", clientFilter);
+    if (supplierFilter) params.set("supplier", supplierFilter);
+    if (startFrom) params.set("startFrom", startFrom);
+    if (startTo) params.set("startTo", startTo);
+    if (closeFrom) params.set("closeFrom", closeFrom);
+    if (closeTo) params.set("closeTo", closeTo);
     params.set("tab", target);
     return `/?${params.toString()}`;
   }

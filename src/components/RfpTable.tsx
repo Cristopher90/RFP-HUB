@@ -197,6 +197,13 @@ export function RfpTable({
     });
   }, [groupBy, datePart, rfps, dictionary, locale, timeZone]);
 
+  const allCollapsed =
+    groups !== null && groups.length > 0 && groups.every((g) => collapsed.has(g.key));
+
+  function toggleAllGroups() {
+    setCollapsed(allCollapsed || !groups ? new Set() : new Set(groups.map((g) => g.key)));
+  }
+
   function toggleGroup(key: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -290,7 +297,10 @@ export function RfpTable({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2">
         <p className="text-sm text-slate-500">
           {(groups
-            ? dictionary.rfpTable.totalGrouped.replace("{groups}", String(groups.length))
+            ? (groups.length === 1
+                ? dictionary.rfpTable.totalGroupedOne
+                : dictionary.rfpTable.totalGrouped
+              ).replace("{groups}", String(groups.length))
             : dictionary.rfpTable.total
           ).replace("{count}", String(rfps.length))}
         </p>
@@ -312,6 +322,11 @@ export function RfpTable({
               ))}
             </select>
           </label>
+          {groups && groups.length > 0 && (
+            <button type="button" onClick={toggleAllGroups} className={selectClass}>
+              {allCollapsed ? dictionary.rfpTable.expandAll : dictionary.rfpTable.collapseAll}
+            </button>
+          )}
           {isDateGroup && (
             <select
               aria-label={dictionary.rfpTable.groupDatePart}
