@@ -16,7 +16,6 @@ export const en: Dictionary = {
     myProfile: "My profile",
     logout: "Log out",
     logoutTooltip: "Log out",
-    newRfp: "New RFP",
     rfps: "RFPs",
     settings: "Settings",
     systemTables: "System tables",
@@ -895,6 +894,13 @@ export const en: Dictionary = {
     backToUsers: "← Users",
     editUserTitle: "Edit user ·",
     newUserTitle: "New user",
+    selectClientForGroups: "Select the user's client first to see its groups.",
+    buyerGroupsTitle: "Buyer groups",
+    buyerGroupsSubtitle:
+      "Groups created in Settings → Users → Buyer groups. Belonging to a group lets the user receive and generate RFPs for requests assigned to it.",
+    buyerGroupsRoleHint:
+      "Only the Buyer, Senior Buyer and Client Admin roles can belong to buyer groups.",
+    noBuyerGroups: "This client has no buyer groups yet.",
   },
   pendingApprovalsBox: {
     title: "RFPs pending approval",
@@ -1460,5 +1466,14 @@ export const en: Dictionary = {
     save: "Save",
     saving: "Saving...",
     saved: "Saved.",
+  },
+  rfpCalendar: {
+    title: "RFP calendar",
+    closing: "Closing",
+    starting: "Starting",
+    today: "Today",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    none: "None",
   },
 };

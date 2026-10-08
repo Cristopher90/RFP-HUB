@@ -15,12 +15,16 @@ export default async function EditUserPage({
   const dictionary = getDictionary(scope.user.language);
   const { id } = await params;
 
-  const [user, groups, clients] = await Promise.all([
-    prisma.user.findUnique({ where: { id }, include: { approvalGroups: true } }),
+  const [user, groups, buyerGroups, clients] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id },
+      include: { approvalGroups: true, buyerGroupMemberships: true },
+    }),
     prisma.approvalGroup.findMany({
       where: scope.where,
       orderBy: { description: "asc" },
     }),
+    prisma.buyerGroup.findMany({ where: scope.where, orderBy: { name: "asc" } }),
     scope.isSuperAdmin
       ? prisma.client.findMany({ orderBy: { description: "asc" } })
       : Promise.resolve([]),
@@ -58,12 +62,14 @@ export default async function EditUserPage({
             seeMyRequests: user.seeMyRequests,
             seeAssignedRequests: user.seeAssignedRequests,
             seeAllRequests: user.seeAllRequests,
+            buyerGroupIds: user.buyerGroupMemberships.map((m) => m.groupId),
             approvalGroups: user.approvalGroups.map((g) => ({
               approvalGroupId: g.approvalGroupId,
               limit: String(g.limit),
             })),
           }}
-          groups={groups.map((g) => ({ id: g.id, description: g.description }))}
+          groups={groups.map((g) => ({ id: g.id, description: g.description, clientId: g.clientId }))}
+          buyerGroups={buyerGroups.map((g) => ({ id: g.id, name: g.name, clientId: g.clientId }))}
           clients={clients}
           actorIsSuperAdmin={scope.isSuperAdmin}
         />

@@ -56,15 +56,7 @@ export async function HeaderNav() {
 
   return (
     <nav className="flex items-center gap-5 text-sm font-medium text-slate-600">
-      {user.role !== "APPROVER" && (
-        <Link
-          href="/rfps/new"
-          className="rounded-lg bg-violet-600 px-4 py-2 text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
-        >
-          {dictionary.nav.newRfp}
-        </Link>
-      )}
-      <div className="flex items-center gap-2 border-l border-slate-200 pl-5">
+      <div className="flex items-center gap-2">
         <div className="text-right leading-tight">
           <p className="text-sm font-medium text-slate-800">{user.name}</p>
           <p className="text-xs text-slate-400">{roleLabel(dictionary, user.role)}</p>

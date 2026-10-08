@@ -8,6 +8,7 @@ import { requireClientScope } from "@/lib/clientScope";
 import type { UserRole } from "@/generated/prisma/enums";
 import { getDictionary } from "@/i18n/getDictionary";
 import type { Dictionary } from "@/i18n/getDictionary";
+import { BUYER_ROLES } from "@/lib/requestFields";
 
 export type UserFormInput = {
   name: string;
@@ -27,6 +28,7 @@ export type UserFormInput = {
   seeAssignedRequests: boolean;
   seeAllRequests: boolean;
   approvalGroups: { approvalGroupId: string; limit: string }[];
+  buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
 };
 
 // Cleans up the group-limit table: drops incomplete rows, dedupes by group
@@ -43,6 +45,37 @@ function shapeApprovalGroups(rows: { approvalGroupId: string; limit: string }[])
     approvalGroupId,
     limit,
   }));
+}
+
+// Approval groups the payload may attach: only the target client's own, so a
+// forged request can't link a user to another client's group.
+async function validApprovalGroups(
+  rows: { approvalGroupId: string; limit: string }[],
+  clientId: string,
+) {
+  const shaped = shapeApprovalGroups(rows);
+  if (shaped.length === 0) return [];
+  const valid = new Set(
+    (
+      await prisma.approvalGroup.findMany({
+        where: { clientId, id: { in: shaped.map((g) => g.approvalGroupId) } },
+        select: { id: true },
+      })
+    ).map((g) => g.id),
+  );
+  return shaped.filter((g) => valid.has(g.approvalGroupId)).map((g) => ({ ...g, clientId }));
+}
+
+// Buyer-group memberships: only for buyer roles, and only the client's groups.
+async function validBuyerGroupIds(ids: string[], role: UserRole, clientId: string | null) {
+  if (!clientId || !(BUYER_ROLES as readonly string[]).includes(role)) return [];
+  const unique = [...new Set(ids ?? [])];
+  if (unique.length === 0) return [];
+  const groups = await prisma.buyerGroup.findMany({
+    where: { clientId, id: { in: unique } },
+    select: { id: true },
+  });
+  return groups.map((g) => g.id);
 }
 
 // A CLIENT_ADMIN acts only within their own client and can never mint or
@@ -101,11 +134,9 @@ export async function createUser(
   }
 
   const approvalGroups = targetClient.clientId
-    ? shapeApprovalGroups(input.approvalGroups).map((g) => ({
-        ...g,
-        clientId: targetClient.clientId as string,
-      }))
+    ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
+  const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
   await prisma.user.create({
     data: {
       name,
@@ -125,6 +156,7 @@ export async function createUser(
       seeAllRequests: input.seeAllRequests,
       passwordHash: hashPassword(input.password),
       approvalGroups: { create: approvalGroups },
+      buyerGroupMemberships: { create: buyerGroupIds.map((groupId) => ({ groupId })) },
     },
   });
 
@@ -165,12 +197,11 @@ export async function updateUser(
   }
 
   const approvalGroups = targetClient.clientId
-    ? shapeApprovalGroups(input.approvalGroups).map((g) => ({
-        ...g,
-        clientId: targetClient.clientId as string,
-      }))
+    ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
+  const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
   await prisma.userApprovalGroup.deleteMany({ where: { userId } });
+  await prisma.buyerGroupMember.deleteMany({ where: { userId } });
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -190,6 +221,7 @@ export async function updateUser(
       seeAssignedRequests: input.seeAssignedRequests,
       seeAllRequests: input.seeAllRequests,
       approvalGroups: { create: approvalGroups },
+      buyerGroupMemberships: { create: buyerGroupIds.map((groupId) => ({ groupId })) },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },
   });

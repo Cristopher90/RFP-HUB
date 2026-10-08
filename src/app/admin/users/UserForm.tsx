@@ -6,6 +6,7 @@ import { roleLabel } from "@/i18n/labels";
 import { makeClientKey } from "@/lib/clientKey";
 import { TreePickerField } from "@/components/TreePickerField";
 import type { UserRole } from "@/generated/prisma/enums";
+import { BUYER_ROLES } from "@/lib/requestFields";
 import { createUser, updateUser, type UserFormInput } from "./actions";
 
 function inputClass() {
@@ -27,12 +28,14 @@ export function UserForm({
   userId,
   initial,
   groups = [],
+  buyerGroups = [],
   clients,
   actorIsSuperAdmin,
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
-  groups?: { id: string; description: string }[];
+  groups?: { id: string; description: string; clientId: string }[];
+  buyerGroups?: { id: string; name: string; clientId: string }[];
   clients: { id: string; code: string; description: string }[];
   actorIsSuperAdmin: boolean;
 }) {
@@ -40,7 +43,7 @@ export function UserForm({
   const ROLES: UserRole[] = actorIsSuperAdmin
     ? ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
     : ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
-  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups">>({
+  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups" | "buyerGroupIds">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",
     clientId: initial?.clientId ?? null,
@@ -62,8 +65,41 @@ export function UserForm({
     () =>
       initial?.approvalGroups?.map((g) => ({ ...g, clientKey: makeClientKey() })) ?? [],
   );
+  const [buyerGroupIds, setBuyerGroupIds] = useState<string[]>(initial?.buyerGroupIds ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Groups belong to a client: a Super Administrador sees only the groups of
+  // the client picked for this user (everyone else is already scoped to
+  // their own client by the page).
+  const clientForGroups = actorIsSuperAdmin
+    ? form.role === "ADMIN"
+      ? null
+      : form.clientId
+    : undefined;
+  const availableGroups =
+    clientForGroups === undefined ? groups : groups.filter((g) => g.clientId === clientForGroups);
+  const availableBuyerGroups =
+    clientForGroups === undefined
+      ? buyerGroups
+      : buyerGroups.filter((g) => g.clientId === clientForGroups);
+  const needsClientFirst = actorIsSuperAdmin && !clientForGroups;
+  const isBuyerRole = (BUYER_ROLES as readonly string[]).includes(form.role);
+
+  // Changing the client (or becoming a Super Administrador) drops any group
+  // that belongs to a different client.
+  function pruneGroupsForClient(clientId: string | null) {
+    const allowedApproval = new Set(
+      groups.filter((g) => g.clientId === clientId).map((g) => g.id),
+    );
+    setApprovalGroupRows((prev) =>
+      prev.filter((r) => !r.approvalGroupId || allowedApproval.has(r.approvalGroupId)),
+    );
+    const allowedBuyer = new Set(
+      buyerGroups.filter((g) => g.clientId === clientId).map((g) => g.id),
+    );
+    setBuyerGroupIds((prev) => prev.filter((id) => allowedBuyer.has(id)));
+  }
 
   function update(patch: Partial<typeof form>) {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -93,6 +129,7 @@ export function UserForm({
         approvalGroupId,
         limit,
       })),
+      buyerGroupIds: isBuyerRole ? buyerGroupIds : [],
     };
     startTransition(async () => {
       const result = userId
@@ -149,7 +186,10 @@ export function UserForm({
                   code: c.code,
                 }))}
                 valueId={form.clientId}
-                onChangeId={(id) => update({ clientId: id })}
+                onChangeId={(id) => {
+                  update({ clientId: id });
+                  pruneGroupsForClient(id);
+                }}
                 placeholder={t("userForm.selectClient")}
                 clearLabel={t("userForm.noneOption")}
               />
@@ -217,6 +257,7 @@ export function UserForm({
               onChange={(e) => {
                 const role = e.target.value as UserRole;
                 update({ role, clientId: role === "ADMIN" ? null : form.clientId });
+                if (role === "ADMIN") pruneGroupsForClient(null);
               }}
             >
               {ROLES.map((r) => (
@@ -281,7 +322,10 @@ export function UserForm({
           {t("userForm.approvalGroupsSubtitle")}
         </p>
         <div className="mt-4 space-y-2">
-          {approvalGroupRows.length === 0 && (
+          {needsClientFirst && (
+            <p className="text-xs text-amber-700">{t("userForm.selectClientForGroups")}</p>
+          )}
+          {!needsClientFirst && approvalGroupRows.length === 0 && (
             <p className="text-xs text-slate-400">
               {t("userForm.noApprovalGroups")}
             </p>
@@ -296,7 +340,7 @@ export function UserForm({
                 }
               >
                 <option value="">{t("userForm.selectGroup")}</option>
-                {groups.map((g) => (
+                {availableGroups.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.description}
                   </option>
@@ -323,11 +367,43 @@ export function UserForm({
         </div>
         <button
           type="button"
+          disabled={needsClientFirst}
           onClick={addGroupRow}
-          className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700"
+          className="mt-3 text-xs font-medium text-violet-600 hover:text-violet-700 disabled:opacity-40"
         >
           {t("userForm.addGroup")}
         </button>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">
+          {t("userForm.buyerGroupsTitle")}
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">{t("userForm.buyerGroupsSubtitle")}</p>
+        <div className="mt-4 space-y-1">
+          {!isBuyerRole ? (
+            <p className="text-xs text-slate-400">{t("userForm.buyerGroupsRoleHint")}</p>
+          ) : needsClientFirst ? (
+            <p className="text-xs text-amber-700">{t("userForm.selectClientForGroups")}</p>
+          ) : availableBuyerGroups.length === 0 ? (
+            <p className="text-xs text-slate-400">{t("userForm.noBuyerGroups")}</p>
+          ) : (
+            availableBuyerGroups.map((g) => (
+              <label key={g.id} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={buyerGroupIds.includes(g.id)}
+                  onChange={(e) =>
+                    setBuyerGroupIds((prev) =>
+                      e.target.checked ? [...prev, g.id] : prev.filter((id) => id !== g.id),
+                    )
+                  }
+                />
+                {g.name}
+              </label>
+            ))
+          )}
+        </div>
       </section>
 
       <div className="flex justify-end">

@@ -17,7 +17,6 @@ export const es = {
     myProfile: "Mi perfil",
     logout: "Salir",
     logoutTooltip: "Cerrar sesión",
-    newRfp: "Nueva RFP",
     rfps: "RFPs",
     settings: "Configuración",
     systemTables: "Tablas del sistema",
@@ -896,6 +895,13 @@ export const es = {
     backToUsers: "← Usuarios",
     editUserTitle: "Editar usuario ·",
     newUserTitle: "Nuevo usuario",
+    selectClientForGroups: "Selecciona primero el cliente del usuario para ver sus grupos.",
+    buyerGroupsTitle: "Grupos de compradores",
+    buyerGroupsSubtitle:
+      "Grupos creados en Configuración → Usuarios → Grupos de compradores. Pertenecer a un grupo permite recibir y generar las RFP de las solicitudes asignadas a él.",
+    buyerGroupsRoleHint:
+      "Solo los roles Comprador, Comprador Senior y Administrador de cliente pueden pertenecer a grupos de compradores.",
+    noBuyerGroups: "Este cliente todavía no tiene grupos de compradores.",
   },
   pendingApprovalsBox: {
     title: "RFPs pendientes de validar",
@@ -1464,6 +1470,15 @@ export const es = {
     save: "Guardar",
     saving: "Guardando...",
     saved: "Guardado.",
+  },
+  rfpCalendar: {
+    title: "Calendario de RFPs",
+    closing: "Cierran",
+    starting: "Comienzan",
+    today: "Hoy",
+    previousMonth: "Mes anterior",
+    nextMonth: "Mes siguiente",
+    none: "Ninguna",
   },
 };
 

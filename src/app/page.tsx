@@ -7,6 +7,8 @@ import { RfpTable, type RfpRow } from "@/components/RfpTable";
 import { findPendingApprovalsForUser, findDecidedRfpIdsForUser } from "@/lib/approvalEngine";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { PendingApprovalsBox } from "./PendingApprovalsBox";
+import { RfpCalendar } from "@/components/RfpCalendar";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { getDictionary } from "@/i18n/getDictionary";
 import type { RfpStatus } from "@/generated/prisma/enums";
 
@@ -105,6 +107,19 @@ export default async function Home({
       : null,
   }));
 
+  // Calendar of the RFPs in this list that close / start each day. Drafts are
+  // left out (nothing is scheduled yet). An RFP with no start date starts the
+  // day it was published.
+  const calendarEvents = rfps
+    .filter((rfp) => rfp.status !== "DRAFT")
+    .map((rfp) => ({
+      id: rfp.id,
+      number: rfp.number,
+      title: rfp.title,
+      closesAt: rfp.deadlineAt.toISOString(),
+      startsAt: (rfp.startDate ?? rfp.publishedAt)?.toISOString() ?? null,
+    }));
+
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
     if (commodityFilter) params.set("commodity", commodityFilter);
@@ -198,6 +213,16 @@ export default async function Home({
           }
         />
       </div>
+
+      {calendarEvents.length > 0 && (
+        <CollapsibleSection
+          title={dictionary.rfpCalendar.title}
+          storageKey="home-calendar"
+          className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <RfpCalendar events={calendarEvents} />
+        </CollapsibleSection>
+      )}
 
       {rfps.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
