@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { SupplierDirectoryForm } from "./SupplierDirectoryForm";
+import type { SupplierUserItemInput } from "./actions";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export default async function SuppliersPage({
@@ -16,22 +17,20 @@ export default async function SuppliersPage({
   const suppliers = effectiveClientId
     ? await prisma.supplierDirectory.findMany({
         where: { clientId: effectiveClientId },
-        include: { supplierUsers: { orderBy: { name: "asc" } } },
+        include: { userLinks: { include: { supplierUser: true }, orderBy: { invitedAt: "asc" } } },
         orderBy: { code: "asc" },
       })
     : [];
 
-  const supplierUsersByDirectoryId: Record<
-    string,
-    { clientKey: string; name: string; lastName: string; email: string; password: string }[]
-  > = {};
+  const supplierUsersByDirectoryId: Record<string, SupplierUserItemInput[]> = {};
   for (const s of suppliers) {
-    supplierUsersByDirectoryId[s.id] = s.supplierUsers.map((u) => ({
-      clientKey: u.id,
-      name: u.name,
-      lastName: u.lastName,
-      email: u.email,
-      password: "",
+    supplierUsersByDirectoryId[s.id] = s.userLinks.map((l) => ({
+      clientKey: l.id,
+      name: l.supplierUser.name,
+      lastName: l.supplierUser.lastName,
+      email: l.supplierUser.email,
+      isAdmin: l.isAdmin,
+      status: l.status,
     }));
   }
 

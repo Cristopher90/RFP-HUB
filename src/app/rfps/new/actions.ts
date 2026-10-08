@@ -9,6 +9,7 @@ import {
   ancestorChain,
   strictestMinSuppliers,
 } from "@/lib/templateMatch";
+import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -298,6 +299,16 @@ export async function validateAndShapeRfp(
   }
   const questions = shapeQuestions(input.questions);
   const suppliers = shapeSuppliers(input.suppliers);
+
+  // Directory suppliers can only be invited through an accepted portal contact.
+  if (!input.saveAsDraft) {
+    const unaccepted = await findUnacceptedContacts(suppliers);
+    if (unaccepted.length > 0) {
+      return {
+        error: dictionary.rfpActions.contactNotAccepted.replace("{emails}", unaccepted.join(", ")),
+      };
+    }
+  }
 
   // A template can require a minimum number of invited suppliers; drafts are
   // exempt, only publishing has to meet it.

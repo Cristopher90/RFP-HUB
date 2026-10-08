@@ -21,6 +21,7 @@ import {
   ancestorChain,
   strictestMinSuppliers,
 } from "@/lib/templateMatch";
+import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -48,6 +49,13 @@ export async function inviteSupplier(
     where: { id: rfpId },
     select: { clientId: true },
   });
+  // A directory supplier can only be invited through an accepted contact.
+  const unaccepted = await findUnacceptedContacts([
+    { email, supplierDirectoryId: input.supplierDirectoryId },
+  ]);
+  if (unaccepted.length > 0) {
+    return { error: dictionary.rfpActions.contactNotAccepted.replace("{emails}", unaccepted.join(", ")) };
+  }
   const supplier = await prisma.supplier.create({
     data: {
       name,
@@ -152,7 +160,10 @@ export async function publishRfp(rfpId: string) {
   const dictionary = getDictionary(user.language);
   const rfp = await prisma.rfp.findUnique({
     where: { id: rfpId },
-    include: { _count: { select: { invitations: true } } },
+    include: {
+      _count: { select: { invitations: true } },
+      invitations: { include: { supplier: true } },
+    },
   });
   if (!rfp || rfp.status !== "DRAFT") {
     return { error: dictionary.rfpIdActions.onlyDraftCanBePublished };
@@ -174,6 +185,18 @@ export async function publishRfp(rfpId: string) {
     ),
     rfp.selectedTemplateId,
   );
+
+  const unacceptedContacts = await findUnacceptedContacts(
+    rfp.invitations.map((i) => ({
+      email: i.supplier.email,
+      supplierDirectoryId: i.supplier.supplierDirectoryId,
+    })),
+  );
+  if (unacceptedContacts.length > 0) {
+    return {
+      error: dictionary.rfpActions.contactNotAccepted.replace("{emails}", unacceptedContacts.join(", ")),
+    };
+  }
 
   const minRule = strictestMinSuppliers(matchingTemplates);
   if (minRule && rfp._count.invitations < minRule.min) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getCurrentSupplierUser } from "@/lib/supplierAuth";
+import { companyNames, getCurrentSupplierUser, isSupplierAdmin } from "@/lib/supplierAuth";
 import { logout, logoutSupplier } from "@/lib/authActions";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -21,9 +21,17 @@ export async function HeaderNav() {
               {supplierUser.name} {supplierUser.lastName}
             </p>
             <p className="text-xs text-slate-400">
-              {supplierUser.supplierDirectory.companyName}
+              {companyNames(supplierUser)}
             </p>
           </div>
+          {isSupplierAdmin(supplierUser) && (
+            <Link
+              href="/supplier/contacts"
+              className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+            >
+              {dictionary.supplierPortal.contactsMenu}
+            </Link>
+          )}
           <Link
             href="/profile"
             className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"

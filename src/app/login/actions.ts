@@ -41,7 +41,12 @@ export async function loginSupplier(
   }
 
   const supplierUser = await prisma.supplierUser.findUnique({ where: { email } });
-  if (!supplierUser || !verifyPassword(password, supplierUser.passwordHash)) {
+  // No password yet = the invitation hasn't been accepted, so no login.
+  if (
+    !supplierUser ||
+    !supplierUser.passwordHash ||
+    !verifyPassword(password, supplierUser.passwordHash)
+  ) {
     return { error: dictionary.loginActions.invalidCredentials };
   }
 

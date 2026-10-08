@@ -100,7 +100,7 @@ model Client {
   origins                Origin[]
   approvalGroups         ApprovalGroup[]
   supplierDirectories    SupplierDirectory[]
-  supplierUsers          SupplierUser[]
+  supplierUserLinks      SupplierUserLink[]
   itemCatalogLists       ItemCatalogList[]
   itemCatalogEntries     ItemCatalogEntry[]
   templates              RfpTemplate[]
@@ -275,30 +275,58 @@ model SupplierDirectory {
   status           SupplierDirectoryStatus @default(ACTIVE)
   createdAt        DateTime                @default(now())
 
-  supplierUsers SupplierUser[]
-  suppliers     Supplier[]
+  userLinks SupplierUserLink[]
+  suppliers Supplier[]
 
   @@unique([clientId, code])
 }
 
-// Un contacto de un proveedor del directorio con acceso propio (correo +
-// contraseña) al portal de proveedor: ve únicamente las RFP que le llegaron
-// como ese proveedor (vía Supplier.supplierDirectoryId) y su estado.
+// Cuenta de portal de una persona de un proveedor (correo único + contraseña).
+// Una misma persona usa la misma cuenta para todos los clientes que la invitan:
+// a qué proveedor/cliente está asociada vive en SupplierUserLink. La contraseña
+// queda vacía hasta que acepta la primera invitación.
+// clientId / supplierDirectoryId son restos de la versión anterior (una cuenta
+// pertenecía a un solo proveedor); ya no se usan y se eliminarán más adelante.
 model SupplierUser {
-  id                  String            @id @default(cuid())
-  clientId            String
-  client              Client            @relation(fields: [clientId], references: [id])
-  supplierDirectoryId String
-  supplierDirectory   SupplierDirectory @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(cuid())
+  clientId            String?
+  supplierDirectoryId String?
   name                String
   lastName            String
-  email               String            @unique
-  passwordHash        String
-  createdAt           DateTime          @default(now())
+  email               String             @unique
+  passwordHash        String?
+  createdAt           DateTime           @default(now())
   lastLoginAt         DateTime? // fecha y hora del login más reciente, mostrado en el pie de página
-  timezone            String            @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
-  currency            String            @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
-  language            String            @default("es") // idioma de la interfaz ("es" o "en")
+  timezone            String             @default("America/Mexico_City") // zona horaria IANA usada para registrar y mostrar fechas
+  currency            String             @default("USD") // moneda usada para formatear montos (solo formato, no conversión)
+  language            String             @default("es") // idioma de la interfaz ("es" o "en")
+  links               SupplierUserLink[]
+}
+
+enum SupplierLinkStatus {
+  PENDING_APPROVAL // el proveedor tiene un administrador que debe aprobar el nuevo contacto
+  SENT // invitación enviada, falta que la persona la acepte
+  ACCEPTED // la persona aceptó: queda conectada a ese cliente/proveedor
+}
+
+// Une una cuenta de proveedor con una ficha del directorio de un cliente (que
+// ya pertenece a un cliente). Solo los vínculos ACCEPTED dan acceso a las RFP
+// de ese cliente y permiten elegir a la persona como contacto en una RFP.
+model SupplierUserLink {
+  id                  String             @id @default(cuid())
+  clientId            String
+  client              Client             @relation(fields: [clientId], references: [id])
+  supplierUserId      String
+  supplierUser        SupplierUser       @relation(fields: [supplierUserId], references: [id], onDelete: Cascade)
+  supplierDirectoryId String
+  supplierDirectory   SupplierDirectory  @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  status              SupplierLinkStatus @default(SENT)
+  isAdmin             Boolean            @default(false) // administrador de este proveedor: aprueba contactos y gestiona los de su empresa
+  inviteToken         String             @unique @default(cuid())
+  invitedAt           DateTime           @default(now())
+  acceptedAt          DateTime?
+
+  @@unique([supplierUserId, supplierDirectoryId])
 }
 
 // Un catálogo con nombre (ej. "RFP-7", o uno creado a mano) que agrupa

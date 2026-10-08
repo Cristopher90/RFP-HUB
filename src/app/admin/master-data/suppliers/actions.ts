@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
-import { hashPassword } from "@/lib/auth";
+import { addContact, removeLink, sendInvitation } from "@/lib/supplierContacts";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export type SupplierDirectoryStatus = "ACTIVE" | "INACTIVE";
@@ -186,17 +186,38 @@ export async function clearSupplierDirectory(
 }
 
 export type SupplierUserItemInput = {
-  clientKey: string;
+  clientKey: string; // the link id for an existing row, a temporary key for a new one
   name: string;
   lastName: string;
   email: string;
-  password: string; // blank on an existing row = keep current password
+  isAdmin: boolean; // administrator of this supplier: approves new contacts
+  status?: "PENDING_APPROVAL" | "SENT" | "ACCEPTED"; // existing rows only
 };
 
+async function supplierUserRows(supplierDirectoryId: string): Promise<SupplierUserItemInput[]> {
+  const links = await prisma.supplierUserLink.findMany({
+    where: { supplierDirectoryId },
+    include: { supplierUser: true },
+    orderBy: { invitedAt: "asc" },
+  });
+  return links.map((l) => ({
+    clientKey: l.id,
+    name: l.supplierUser.name,
+    lastName: l.supplierUser.lastName,
+    email: l.supplierUser.email,
+    isAdmin: l.isAdmin,
+    status: l.status,
+  }));
+}
+
+// Contacts are not created with a password any more: adding one sends them
+// an invitation email, and they set their own password when they accept. If
+// the supplier already has an administrator, the new contact first waits for
+// that administrator's approval in the supplier portal.
 export async function saveSupplierUsers(
   supplierDirectoryId: string,
   items: SupplierUserItemInput[],
-): Promise<{ error: string } | { success: true }> {
+): Promise<{ error: string } | { success: true; rows: SupplierUserItemInput[] }> {
   const scope = await requireClientScope();
   const dictionary = getDictionary(scope.user.language);
   if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
@@ -217,7 +238,7 @@ export async function saveSupplierUsers(
       name: i.name.trim(),
       lastName: i.lastName.trim(),
       email: i.email.trim().toLowerCase(),
-      password: i.password,
+      isAdmin: Boolean(i.isAdmin),
     }))
     .filter((i) => i.name.length > 0 && i.email.length > 0);
 
@@ -229,55 +250,61 @@ export async function saveSupplierUsers(
     seen.add(i.email);
   }
 
-  const existing = await prisma.supplierUser.findMany({
+  const existing = await prisma.supplierUserLink.findMany({
     where: { supplierDirectoryId },
+    include: { supplierUser: true },
   });
-  const existingIds = new Set(existing.map((u) => u.id));
-  const submittedIds = new Set(
-    cleaned.filter((i) => existingIds.has(i.clientKey)).map((i) => i.clientKey),
-  );
+  const existingById = new Map(existing.map((l) => [l.id, l]));
+  const submittedIds = new Set(cleaned.filter((i) => existingById.has(i.clientKey)).map((i) => i.clientKey));
 
-  for (const row of existing) {
-    if (!submittedIds.has(row.id)) {
-      await prisma.supplierUser.delete({ where: { id: row.id } });
-    }
+  for (const link of existing) {
+    if (!submittedIds.has(link.id)) await removeLink(link.id);
   }
   for (const i of cleaned) {
-    if (existingIds.has(i.clientKey)) {
-      await prisma.supplierUser.update({
-        where: { id: i.clientKey },
-        data: {
-          name: i.name,
-          lastName: i.lastName,
-          email: i.email,
-          ...(i.password ? { passwordHash: hashPassword(i.password) } : {}),
-        },
-      });
+    const link = existingById.get(i.clientKey);
+    if (link) {
+      await prisma.supplierUserLink.update({ where: { id: link.id }, data: { isAdmin: i.isAdmin } });
+      // The person owns their profile once they've accepted; before that the
+      // client can still fix a typo in the name.
+      if (!link.supplierUser.passwordHash) {
+        await prisma.supplierUser.update({
+          where: { id: link.supplierUserId },
+          data: { name: i.name, lastName: i.lastName },
+        });
+      }
     } else {
-      if (!i.password) {
-        return {
-          error: dictionary.suppliersActions.passwordRequiredForNewUser.replace("{email}", i.email),
-        };
-      }
-      const emailTaken = await prisma.supplierUser.findUnique({
-        where: { email: i.email },
+      const result = await addContact({
+        supplierDirectoryId,
+        name: i.name,
+        lastName: i.lastName,
+        email: i.email,
+        isAdmin: i.isAdmin,
+        byAdmin: false,
+        language: scope.user.language,
+        duplicateError: dictionary.suppliersActions.contactAlreadyLinked.replace("{email}", i.email),
       });
-      if (emailTaken) {
-        return { error: dictionary.suppliersActions.emailAlreadyTaken.replace("{email}", i.email) };
-      }
-      await prisma.supplierUser.create({
-        data: {
-          clientId: directory.clientId,
-          supplierDirectoryId,
-          name: i.name,
-          lastName: i.lastName,
-          email: i.email,
-          passwordHash: hashPassword(i.password),
-        },
-      });
+      if ("error" in result) return result;
     }
   }
 
   revalidatePath("/admin/master-data/suppliers");
+  return { success: true, rows: await supplierUserRows(supplierDirectoryId) };
+}
+
+export async function resendSupplierInvitation(
+  linkId: string,
+): Promise<{ error: string } | { success: true }> {
+  const scope = await requireClientScope();
+  const dictionary = getDictionary(scope.user.language);
+  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
+    return { error: dictionary.suppliersActions.noPermissionSupplierUsers };
+  }
+  const link = await prisma.supplierUserLink.findUnique({ where: { id: linkId } });
+  if (!link) return { error: dictionary.suppliersActions.supplierNotFound };
+  if (!scope.isSuperAdmin && link.clientId !== scope.user.clientId) {
+    return { error: dictionary.suppliersActions.cannotEditOtherClientSuppliers };
+  }
+  if (link.status !== "SENT") return { error: dictionary.suppliersActions.nothingToResend };
+  sendInvitation(link.id, scope.user.language);
   return { success: true };
 }

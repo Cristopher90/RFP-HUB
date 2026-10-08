@@ -21,7 +21,10 @@ export default async function LoginPage() {
       orderBy: { name: "asc" },
     }),
     prisma.supplierUser.findMany({
-      include: { supplierDirectory: true },
+      where: { passwordHash: { not: null }, links: { some: { status: "ACCEPTED" } } },
+      include: {
+        links: { where: { status: "ACCEPTED" }, include: { supplierDirectory: true } },
+      },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -51,7 +54,7 @@ export default async function LoginPage() {
           name: u.name,
           lastName: u.lastName,
           email: u.email,
-          companyName: u.supplierDirectory.companyName,
+          companyName: [...new Set(u.links.map((l) => l.supplierDirectory.companyName))].join(", "),
         }))}
       />
     </div>

@@ -35,10 +35,32 @@ export const getCurrentSupplierUser = cache(async () => {
   if (!id) return null;
   const supplierUser = await prisma.supplierUser.findUnique({
     where: { id },
-    include: { supplierDirectory: true, client: true },
+    include: {
+      links: {
+        include: { supplierDirectory: true, client: true },
+        orderBy: { invitedAt: "asc" },
+      },
+    },
   });
   return supplierUser;
 });
+
+type SupplierUserWithLinks = NonNullable<Awaited<ReturnType<typeof getCurrentSupplierUser>>>;
+
+// The links that actually give access: only an accepted connection lets the
+// person see a client's RFPs.
+export function acceptedLinks(supplierUser: SupplierUserWithLinks) {
+  return supplierUser.links.filter((l) => l.status === "ACCEPTED");
+}
+
+export function isSupplierAdmin(supplierUser: SupplierUserWithLinks) {
+  return acceptedLinks(supplierUser).some((l) => l.isAdmin);
+}
+
+// Distinct company names across the accepted links, for the header.
+export function companyNames(supplierUser: SupplierUserWithLinks): string {
+  return [...new Set(acceptedLinks(supplierUser).map((l) => l.supplierDirectory.companyName))].join(", ");
+}
 
 export async function requireSupplierUser() {
   const supplierUser = await getCurrentSupplierUser();

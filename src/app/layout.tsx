@@ -4,7 +4,7 @@ import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
 import { getCurrentUser } from "@/lib/auth";
-import { getCurrentSupplierUser } from "@/lib/supplierAuth";
+import { acceptedLinks, getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { formatDateTime } from "@/lib/format";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -30,7 +30,12 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
   const supplierUser = user ? null : await getCurrentSupplierUser();
-  const client = user?.client ?? supplierUser?.client ?? null;
+  // A supplier contact connected to a single client takes that client's
+  // branding; connected to several, the neutral app branding.
+  const supplierClients = supplierUser
+    ? [...new Map(acceptedLinks(supplierUser).map((l) => [l.clientId, l.client])).values()]
+    : [];
+  const client = user?.client ?? (supplierClients.length === 1 ? supplierClients[0] : null);
   const brandName = client?.description ?? null;
   const brandIcon = client?.icon || "🔨";
 

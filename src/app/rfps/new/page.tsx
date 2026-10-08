@@ -51,7 +51,14 @@ export default async function NewRfpPage({
     }),
     prisma.supplierDirectory.findMany({
       where: { status: "ACTIVE", ...scope.where },
-      include: { supplierUsers: { orderBy: { name: "asc" } } },
+      // Only accepted portal contacts can be invited to an RFP.
+      include: {
+        userLinks: {
+          where: { status: "ACCEPTED" },
+          include: { supplierUser: true },
+          orderBy: { supplierUser: { name: "asc" } },
+        },
+      },
       orderBy: { companyName: "asc" },
     }),
     prisma.itemCatalogEntry.findMany({
@@ -174,10 +181,10 @@ export default async function NewRfpPage({
           origins={origins}
           supplierDirectory={supplierDirectory.map((s) => ({
             ...s,
-            contacts: s.supplierUsers.map((u) => ({
-              id: u.id,
-              name: `${u.name} ${u.lastName}`.trim(),
-              email: u.email,
+            contacts: s.userLinks.map((l) => ({
+              id: l.supplierUser.id,
+              name: `${l.supplierUser.name} ${l.supplierUser.lastName}`.trim(),
+              email: l.supplierUser.email,
             })),
           }))}
           itemCatalog={itemCatalog.map((i) => ({

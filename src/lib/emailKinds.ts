@@ -14,6 +14,9 @@ export const EMAIL_KINDS = [
   "awardRejected",
   "awardRevoked",
   "supplierResponded",
+  "supplierInvite",
+  "supplierClientAccess",
+  "supplierContactApproval",
 ] as const;
 
 export type EmailKind = (typeof EMAIL_KINDS)[number];
@@ -35,6 +38,9 @@ export const KIND_PLACEHOLDERS: Record<EmailKind, string[]> = {
   awardRejected: ["rfp", "title", "number", "reason"],
   awardRevoked: ["rfp", "title", "number"],
   supplierResponded: ["rfp", "title", "number", "supplier", "responses", "invited"],
+  supplierInvite: ["name", "client", "company"],
+  supplierClientAccess: ["name", "client", "company"],
+  supplierContactApproval: ["name", "contact", "email", "client", "company"],
 };
 
 export function isEmailKind(value: string): value is EmailKind {
