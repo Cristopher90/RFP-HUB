@@ -33,7 +33,7 @@ export default async function NewApprovalWorkflowPage({
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <Link
-        href="/admin/approvals"
+        href={effectiveClientId && scope.isSuperAdmin ? `/admin/approvals?clientId=${effectiveClientId}` : "/admin/approvals"}
         className="text-sm text-slate-500 hover:text-slate-700"
       >
         {dictionary.approvalWorkflowPage.backToList}

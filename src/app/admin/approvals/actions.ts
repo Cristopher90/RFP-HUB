@@ -142,5 +142,6 @@ export async function deleteApprovalWorkflow(id: string) {
   });
   await prisma.approvalWorkflow.delete({ where: { id } });
   revalidatePath("/admin/approvals");
-  redirect("/admin/approvals");
+  // A Super Administrador goes back to the same client's list.
+  redirect(scope.isSuperAdmin ? `/admin/approvals?clientId=${existing.clientId}` : "/admin/approvals");
 }

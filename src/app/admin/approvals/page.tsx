@@ -1,21 +1,27 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireClientScope } from "@/lib/clientScope";
+import { requireMasterDataScope } from "@/lib/masterDataScope";
+import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
 
-export default async function ApprovalsPage() {
-  const scope = await requireClientScope();
-  if (scope.user.role !== "ADMIN" && scope.user.role !== "CLIENT_ADMIN") {
-    redirect("/");
-  }
+// Approval processes are per client: the list shows only the selected
+// client's (a Super Administrador picks one; everyone else is on their own).
+export default async function ApprovalsPage({ searchParams }: PageProps<"/admin/approvals">) {
+  const sp = await searchParams;
+  const { scope, clients, effectiveClientId } = await requireMasterDataScope(sp);
   const dictionary = getDictionary(scope.user.language);
 
-  const workflows = await prisma.approvalWorkflow.findMany({
-    where: scope.where,
-    orderBy: { createdAt: "desc" },
-    include: { templates: true, levels: true },
-  });
+  const workflows = effectiveClientId
+    ? await prisma.approvalWorkflow.findMany({
+        where: { clientId: effectiveClientId },
+        orderBy: { createdAt: "desc" },
+        include: { templates: true, levels: true },
+      })
+    : [];
+  const newHref =
+    scope.isSuperAdmin && effectiveClientId
+      ? `/admin/approvals/new?clientId=${effectiveClientId}`
+      : "/admin/approvals/new";
 
   function stageSummary(count: number) {
     if (count === 0) return dictionary.approvalsPage.notRequired;
@@ -40,14 +46,22 @@ export default async function ApprovalsPage() {
           </p>
         </div>
         <Link
-          href="/admin/approvals/new"
+          href={newHref}
           className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
         >
           {dictionary.approvalsPage.newProcess}
         </Link>
       </div>
 
-      {workflows.length === 0 ? (
+      {scope.isSuperAdmin && (
+        <div className="mt-6">
+          <AdminClientSwitcher clients={clients} />
+        </div>
+      )}
+
+      {!effectiveClientId ? (
+        <p className="mt-8 text-sm text-slate-500">{dictionary.approvalWorkflowPage.selectClient}</p>
+      ) : workflows.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
           {dictionary.approvalsPage.noneConfigured}
         </div>
