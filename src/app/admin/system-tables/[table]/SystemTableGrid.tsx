@@ -372,6 +372,72 @@ function DeleteDialog({ tableKey, row, onClose }: { tableKey: string; row: GridR
   );
 }
 
+// Page size (50 / 100 / no limit) and page navigation, kept in the URL.
+function GridPagination({ pagination }: { pagination: { page: number; pageCount: number; pageSize: number | "all"; total: number } }) {
+  const { t } = usePreferences();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { page, pageCount, pageSize, total } = pagination;
+  if (total === 0) return null;
+
+  function go(changes: Record<string, string | null>) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === null) params.delete(key);
+      else params.set(key, value);
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  const start = pageSize === "all" ? 1 : (page - 1) * pageSize + 1;
+  const end = pageSize === "all" ? total : Math.min(page * pageSize, total);
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+      <span>
+        {t("pagination.showing")} {start}–{end} {t("pagination.of")} {total}
+      </span>
+      <div className="flex items-center gap-4">
+        <label className="flex items-center gap-1.5">
+          {t("pagination.show")}
+          <select
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            value={String(pageSize)}
+            onChange={(e) => go({ size: e.target.value === "50" ? null : e.target.value, page: null })}
+          >
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">{t("systemTableEditor.noLimit")}</option>
+          </select>
+        </label>
+        {pageSize !== "all" && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => go({ page: page - 1 <= 1 ? null : String(page - 1) })}
+              disabled={page <= 1}
+              className="rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            >
+              {t("pagination.previous")}
+            </button>
+            <span className="px-1">
+              {t("pagination.page")} {page} {t("pagination.pageOf")} {pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => go({ page: String(page + 1) })}
+              disabled={page >= pageCount}
+              className="rounded-md border border-slate-300 px-2 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+            >
+              {t("pagination.next")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Text box that pushes its value into a URL param after a short pause.
 function DebouncedParamInput({
   param,
@@ -402,6 +468,7 @@ function DebouncedParamInput({
       const params = new URLSearchParams(searchParams.toString());
       if (text.trim()) params.set(param, text.trim());
       else params.delete(param);
+      params.delete("page"); // a new filter starts from the first page
       router.push(`${pathname}?${params.toString()}`);
     }, 500);
     return () => clearTimeout(timer);
@@ -419,6 +486,7 @@ export function SystemTableGrid({
   search,
   columnFilters,
   emptyText,
+  pagination,
 }: {
   tableKey: string;
   columns: GridColumn[];
@@ -427,6 +495,7 @@ export function SystemTableGrid({
   search: string;
   columnFilters: Record<string, string>;
   emptyText: string;
+  pagination: { page: number; pageCount: number; pageSize: number | "all"; total: number };
 }) {
   const { t } = usePreferences();
   const router = useRouter();
@@ -473,11 +542,13 @@ export function SystemTableGrid({
   function clearAll() {
     const params = new URLSearchParams(searchParams.toString());
     for (const key of [...params.keys()]) if (key === "q" || key.startsWith("f_")) params.delete(key);
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
   }
   function removeFilter(name: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.delete(`f_${name}`);
+    params.delete("page");
     router.push(`${pathname}?${params.toString()}`);
   }
   function toggleColumn(name: string) {
@@ -589,6 +660,7 @@ export function SystemTableGrid({
           </tbody>
         </table>
       </div>
+      <GridPagination pagination={pagination} />
       {editing && <EditDialog tableKey={tableKey} columns={columns} row={editing} onClose={() => setEditing(null)} />}
       {deleting && <DeleteDialog tableKey={tableKey} row={deleting} onClose={() => setDeleting(null)} />}
     </>

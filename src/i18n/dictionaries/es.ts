@@ -1053,6 +1053,7 @@ export const es = {
     view: "Ver →",
   },
   systemTableEditor: {
+    noLimit: "Sin límite",
     noResults: "Ningún registro coincide con los filtros.",
     searchAll: "Buscar en todas las columnas...",
     columns: "Columnas",

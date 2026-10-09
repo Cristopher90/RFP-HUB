@@ -1052,6 +1052,7 @@ export const en: Dictionary = {
     view: "View →",
   },
   systemTableEditor: {
+    noLimit: "No limit",
     noResults: "No record matches the filters.",
     searchAll: "Search across all columns...",
     columns: "Columns",

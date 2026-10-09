@@ -7,7 +7,7 @@ import { getTableMeta } from "@/lib/systemTablesMeta";
 import { getDictionary } from "@/i18n/getDictionary";
 import { SystemTableGrid, type GridRow } from "./SystemTableGrid";
 
-const MAX_ROWS = 300;
+const PAGE_SIZES = [50, 100] as const; // plus "all" (no limit)
 
 // Raw table browser and editor (Super Administrador only). `?filter=col:value`
 // narrows the rows to one relation (e.g. the children of a row).
@@ -55,14 +55,25 @@ export default async function SystemTablePage({
     conditions.push(`(${meta.columns.map((c) => `"${c.name}"::text ILIKE $${args.length}`).join(" OR ")})`);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const [rawRows, totalResult] = await Promise.all([
-    prisma.$queryRawUnsafe<Record<string, unknown>[]>(
-      `SELECT * FROM "${meta.table}" ${where} LIMIT ${MAX_ROWS}`,
-      ...args,
-    ),
-    prisma.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM "${meta.table}" ${where}`, ...args),
-  ]);
+
+  // Pagination: 50 per page by default, 100, or everything.
+  const sizeParam = typeof sp.size === "string" ? sp.size : "";
+  const pageSize: number | "all" = sizeParam === "all" ? "all" : PAGE_SIZES.find((n) => String(n) === sizeParam) ?? 50;
+  const totalResult = await prisma.$queryRawUnsafe<{ n: bigint }[]>(
+    `SELECT count(*) AS n FROM "${meta.table}" ${where}`,
+    ...args,
+  );
   const total = Number(totalResult[0]?.n ?? 0);
+  const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(total / pageSize));
+  const requestedPage = Number(typeof sp.page === "string" ? sp.page : 1);
+  const page = Math.min(Math.max(Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1, 1), pageCount);
+  // A stable order keeps pages consistent from one request to the next.
+  const order = meta.pk ? `ORDER BY "${meta.pk}"` : "";
+  const paging = pageSize === "all" ? "" : `LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+  const rawRows = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(
+    `SELECT * FROM "${meta.table}" ${where} ${order} ${paging}`,
+    ...args,
+  );
 
   const toEdit = (value: unknown, kind: string): string | null => {
     if (value === null || value === undefined) return null;
@@ -90,8 +101,7 @@ export default async function SystemTablePage({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{table.label}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {total} {total === 1 ? d.rowSingular : d.rowPlural}
-            {total > rows.length ? ` ${d.showingFirst} ${rows.length}` : ""}.{" "}
+            {total} {total === 1 ? d.rowSingular : d.rowPlural}.{" "}
             {meta.immutable && <span className="font-medium text-amber-700">{dictionary.systemTableEditor.readOnlyTable}</span>}
             {!meta.immutable && !meta.pk && (
               <span className="font-medium text-amber-700">{dictionary.systemTableEditor.noSimpleKey}</span>
@@ -118,6 +128,7 @@ export default async function SystemTablePage({
         editable={editable}
         search={search}
         columnFilters={columnFilters}
+        pagination={{ page, pageCount, pageSize, total }}
         emptyText={filter || search || Object.keys(columnFilters).length > 0 ? dictionary.systemTableEditor.noResults : d.emptyTable}
         columns={meta.columns.map((c) => ({
           name: c.name,
