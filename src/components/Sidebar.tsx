@@ -11,6 +11,7 @@ export async function Sidebar() {
   const dictionary = getDictionary(user.language);
 
   const items: SidebarItem[] = [
+    { href: "/home", label: dictionary.nav.home, icon: "home" },
     { href: "/", label: dictionary.nav.rfps, icon: "rfps" },
     ...(canViewRequests(user)
       ? [{ href: "/requests", label: dictionary.nav.requests, icon: "requests" as const }]

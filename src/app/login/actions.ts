@@ -35,7 +35,7 @@ export async function login(
   }
 
   await createSessionCookie(user.id, "PASSWORD");
-  redirect("/");
+  redirect("/home");
 }
 
 export async function loginSupplier(
@@ -80,7 +80,7 @@ export async function quickLoginAsUser(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return;
   await createSessionCookie(user.id, "QUICK");
-  redirect("/");
+  redirect("/home");
 }
 
 export async function quickLoginAsSupplierUser(supplierUserId: string) {

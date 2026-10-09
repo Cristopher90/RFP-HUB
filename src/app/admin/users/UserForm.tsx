@@ -22,6 +22,8 @@ const REQUEST_PERMISSIONS = [
   "seeAllRequests",
 ] as const;
 
+const NOTE_PERMISSIONS = ["canNoteOwn", "canNoteTargeted", "canNoteAll"] as const;
+
 type ApprovalGroupRow = { clientKey: string; approvalGroupId: string; limit: string };
 
 export function UserForm({
@@ -60,6 +62,9 @@ export function UserForm({
     seeMyRequests: initial?.seeMyRequests ?? false,
     seeAssignedRequests: initial?.seeAssignedRequests ?? false,
     seeAllRequests: initial?.seeAllRequests ?? false,
+    canNoteOwn: initial?.canNoteOwn ?? true,
+    canNoteTargeted: initial?.canNoteTargeted ?? false,
+    canNoteAll: initial?.canNoteAll ?? false,
   });
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
@@ -302,6 +307,23 @@ export function UserForm({
         <p className="mt-1 text-sm text-slate-500">{t("userForm.requestsSubtitle")}</p>
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {REQUEST_PERMISSIONS.map((field) => (
+            <label key={field} className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={form[field]}
+                onChange={(e) => update({ [field]: e.target.checked })}
+              />
+              {t(`userForm.${field}`)}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">{t("userForm.notesTitle")}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t("userForm.notesSubtitle")}</p>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {NOTE_PERMISSIONS.map((field) => (
             <label key={field} className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"

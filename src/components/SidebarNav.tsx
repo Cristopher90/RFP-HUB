@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type SidebarIconName = "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog";
+export type SidebarIconName = "home" | "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog";
 
 // Hand-drawn line icons, one per menu entry, drawn with currentColor so they
 // follow the theme and the active/hover state.
@@ -20,6 +20,14 @@ function Icon({ name }: { name: SidebarIconName }) {
     "aria-hidden": true,
   };
   switch (name) {
+    case "home": // house
+      return (
+        <svg {...common}>
+          <path d="M4 11.5 12 4l8 7.5" />
+          <path d="M6 10.5V20h12v-9.5" />
+          <path d="M10 20v-5h4v5" />
+        </svg>
+      );
     case "rfps": // sheet of paper with lines and a check: a request for proposal
       return (
         <svg {...common}>

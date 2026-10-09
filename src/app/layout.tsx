@@ -78,7 +78,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
         <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href={user ? "/home" : "/"} className="flex items-center gap-2.5">
               {brandImage ? (
                 // The client's own image replaces the emoji badge.
                 // eslint-disable-next-line @next/next/no-img-element

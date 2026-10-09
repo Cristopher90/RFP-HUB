@@ -102,6 +102,7 @@ model Client {
   approvalGroups         ApprovalGroup[]
   supplierDirectories    SupplierDirectory[]
   supplierUserLinks      SupplierUserLink[]
+  notes                  Note[]
   itemCatalogLists       ItemCatalogList[]
   itemCatalogEntries     ItemCatalogEntry[]
   templates              RfpTemplate[]
@@ -156,6 +157,14 @@ model User {
   seeMyRequests         Boolean @default(false) // ve las asignadas a su usuario (directo o por grupo)
   seeAssignedRequests   Boolean @default(false) // ve las asignadas a cualquier usuario
   seeAllRequests        Boolean @default(false) // ve todas
+
+  // Permisos para escribir notas en Inicio (los administradores tienen todo implícito)
+  canNoteOwn      Boolean @default(true) // puede escribir notas propias (solo las ve él)
+  canNoteTargeted Boolean @default(false) // puede dirigir notas a usuarios específicos de su empresa
+  canNoteAll      Boolean @default(false) // puede escribir notas para todos los usuarios de su empresa
+
+  notes       Note[]
+  noteTargets NoteTarget[]
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -930,4 +939,43 @@ model SystemTableLog {
 
   @@index([createdAt])
   @@index([table, rowId])
+}
+
+enum NoteScope {
+  PRIVATE // solo el autor la ve
+  TARGETED // dirigida a usuarios específicos (NoteTarget)
+  ALL // para todos los usuarios del cliente (o de todos los clientes si clientId es null)
+}
+
+// Notas tipo post-it del tablero de Inicio. Siempre pertenecen a un cliente,
+// salvo las novedades del Super Administrador, que pueden ser globales
+// (clientId null). Solo se muestran dentro de su ventana startsAt–endsAt.
+model Note {
+  id        String    @id @default(cuid())
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id])
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  weight    Int       @default(3) // importancia de 1 a 5
+  scope     NoteScope
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  targets NoteTarget[]
+
+  @@index([clientId])
+  @@index([authorId])
+}
+
+model NoteTarget {
+  id     String @id @default(cuid())
+  noteId String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
 }

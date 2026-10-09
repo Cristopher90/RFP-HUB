@@ -44,6 +44,8 @@ export const SYSTEM_TABLES = [
   { key: "supplier-user-link", label: "SupplierUserLink", model: "supplierUserLink" },
   { key: "request-rfp-mapping", label: "RequestRfpMapping", model: "requestRfpMapping" },
   { key: "system-table-log", label: "SystemTableLog", model: "systemTableLog" },
+  { key: "note", label: "Note", model: "note" },
+  { key: "note-target", label: "NoteTarget", model: "noteTarget" },
 ] as const;
 
 // Audit-style tables: viewable here but never editable or deletable, so the
@@ -55,7 +57,7 @@ export const READONLY_COLUMNS: readonly string[] = ["passwordHash"];
 
 // Logical grouping for the table list; a table missing here lands in "other".
 export const SYSTEM_TABLE_GROUPS: { key: string; tables: string[] }[] = [
-  { key: "tenancy", tables: ["Client", "User", "UserApprovalGroup", "UserPreference", "BuyerGroup", "BuyerGroupMember"] },
+  { key: "tenancy", tables: ["Client", "User", "UserApprovalGroup", "UserPreference", "BuyerGroup", "BuyerGroupMember", "Note", "NoteTarget"] },
   { key: "masterData", tables: ["Commodity", "Region", "Origin", "ApprovalGroup", "SupplierDirectory", "ItemCatalogList", "ItemCatalogEntry"] },
   { key: "suppliers", tables: ["Supplier", "SupplierUser", "SupplierUserLink"] },
   { key: "templates", tables: ["RfpTemplate", "TemplateItem", "TemplateQuestion", "ApprovalWorkflow", "ApprovalLevel"] },

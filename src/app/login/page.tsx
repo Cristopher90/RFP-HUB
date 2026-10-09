@@ -11,7 +11,7 @@ export default async function LoginPage() {
     getCurrentUser(),
     getCurrentSupplierUser(),
   ]);
-  if (user) redirect("/");
+  if (user) redirect("/home");
   if (supplierUser) redirect("/supplier");
   const dictionary = getDictionary((await getViewerPreferences()).language);
 
