@@ -165,6 +165,7 @@ model User {
 
   notes       Note[]
   noteTargets NoteTarget[]
+  noteReads   NoteRead[]
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -965,6 +966,7 @@ model Note {
   updatedAt DateTime  @updatedAt
 
   targets NoteTarget[]
+  reads   NoteRead[]
 
   @@index([clientId])
   @@index([authorId])
@@ -976,6 +978,18 @@ model NoteTarget {
   note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+}
+
+// Quién marcó una nota como leída (solo los destinatarios, no el autor).
+model NoteRead {
+  id     String   @id @default(cuid())
+  noteId String
+  note   Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt DateTime @default(now())
 
   @@unique([noteId, userId])
 }

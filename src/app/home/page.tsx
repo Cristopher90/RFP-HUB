@@ -52,7 +52,12 @@ export default async function HomePage() {
     }),
     prisma.note.findMany({
       where: visibleNotesWhere(user, now),
-      include: { author: true, targets: { select: { userId: true } }, client: true },
+      include: {
+        author: true,
+        targets: { select: { userId: true } },
+        client: true,
+        reads: { select: { userId: true } },
+      },
       orderBy: { createdAt: "desc" },
     }),
     user.clientId
@@ -83,6 +88,8 @@ export default async function HomePage() {
     authorName: `${n.author.name} ${n.author.lastName ?? ""}`.trim(),
     isMine: n.authorId === user.id,
     canManage: canManageNote(user, n),
+    read: n.reads.some((r) => r.userId === user.id),
+    readCount: n.reads.length,
     targetIds: n.targets.map((t) => t.userId),
     targetCount: n.targets.length,
     clientLabel:

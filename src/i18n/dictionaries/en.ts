@@ -657,6 +657,12 @@ export const en: Dictionary = {
     globalNews: "News",
   },
   homeNotes: {
+    filterRead: "Read",
+    markRead: "Mark as read",
+    markUnread: "Mark as unread",
+    readBy: "Read by {count}",
+    previous: "Previous notes",
+    next: "Next notes",
     filterAll: "All",
     filterMine: "Mine",
     filterToMe: "Directed to me",

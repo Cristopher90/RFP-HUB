@@ -23,10 +23,9 @@ export function noteRights(user: NoteUser) {
   };
 }
 
-export function canManageNote(user: NoteUser, note: { authorId: string; clientId: string | null }) {
-  if (note.authorId === user.id) return true;
-  if (user.role === "ADMIN") return true;
-  return user.role === "CLIENT_ADMIN" && note.clientId !== null && note.clientId === user.clientId;
+// Only the person who wrote a note can edit or delete it; everyone else just reads it.
+export function canManageNote(user: NoteUser, note: { authorId: string }) {
+  return note.authorId === user.id;
 }
 
 // Notes this user can see on Home: the ones they wrote (any date, so they can

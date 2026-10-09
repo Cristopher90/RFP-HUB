@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { UserMultiPicker, type PickableUser } from "@/components/UserMultiPicker";
 import { utcToZonedTime } from "@/lib/timezone";
-import { deleteNote, saveNote } from "./actions";
+import { deleteNote, saveNote, setNoteRead } from "./actions";
 
 export type NoteView = {
   id: string;
@@ -16,13 +16,17 @@ export type NoteView = {
   authorName: string;
   isMine: boolean;
   canManage: boolean;
+  read: boolean; // the viewer already marked it as read
+  readCount: number; // how many recipients marked it as read (shown to the author)
   targetIds: string[];
   targetCount: number;
   clientLabel: string | null; // for notes that aren't from the viewer's own client (global news)
   state: "active" | "scheduled" | "expired";
 };
 
-type Filter = "all" | "mine" | "toMe" | "everyone";
+type Filter = "all" | "mine" | "toMe" | "everyone" | "read";
+
+const PAGE_SIZE = 4; // notes shown at a time; arrows move to the next ones
 
 // Sticky-note colors by importance (1 calm blue → 5 urgent red).
 const NOTE_COLORS: Record<number, string> = { 1: "#dbeafe", 2: "#d1fae5", 3: "#fef08a", 4: "#fdba74", 5: "#fca5a5" };
@@ -56,6 +60,7 @@ export function NotesBoard({
 }) {
   const { t, formatDate, timeZone } = usePreferences();
   const [filter, setFilter] = useState<Filter>("all");
+  const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -63,16 +68,18 @@ export function NotesBoard({
   const canWrite = rights.own || rights.targeted || rights.all;
   const firstScope: Draft["scope"] = rights.own ? "PRIVATE" : rights.targeted ? "TARGETED" : "ALL";
 
+  // Notes already marked as read leave the other tabs and live under "Read".
   const categories: Record<Filter, (n: NoteView) => boolean> = {
-    all: (n) => n.state === "active" || n.isMine,
+    all: (n) => n.state === "active" && !n.read,
     mine: (n) => n.isMine,
-    toMe: (n) => n.scope === "TARGETED" && !n.isMine && n.state === "active",
-    everyone: (n) => n.scope === "ALL" && n.state === "active",
+    toMe: (n) => n.scope === "TARGETED" && !n.isMine && n.state === "active" && !n.read,
+    everyone: (n) => n.scope === "ALL" && n.state === "active" && !n.read,
+    read: (n) => !n.isMine && n.read && n.state === "active",
   };
-  const shown = notes
-    .filter(categories[filter])
-    .filter((n) => (filter === "all" ? n.state === "active" : true))
-    .sort((a, b) => b.weight - a.weight);
+  const ordered = notes.filter(categories[filter]).sort((a, b) => b.weight - a.weight);
+  const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const shown = ordered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
 
   // Functional update so quick successive edits never overwrite each other.
   const patch = (changes: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...changes } : d));
@@ -119,7 +126,10 @@ export function NotesBoard({
     <button
       key={f}
       type="button"
-      onClick={() => setFilter(f)}
+      onClick={() => {
+        setFilter(f);
+        setPage(0);
+      }}
       className={`rounded-full px-3.5 py-1.5 text-sm font-medium ${
         filter === f ? "bg-violet-600 text-white shadow-sm" : "bg-white text-slate-600 ring-1 ring-slate-300 hover:bg-slate-50"
       }`}
@@ -136,6 +146,7 @@ export function NotesBoard({
           {filterButton("mine", t("homeNotes.filterMine"))}
           {filterButton("toMe", t("homeNotes.filterToMe"))}
           {filterButton("everyone", t("homeNotes.filterEveryone"))}
+          {filterButton("read", t("homeNotes.filterRead"))}
         </div>
         {canWrite && (
           <button
@@ -190,6 +201,27 @@ export function NotesBoard({
                   <p className="font-semibold">{n.state === "expired" ? t("homeNotes.expired") : t("homeNotes.scheduled")}</p>
                 )}
               </div>
+              {n.isMine && n.scope !== "PRIVATE" && (
+                <p className="mt-1 text-[11px] font-semibold opacity-80">
+                  ✓ {t("homeNotes.readBy").replace("{count}", String(n.readCount))}
+                </p>
+              )}
+              {!n.isMine && (
+                <div className="mt-2 flex gap-3 text-xs font-medium">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        await setNoteRead(n.id, !n.read);
+                      })
+                    }
+                    className="underline"
+                  >
+                    {n.read ? t("homeNotes.markUnread") : t("homeNotes.markRead")}
+                  </button>
+                </div>
+              )}
               {n.canManage && (
                 <div className="mt-2 flex gap-3 text-xs font-medium">
                   <button type="button" onClick={() => openEdit(n)} className="underline">
@@ -202,6 +234,32 @@ export function NotesBoard({
               )}
             </article>
           ))}
+        </div>
+      )}
+
+      {pageCount > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-3 text-sm text-slate-600">
+          <button
+            type="button"
+            onClick={() => setPage(Math.max(0, currentPage - 1))}
+            disabled={currentPage === 0}
+            aria-label={t("homeNotes.previous")}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1 hover:bg-slate-50 disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <span className="tabular-nums">
+            {currentPage + 1} / {pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
+            disabled={currentPage >= pageCount - 1}
+            aria-label={t("homeNotes.next")}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1 hover:bg-slate-50 disabled:opacity-30"
+          >
+            ›
+          </button>
         </div>
       )}
 
@@ -233,8 +291,8 @@ export function NotesBoard({
                       key={w}
                       type="button"
                       onClick={() => patch({ weight: w })}
-                      className={`h-9 w-9 rounded-md text-sm font-semibold text-slate-800 ${draft.weight === w ? "ring-2 ring-violet-600" : "ring-1 ring-slate-300"}`}
-                      style={{ backgroundColor: NOTE_COLORS[w] }}
+                      className={`h-9 w-9 rounded-md text-sm font-semibold ${draft.weight === w ? "ring-2 ring-violet-600" : "ring-1 ring-slate-300"}`}
+                      style={{ backgroundColor: NOTE_COLORS[w], color: "#1e293b" }}
                     >
                       {w}
                     </button>

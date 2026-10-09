@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
-import { canManageNote, noteRights } from "@/lib/notes";
+import { canManageNote, noteRights, visibleNotesWhere } from "@/lib/notes";
 
 export type NoteInput = {
   id?: string;
@@ -93,6 +93,28 @@ export async function deleteNote(id: string): Promise<{ error: string } | { succ
   const note = await prisma.note.findUnique({ where: { id } });
   if (!note || !canManageNote(user, note)) return { error: d.notFound };
   await prisma.note.delete({ where: { id } });
+  revalidatePath("/home");
+  return { success: true };
+}
+
+// A recipient marks a note directed at them (or at everybody) as read, or unread again.
+export async function setNoteRead(noteId: string, read: boolean): Promise<{ error: string } | { success: true }> {
+  const user = await requireUser();
+  const d = getDictionary(user.language).homeNotes;
+  const note = await prisma.note.findFirst({
+    where: { AND: [{ id: noteId }, visibleNotesWhere(user, new Date())] },
+    select: { id: true, authorId: true },
+  });
+  if (!note || note.authorId === user.id) return { error: d.notFound };
+  if (read) {
+    await prisma.noteRead.upsert({
+      where: { noteId_userId: { noteId, userId: user.id } },
+      create: { noteId, userId: user.id },
+      update: {},
+    });
+  } else {
+    await prisma.noteRead.deleteMany({ where: { noteId, userId: user.id } });
+  }
   revalidatePath("/home");
   return { success: true };
 }
