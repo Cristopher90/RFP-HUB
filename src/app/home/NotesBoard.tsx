@@ -26,11 +26,27 @@ export type NoteView = {
 
 type Filter = "all" | "mine" | "toMe" | "everyone" | "read";
 
+const LONG_NOTE = 150; // characters (or more than 4 lines) after which a note is cut with "View more"
 const PAGE_SIZE = 4; // notes shown at a time; arrows move to the next ones
 
 // Sticky-note colors by importance (1 calm blue → 5 urgent red).
 const NOTE_COLORS: Record<number, string> = { 1: "#dbeafe", 2: "#d1fae5", 3: "#fef08a", 4: "#fdba74", 5: "#fca5a5" };
 const TILTS = [-1.6, 1.1, -0.7, 1.7, -1.2, 0.6];
+
+// Importance as five dots: filled up to the note's weight, empty after.
+function ImportanceDots({ weight, title }: { weight: number; title: string }) {
+  return (
+    <span className="inline-flex items-center gap-1" title={`${title}: ${weight}/5`} aria-label={`${title}: ${weight}/5`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span
+          key={i}
+          className="inline-block h-2.5 w-2.5 rounded-full border-[1.5px] border-current"
+          style={{ backgroundColor: i <= weight ? "currentColor" : "transparent" }}
+        />
+      ))}
+    </span>
+  );
+}
 
 function inputClass() {
   return "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -62,6 +78,7 @@ export function NotesBoard({
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [viewing, setViewing] = useState<NoteView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -119,6 +136,8 @@ export function NotesBoard({
       await deleteNote(n.id);
     });
   }
+
+  const isLong = (body: string) => body.length > LONG_NOTE || body.split("\n").length > 4;
 
   const count = (f: Filter) => notes.filter(categories[f]).length;
   const scopeLabel = (s: NoteView["scope"]) => t(`homeNotes.scope_${s}`);
@@ -183,10 +202,19 @@ export function NotesBoard({
                 style={{ backgroundColor: "rgba(255,255,255,0.65)", boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}
               />
               <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide opacity-80">
-                <span title={t("homeNotes.importance")}>{"★".repeat(n.weight)}{"☆".repeat(5 - n.weight)}</span>
+                <ImportanceDots weight={n.weight} title={t("homeNotes.importance")} />
                 <span>{scopeLabel(n.scope)}{n.scope === "TARGETED" && n.isMine ? ` · ${n.targetCount}` : ""}</span>
               </div>
-              <p className="flex-1 whitespace-pre-wrap break-words text-sm leading-snug">{n.body}</p>
+              <p
+                className={`flex-1 whitespace-pre-wrap break-words text-sm leading-snug ${isLong(n.body) ? "line-clamp-4" : ""}`}
+              >
+                {n.body}
+              </p>
+              {isLong(n.body) && (
+                <button type="button" onClick={() => setViewing(n)} className="mt-1 self-start text-xs font-semibold underline">
+                  {t("homeNotes.viewMore")}
+                </button>
+              )}
               <div className="mt-3 space-y-0.5 text-[11px] opacity-80">
                 <p>
                   {n.isMine ? t("homeNotes.byMe") : n.authorName}
@@ -260,6 +288,44 @@ export function NotesBoard({
           >
             ›
           </button>
+        </div>
+      )}
+
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 py-10" onClick={() => setViewing(null)}>
+          {/* The same sticky note, just with the whole text. */}
+          <article
+            className="relative w-full max-w-lg rounded-sm p-6 pt-7 shadow-xl"
+            style={{ backgroundColor: NOTE_COLORS[viewing.weight], color: "#1e293b" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span
+              aria-hidden
+              className="absolute -top-2 left-1/2 h-4 w-20 -translate-x-1/2 rotate-2 rounded-sm"
+              style={{ backgroundColor: "rgba(255,255,255,0.65)", boxShadow: "0 1px 2px rgba(0,0,0,0.15)" }}
+            />
+            <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide opacity-80">
+              <ImportanceDots weight={viewing.weight} title={t("homeNotes.importance")} />
+              <span>{scopeLabel(viewing.scope)}</span>
+            </div>
+            <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed">{viewing.body}</p>
+            <div className="mt-4 space-y-0.5 text-xs opacity-80">
+              <p>
+                {viewing.isMine ? t("homeNotes.byMe") : viewing.authorName}
+                {viewing.clientLabel ? ` · ${viewing.clientLabel}` : ""}
+              </p>
+              {(viewing.startsAt || viewing.endsAt) && (
+                <p>
+                  {viewing.startsAt ? formatDate(viewing.startsAt) : "…"} → {viewing.endsAt ? formatDate(viewing.endsAt) : "…"}
+                </p>
+              )}
+            </div>
+            <div className="mt-4 text-xs font-medium">
+              <button type="button" onClick={() => setViewing(null)} className="underline">
+                {t("homeNotes.close")}
+              </button>
+            </div>
+          </article>
         </div>
       )}
 

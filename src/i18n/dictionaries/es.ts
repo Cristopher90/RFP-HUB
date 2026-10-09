@@ -658,6 +658,8 @@ export const es = {
     globalNews: "Novedad",
   },
   homeNotes: {
+    viewMore: "Ver más",
+    close: "Cerrar",
     filterRead: "Leídas",
     markRead: "Marcar como leída",
     markUnread: "Marcar como no leída",

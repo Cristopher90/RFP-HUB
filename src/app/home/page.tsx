@@ -4,6 +4,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { canManageNote, noteRights, visibleNotesWhere } from "@/lib/notes";
+import { PendingApprovalsBox } from "../PendingApprovalsBox";
 import { WeekCalendar } from "./WeekCalendar";
 import { StatusSummary } from "./StatusSummary";
 import { NotesBoard, type NoteView } from "./NotesBoard";
@@ -20,9 +21,10 @@ export default async function HomePage() {
 
   // "Own" RFPs: the ones the user created — or, for an approver, the ones
   // assigned to them for approval.
+  const pendingApprovals = await findPendingApprovalsForUser(user.id);
   let ownWhere;
   if (user.role === "APPROVER") {
-    const pending = await findPendingApprovalsForUser(user.id);
+    const pending = pendingApprovals;
     const decided = await findDecidedRfpIdsForUser(user.id);
     ownWhere = { id: { in: [...new Set([...pending.map((p) => p.rfpId), ...decided])] } };
   } else {
@@ -101,6 +103,21 @@ export default async function HomePage() {
     <div className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">{d.title}</h1>
       <p className="mt-1 text-sm text-slate-500">{d.subtitle.replace("{name}", user.name)}</p>
+
+      {pendingApprovals.length > 0 && (
+        <div className="mt-6 -mb-2">
+          <PendingApprovalsBox
+            items={pendingApprovals.map((p) => ({
+              rfpId: p.rfpId,
+              rfpNumber: p.rfpNumber,
+              rfpTitle: p.rfpTitle,
+              stage: p.stage,
+              approvalId: p.approvalId,
+              createdAt: p.createdAt.toISOString(),
+            }))}
+          />
+        </div>
+      )}
 
       <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
         <h2 className="mb-4 text-base font-semibold text-slate-900">{d.notesTitle}</h2>
