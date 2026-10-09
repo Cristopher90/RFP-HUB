@@ -1,3 +1,4 @@
+import { recordLoginEvent, type LoginMethod } from "@/lib/loginLog";
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 // but each identifies a different kind of actor.
 const SUPPLIER_SESSION_COOKIE = "session_supplier_user";
 
-export async function createSupplierSessionCookie(supplierUserId: string) {
+export async function createSupplierSessionCookie(supplierUserId: string, method: LoginMethod = "PASSWORD") {
   const store = await cookies();
   store.set(SUPPLIER_SESSION_COOKIE, supplierUserId, {
     httpOnly: true,
@@ -18,9 +19,17 @@ export async function createSupplierSessionCookie(supplierUserId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
-  await prisma.supplierUser.update({
+  const person = await prisma.supplierUser.update({
     where: { id: supplierUserId },
     data: { lastLoginAt: new Date() },
+  });
+  await recordLoginEvent({
+    event: "LOGIN",
+    kind: "SUPPLIER",
+    method,
+    userId: person.id,
+    email: person.email,
+    name: `${person.name} ${person.lastName}`.trim(),
   });
 }
 

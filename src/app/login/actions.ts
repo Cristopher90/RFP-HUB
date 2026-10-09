@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { createSessionCookie, verifyPassword } from "@/lib/auth";
 import { createSupplierSessionCookie } from "@/lib/supplierAuth";
 import { getViewerPreferences } from "@/lib/preferences";
+import { recordLoginEvent } from "@/lib/loginLog";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export async function login(
@@ -21,10 +22,19 @@ export async function login(
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !verifyPassword(password, user.passwordHash)) {
+    await recordLoginEvent({
+      event: "LOGIN_FAILED",
+      kind: user ? "USER" : "UNKNOWN",
+      method: "PASSWORD",
+      userId: user?.id,
+      email,
+      name: user ? `${user.name} ${user.lastName ?? ""}`.trim() : null,
+      clientId: user?.clientId,
+    });
     return { error: dictionary.loginActions.invalidCredentials };
   }
 
-  await createSessionCookie(user.id);
+  await createSessionCookie(user.id, "PASSWORD");
   redirect("/");
 }
 
@@ -47,6 +57,14 @@ export async function loginSupplier(
     !supplierUser.passwordHash ||
     !verifyPassword(password, supplierUser.passwordHash)
   ) {
+    await recordLoginEvent({
+      event: "LOGIN_FAILED",
+      kind: supplierUser ? "SUPPLIER" : "UNKNOWN",
+      method: "PASSWORD",
+      userId: supplierUser?.id,
+      email,
+      name: supplierUser ? `${supplierUser.name} ${supplierUser.lastName}`.trim() : null,
+    });
     return { error: dictionary.loginActions.invalidCredentials };
   }
 
@@ -61,7 +79,7 @@ export async function loginSupplier(
 export async function quickLoginAsUser(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return;
-  await createSessionCookie(user.id);
+  await createSessionCookie(user.id, "QUICK");
   redirect("/");
 }
 
@@ -70,6 +88,6 @@ export async function quickLoginAsSupplierUser(supplierUserId: string) {
     where: { id: supplierUserId },
   });
   if (!supplierUser) return;
-  await createSupplierSessionCookie(supplierUser.id);
+  await createSupplierSessionCookie(supplierUser.id, "QUICK");
   redirect("/supplier");
 }

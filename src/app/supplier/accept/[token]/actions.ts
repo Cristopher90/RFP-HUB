@@ -45,6 +45,6 @@ export async function acceptInvitation(
   }
 
   if (link.status === "SENT") await acceptLink(link.id);
-  await createSupplierSessionCookie(person.id);
+  await createSupplierSessionCookie(person.id, "INVITATION");
   redirect("/supplier");
 }

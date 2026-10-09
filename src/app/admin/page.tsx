@@ -167,6 +167,24 @@ export default async function AdminPage() {
         </div>
       </CollapsibleSection>
 
+      {scope.isSuperAdmin && (
+        <CollapsibleSection
+          title={dictionary.adminDashboard.securityTitle}
+          subtitle={dictionary.adminDashboard.securitySubtitle}
+          storageKey="admin-hub-security"
+          className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/admin/login-log"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              {dictionary.adminDashboard.loginLogLink}
+            </Link>
+          </div>
+        </CollapsibleSection>
+      )}
+
       <CollapsibleSection
         title={dictionary.adminDashboard.templatesTitle}
         subtitle={dictionary.adminDashboard.templatesSubtitle}

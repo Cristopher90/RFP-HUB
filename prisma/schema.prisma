@@ -888,3 +888,23 @@ model UserPreference {
 
   @@unique([userId, key])
 }
+
+// Registro de accesos: cada inicio de sesión (correcto o fallido) y cierre de
+// sesión, de usuarios internos y de contactos de proveedor. Solo lo ve el
+// Super Administrador. Se guardan nombre y correo "congelados" para que el
+// registro siga siendo legible aunque el usuario se elimine.
+model LoginEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  event     String // LOGIN | LOGOUT | LOGIN_FAILED
+  kind      String // USER | SUPPLIER | UNKNOWN
+  method    String? // PASSWORD | QUICK | INVITATION
+  userId    String?
+  email     String
+  name      String?
+  clientId  String?
+  ip        String?
+  userAgent String?
+
+  @@index([createdAt])
+}

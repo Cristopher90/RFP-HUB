@@ -1,3 +1,4 @@
+import { recordLoginEvent, type LoginMethod } from "@/lib/loginLog";
 import "server-only";
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
@@ -26,7 +27,7 @@ export function verifyPassword(password: string, stored: string) {
   return timingSafeEqual(candidate, expected);
 }
 
-export async function createSessionCookie(userId: string) {
+export async function createSessionCookie(userId: string, method: LoginMethod = "PASSWORD") {
   const store = await cookies();
   store.set(SESSION_COOKIE, userId, {
     httpOnly: true,
@@ -34,9 +35,18 @@ export async function createSessionCookie(userId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
-  await prisma.user.update({
+  const user = await prisma.user.update({
     where: { id: userId },
     data: { lastLoginAt: new Date() },
+  });
+  await recordLoginEvent({
+    event: "LOGIN",
+    kind: "USER",
+    method,
+    userId: user.id,
+    email: user.email,
+    name: `${user.name} ${user.lastName ?? ""}`.trim(),
+    clientId: user.clientId,
   });
 }
 

@@ -39,6 +39,7 @@ export const SYSTEM_TABLES = [
   { key: "purchase-request", label: "PurchaseRequest", model: "purchaseRequest" },
   { key: "purchase-request-line", label: "PurchaseRequestLine", model: "purchaseRequestLine" },
   { key: "user-preference", label: "UserPreference", model: "userPreference" },
+  { key: "login-event", label: "LoginEvent", model: "loginEvent" },
 ] as const;
 
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];
