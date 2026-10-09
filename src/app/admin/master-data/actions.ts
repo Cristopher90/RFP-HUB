@@ -13,6 +13,7 @@ export type MasterDataItemInput = {
   description: string;
   parentClientKey: string | null;
   icon?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
+  iconImage?: string | null; // solo kind: "client": data URL de la imagen del icono, null = sin imagen
   currency?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
   selectable?: boolean; // solo usado por kind: "commodity"
 };
@@ -41,6 +42,7 @@ export async function saveClientList(
       code: i.code.trim(),
       description: i.description.trim(),
       icon: i.icon?.trim() || null,
+      iconImage: i.iconImage || null,
       currency: (i.currency?.trim() || "USD").toUpperCase(),
     }))
     .filter((i) => i.code.length > 0 && i.description.length > 0);
@@ -50,6 +52,10 @@ export async function saveClientList(
     const key = i.code.toLowerCase();
     if (seen.has(key)) return { error: dictionary.masterDataActions.duplicateId.replace("{id}", i.code) };
     seen.add(key);
+    // Only small raster images (the form downsizes them before sending).
+    if (i.iconImage && (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(i.iconImage) || i.iconImage.length > 150_000)) {
+      return { error: dictionary.masterDataActions.invalidIconImage };
+    }
     if (!CURRENCIES.includes(i.currency)) {
       return { error: dictionary.masterDataActions.invalidCurrency.replace("{currency}", i.currency) };
     }
@@ -82,11 +88,11 @@ export async function saveClientList(
     if (existingIds.has(i.clientKey)) {
       await prisma.client.update({
         where: { id: i.clientKey },
-        data: { code: i.code, description: i.description, icon: i.icon, currency: i.currency },
+        data: { code: i.code, description: i.description, icon: i.icon, iconImage: i.iconImage, currency: i.currency },
       });
     } else {
       await prisma.client.create({
-        data: { code: i.code, description: i.description, icon: i.icon, currency: i.currency },
+        data: { code: i.code, description: i.description, icon: i.icon, iconImage: i.iconImage, currency: i.currency },
       });
     }
   }

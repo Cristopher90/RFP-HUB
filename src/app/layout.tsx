@@ -38,6 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const client = user?.client ?? (supplierClients.length === 1 ? supplierClients[0] : null);
   const brandName = client?.description ?? null;
   const brandIcon = client?.icon || "🔨";
+  const brandImage = client?.iconImage ?? null;
 
   const activeSession = user ?? supplierUser;
   const sessionName = activeSession
@@ -78,9 +79,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 text-sm shadow-sm shadow-violet-600/30">
-                {brandIcon}
-              </span>
+              {brandImage ? (
+                // The client's own image replaces the emoji badge.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={brandImage} alt="" className="h-8 w-8 rounded-lg bg-white object-contain shadow-sm" />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 text-sm shadow-sm shadow-violet-600/30">
+                  {brandIcon}
+                </span>
+              )}
               <span className="text-lg font-semibold tracking-tight text-slate-900">
                 {brandName && <span>{brandName} </span>}
                 <span className="text-violet-600">RFP.HUB</span>

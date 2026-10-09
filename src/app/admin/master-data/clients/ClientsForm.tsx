@@ -13,11 +13,24 @@ type ClientRow = {
   code: string;
   description: string;
   icon: string;
+  iconImage: string | null;
   currency: string;
 };
 
 function emptyRow(): ClientRow {
-  return { clientKey: makeClientKey(), code: "", description: "", icon: "", currency: "USD" };
+  return { clientKey: makeClientKey(), code: "", description: "", icon: "", iconImage: null, currency: "USD" };
+}
+
+// Reads an image file and shrinks it to a small square-fitting PNG (max 96px)
+// so it can be stored as a data URL and used as the client's icon.
+async function toIconDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 96 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/png");
 }
 
 function inputClass() {
@@ -184,6 +197,7 @@ export function ClientsForm({
                 <th className="px-3 pb-1">{t("clientsForm.code")}</th>
                 <th className="px-3 pb-1">{t("clientsForm.name")}</th>
                 <th className="px-3 pb-1">{t("clientsForm.icon")}</th>
+                <th className="px-3 pb-1">{t("clientsForm.iconImage")}</th>
                 <th className="px-3 pb-1" title={t("clientsForm.currencyHint")}>{t("clientsForm.currency")}</th>
                 <th className="w-16 px-3 pb-1" />
               </tr>
@@ -224,6 +238,45 @@ export function ClientsForm({
                       value={row.icon}
                       onChange={(e) => updateRow(row.clientKey, { icon: e.target.value })}
                     />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      {row.iconImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.iconImage} alt="" className="h-9 w-9 rounded-md border border-slate-200 bg-white object-contain" />
+                      ) : (
+                        <span className="flex h-9 w-9 items-center justify-center rounded-md border border-dashed border-slate-300 text-xs text-slate-300">
+                          —
+                        </span>
+                      )}
+                      <label className="cursor-pointer text-xs font-medium text-violet-600 hover:text-violet-700">
+                        {row.iconImage ? t("clientsForm.changeImage") : t("clientsForm.uploadImage")}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          className="sr-only"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!file) return;
+                            try {
+                              updateRow(row.clientKey, { iconImage: await toIconDataUrl(file) });
+                            } catch {
+                              setError(t("clientsForm.imageReadError"));
+                            }
+                          }}
+                        />
+                      </label>
+                      {row.iconImage && (
+                        <button
+                          type="button"
+                          onClick={() => updateRow(row.clientKey, { iconImage: null })}
+                          className="text-xs text-slate-400 hover:text-red-600"
+                        >
+                          {t("clientsForm.removeImage")}
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">
                     <select

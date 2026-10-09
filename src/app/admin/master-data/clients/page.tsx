@@ -36,6 +36,7 @@ export default async function ClientsPage() {
             code: c.code,
             description: c.description,
             icon: c.icon ?? "",
+            iconImage: c.iconImage,
             currency: c.currency,
           }))}
           currencies={CURRENCIES}

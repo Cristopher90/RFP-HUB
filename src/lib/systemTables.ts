@@ -40,7 +40,18 @@ export const SYSTEM_TABLES = [
   { key: "purchase-request-line", label: "PurchaseRequestLine", model: "purchaseRequestLine" },
   { key: "user-preference", label: "UserPreference", model: "userPreference" },
   { key: "login-event", label: "LoginEvent", model: "loginEvent" },
+  { key: "supplier-user", label: "SupplierUser", model: "supplierUser" },
+  { key: "supplier-user-link", label: "SupplierUserLink", model: "supplierUserLink" },
+  { key: "request-rfp-mapping", label: "RequestRfpMapping", model: "requestRfpMapping" },
+  { key: "system-table-log", label: "SystemTableLog", model: "systemTableLog" },
 ] as const;
+
+// Audit-style tables: viewable here but never editable or deletable, so the
+// trail of what happened can't be rewritten from this screen.
+export const IMMUTABLE_TABLES: readonly string[] = ["EmailLog", "LoginEvent", "SystemTableLog"];
+
+// Columns that are shown but never editable (credential hashes).
+export const READONLY_COLUMNS: readonly string[] = ["passwordHash"];
 
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];
 

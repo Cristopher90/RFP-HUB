@@ -33,6 +33,12 @@ export default async function SystemTablesPage() {
       <p className="mt-1 text-sm text-slate-500">
         {dictionary.systemTablesPage.subtitle}
       </p>
+      <Link
+        href="/admin/system-tables/log"
+        className="mt-4 inline-block rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+      >
+        {dictionary.systemTableEditor.viewLog}
+      </Link>
       <div className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">

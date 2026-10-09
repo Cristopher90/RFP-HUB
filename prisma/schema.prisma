@@ -91,6 +91,7 @@ model Client {
   code        String   @unique
   description String
   icon        String? // emoji mostrado junto al nombre del cliente en la barra superior
+  iconImage   String? // imagen (data URL PNG/JPEG/WebP, ya reducida) que sustituye al emoji como icono del cliente
   currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
   createdAt   DateTime @default(now())
 
@@ -907,4 +908,26 @@ model LoginEvent {
   userAgent String?
 
   @@index([createdAt])
+}
+
+// Registro de cambios hechos por el Super Administrador desde "Tablas del
+// sistema" (editar o borrar filas). Es solo de lectura: no se puede editar ni
+// borrar desde la propia pantalla. Los hashes de contraseña nunca se guardan.
+model SystemTableLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  userName  String
+  userEmail String
+  table     String // nombre de la tabla (modelo)
+  rowId     String
+  action    String // UPDATE | DELETE
+  before    Json? // fila antes del cambio
+  after     Json? // fila después (solo UPDATE)
+  changes   Json? // UPDATE: { campo: { from, to } }
+  impact    Json? // DELETE: { cascades: {tabla: n}, setNull: {tabla.columna: n} }
+  ip        String?
+
+  @@index([createdAt])
+  @@index([table, rowId])
 }
