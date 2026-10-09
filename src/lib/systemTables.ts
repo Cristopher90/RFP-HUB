@@ -53,6 +53,21 @@ export const IMMUTABLE_TABLES: readonly string[] = ["EmailLog", "LoginEvent", "S
 // Columns that are shown but never editable (credential hashes).
 export const READONLY_COLUMNS: readonly string[] = ["passwordHash"];
 
+// Logical grouping for the table list; a table missing here lands in "other".
+export const SYSTEM_TABLE_GROUPS: { key: string; tables: string[] }[] = [
+  { key: "tenancy", tables: ["Client", "User", "UserApprovalGroup", "UserPreference", "BuyerGroup", "BuyerGroupMember"] },
+  { key: "masterData", tables: ["Commodity", "Region", "Origin", "ApprovalGroup", "SupplierDirectory", "ItemCatalogList", "ItemCatalogEntry"] },
+  { key: "suppliers", tables: ["Supplier", "SupplierUser", "SupplierUserLink"] },
+  { key: "templates", tables: ["RfpTemplate", "TemplateItem", "TemplateQuestion", "ApprovalWorkflow", "ApprovalLevel"] },
+  { key: "rfps", tables: ["Rfp", "RfpItem", "RfpQuestion", "RfpApproval", "RfpApprovalDecision", "Invitation", "Response", "Answer", "ItemPrice"] },
+  { key: "requests", tables: ["RequestImportTemplate", "RequestRfpMapping", "PurchaseRequest", "PurchaseRequestLine"] },
+  { key: "audit", tables: ["EmailTemplate", "EmailLog", "LoginEvent", "SystemTableLog"] },
+];
+
+export function groupOfTable(label: string): string {
+  return SYSTEM_TABLE_GROUPS.find((g) => g.tables.includes(label))?.key ?? "other";
+}
+
 export type SystemTableKey = (typeof SYSTEM_TABLES)[number]["key"];
 
 export function findSystemTable(key: string) {

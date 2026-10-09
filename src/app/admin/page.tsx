@@ -181,6 +181,12 @@ export default async function AdminPage() {
             >
               {dictionary.adminDashboard.loginLogLink}
             </Link>
+            <Link
+              href="/admin/system-tables/log"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              {dictionary.adminDashboard.changeLogLink}
+            </Link>
           </div>
         </CollapsibleSection>
       )}

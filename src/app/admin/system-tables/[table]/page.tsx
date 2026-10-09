@@ -31,8 +31,30 @@ export default async function SystemTablePage({
   const filterValue = sep > 0 ? filterRaw.slice(sep + 1) : "";
   const filter = meta.columns.some((c) => c.name === filterColumn) ? { column: filterColumn, value: filterValue } : null;
 
-  const where = filter ? `WHERE "${filter.column}"::text = $1` : "";
-  const args = filter ? [filter.value] : [];
+  // Per-column "contains" filters (?f_<column>=text) and a global search (?q=text).
+  const escapeLike = (text: string) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const columnFilters: Record<string, string> = {};
+  for (const col of meta.columns) {
+    const raw = sp[`f_${col.name}`];
+    if (typeof raw === "string" && raw.trim()) columnFilters[col.name] = raw.trim();
+  }
+  const search = typeof sp.q === "string" ? sp.q.trim() : "";
+
+  const conditions: string[] = [];
+  const args: string[] = [];
+  if (filter) {
+    args.push(filter.value);
+    conditions.push(`"${filter.column}"::text = $${args.length}`);
+  }
+  for (const [name, value] of Object.entries(columnFilters)) {
+    args.push(`%${escapeLike(value)}%`);
+    conditions.push(`"${name}"::text ILIKE $${args.length}`);
+  }
+  if (search) {
+    args.push(`%${escapeLike(search)}%`);
+    conditions.push(`(${meta.columns.map((c) => `"${c.name}"::text ILIKE $${args.length}`).join(" OR ")})`);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
   const [rawRows, totalResult] = await Promise.all([
     prisma.$queryRawUnsafe<Record<string, unknown>[]>(
       `SELECT * FROM "${meta.table}" ${where} LIMIT ${MAX_ROWS}`,
@@ -91,24 +113,21 @@ export default async function SystemTablePage({
           </Link>
         </p>
       )}
-      <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-        {rows.length === 0 ? (
-          <p className="p-6 text-sm text-slate-400">{d.emptyTable}</p>
-        ) : (
-          <SystemTableGrid
-            tableKey={tableKey}
-            editable={editable}
-            columns={meta.columns.map((c) => ({
-              name: c.name,
-              kind: c.kind,
-              nullable: c.nullable,
-              enumValues: c.enumValues,
-              editable: c.editable,
-            }))}
-            rows={rows}
-          />
-        )}
-      </div>
+      <SystemTableGrid
+        tableKey={tableKey}
+        editable={editable}
+        search={search}
+        columnFilters={columnFilters}
+        emptyText={filter || search || Object.keys(columnFilters).length > 0 ? dictionary.systemTableEditor.noResults : d.emptyTable}
+        columns={meta.columns.map((c) => ({
+          name: c.name,
+          kind: c.kind,
+          nullable: c.nullable,
+          enumValues: c.enumValues,
+          editable: c.editable,
+        }))}
+        rows={rows}
+      />
     </div>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { loadPref, useSavePref } from "@/lib/userPrefsClient";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import {
   deleteSystemRow,
@@ -370,56 +372,223 @@ function DeleteDialog({ tableKey, row, onClose }: { tableKey: string; row: GridR
   );
 }
 
+// Text box that pushes its value into a URL param after a short pause.
+function DebouncedParamInput({
+  param,
+  value,
+  placeholder,
+  className,
+}: {
+  param: string;
+  value: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [text, setText] = useState(value);
+  const applied = useRef(value);
+  useEffect(() => {
+    if (value !== applied.current) {
+      applied.current = value;
+      setText(value); // changed from outside (e.g. "clear filters")
+    }
+  }, [value]);
+  useEffect(() => {
+    if (text.trim() === applied.current) return;
+    const timer = setTimeout(() => {
+      applied.current = text.trim();
+      const params = new URLSearchParams(searchParams.toString());
+      if (text.trim()) params.set(param, text.trim());
+      else params.delete(param);
+      router.push(`${pathname}?${params.toString()}`);
+    }, 500);
+    return () => clearTimeout(timer);
+    // searchParams/router change every render; only the typed text should retrigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+  return <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} className={className} />;
+}
+
 export function SystemTableGrid({
   tableKey,
   columns,
   rows,
   editable,
+  search,
+  columnFilters,
+  emptyText,
 }: {
   tableKey: string;
   columns: GridColumn[];
   rows: GridRow[];
   editable: boolean;
+  search: string;
+  columnFilters: Record<string, string>;
+  emptyText: string;
 }) {
   const { t } = usePreferences();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [editing, setEditing] = useState<GridRow | null>(null);
   const [deleting, setDeleting] = useState<GridRow | null>(null);
 
+  // Which columns are shown is remembered per table for this user.
+  const prefKey = `system-table-cols:${tableKey}`;
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [prefLoaded, setPrefLoaded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadPref<string[]>(prefKey).then((saved) => {
+      if (cancelled) return;
+      if (Array.isArray(saved)) setHidden(saved.filter((c) => columns.some((col) => col.name === c)));
+      setPrefLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // Columns are fixed for a given table.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefKey]);
+  useSavePref(prefKey, hidden, prefLoaded);
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  const visible = columns.filter((c) => !hidden.includes(c.name));
+  const hiddenWithFilter = Object.keys(columnFilters).filter((name) => hidden.includes(name));
+  const hasFilters = Boolean(search) || Object.keys(columnFilters).length > 0;
+  const field =
+    "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+
+  function clearAll() {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of [...params.keys()]) if (key === "q" || key.startsWith("f_")) params.delete(key);
+    router.push(`${pathname}?${params.toString()}`);
+  }
+  function removeFilter(name: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(`f_${name}`);
+    router.push(`${pathname}?${params.toString()}`);
+  }
+  function toggleColumn(name: string) {
+    setHidden((prev) => (prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]));
+  }
+
   return (
     <>
-      <table className="min-w-full divide-y divide-slate-200 text-xs">
-        <thead className="bg-slate-50 text-left font-medium uppercase tracking-wide text-slate-500">
-          <tr>
-            {editable && <th className="px-3 py-2" />}
-            {columns.map((c) => (
-              <th key={c.name} className="whitespace-nowrap px-3 py-2">
-                {c.name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-slate-50">
-              {editable && (
-                <td className="whitespace-nowrap px-3 py-2">
-                  <button type="button" onClick={() => setEditing(row)} className="mr-3 font-medium text-violet-600 hover:text-violet-700">
-                    {t("systemTableEditor.edit")}
-                  </button>
-                  <button type="button" onClick={() => setDeleting(row)} className="font-medium text-red-600 hover:text-red-700">
-                    {t("systemTableEditor.delete")}
-                  </button>
-                </td>
-              )}
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <DebouncedParamInput param="q" value={search} placeholder={t("systemTableEditor.searchAll")} className={`${field} w-full sm:w-72`} />
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50"
+          >
+            {t("systemTableEditor.columns")} ({visible.length}/{columns.length}) ▾
+          </button>
+          {menuOpen && (
+            <div className="absolute left-0 z-20 mt-1 max-h-80 w-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+              <div className="mb-1 flex gap-3 px-2 text-xs">
+                <button type="button" onClick={() => setHidden([])} className="font-medium text-violet-600 hover:text-violet-700">
+                  {t("systemTableEditor.showAll")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHidden(columns.slice(1).map((c) => c.name))}
+                  className="text-slate-500 hover:text-slate-700"
+                >
+                  {t("systemTableEditor.keepOnlyFirst")}
+                </button>
+              </div>
               {columns.map((c) => (
-                <td key={c.name} title={row.shown[c.name]} className="max-w-xs truncate whitespace-nowrap px-3 py-2 text-slate-600">
-                  {row.shown[c.name]}
-                </td>
+                <label key={c.name} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm text-slate-700 hover:bg-slate-50">
+                  <input type="checkbox" checked={!hidden.includes(c.name)} onChange={() => toggleColumn(c.name)} />
+                  {c.name}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        {hasFilters && (
+          <button type="button" onClick={clearAll} className="text-sm font-medium text-violet-600 hover:text-violet-700">
+            {t("systemTableEditor.clearFilters")}
+          </button>
+        )}
+        {hiddenWithFilter.map((name) => (
+          <span key={name} className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs text-violet-800">
+            {name}: {columnFilters[name]}
+            <button type="button" onClick={() => removeFilter(name)} aria-label="remove" className="font-bold">
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-slate-200 text-xs">
+          <thead className="bg-slate-50 text-left font-medium uppercase tracking-wide text-slate-500">
+            <tr>
+              {editable && <th className="px-3 py-2" />}
+              {visible.map((c) => (
+                <th key={c.name} className="whitespace-nowrap px-3 py-2">
+                  {c.name}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+            <tr className="normal-case">
+              {editable && <th className="px-3 pb-2" />}
+              {visible.map((c) => (
+                <th key={c.name} className="px-3 pb-2 font-normal">
+                  <DebouncedParamInput
+                    param={`f_${c.name}`}
+                    value={columnFilters[c.name] ?? ""}
+                    placeholder={t("systemTableEditor.filterPlaceholder")}
+                    className="w-full min-w-[6rem] rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 focus:border-violet-500 focus:outline-none"
+                  />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={visible.length + (editable ? 1 : 0)} className="p-6 text-center text-sm text-slate-400">
+                  {emptyText}
+                </td>
+              </tr>
+            )}
+            {rows.map((row) => (
+              <tr key={row.id} className="hover:bg-slate-50">
+                {editable && (
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <button type="button" onClick={() => setEditing(row)} className="mr-3 font-medium text-violet-600 hover:text-violet-700">
+                      {t("systemTableEditor.edit")}
+                    </button>
+                    <button type="button" onClick={() => setDeleting(row)} className="font-medium text-red-600 hover:text-red-700">
+                      {t("systemTableEditor.delete")}
+                    </button>
+                  </td>
+                )}
+                {visible.map((c) => (
+                  <td key={c.name} title={row.shown[c.name]} className="max-w-xs truncate whitespace-nowrap px-3 py-2 text-slate-600">
+                    {row.shown[c.name]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {editing && <EditDialog tableKey={tableKey} columns={columns} row={editing} onClose={() => setEditing(null)} />}
       {deleting && <DeleteDialog tableKey={tableKey} row={deleting} onClose={() => setDeleting(null)} />}
     </>
