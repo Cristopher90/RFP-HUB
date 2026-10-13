@@ -64,3 +64,32 @@ export function filterTreeByGroups<T extends TreeNode>(nodes: T[], user: ViewGro
       return parentId === n.parentId ? n : { ...n, parentId };
     });
 }
+
+type CommodityRef = { id: string; code: string; description: string };
+
+const commodityKeys = (c: CommodityRef) =>
+  [c.description, c.code, `${c.code} - ${c.description}`, `${c.code} — ${c.description}`].map((k) =>
+    k.trim().toLowerCase(),
+  );
+
+// Drops the entries (e.g. item-catalog articles) whose commodity text points at
+// a commodity the user can't see through view groups. Entries with no
+// commodity, or one that matches no commodity of the client, stay.
+export function filterByVisibleCommodity<T extends { commodity: string | null }>(
+  entries: T[],
+  allCommodities: CommodityRef[],
+  visibleCommodities: { id: string }[],
+): T[] {
+  const visibleIds = new Set(visibleCommodities.map((c) => c.id));
+  if (visibleIds.size === allCommodities.length) return entries;
+  const visibleKeys = new Set<string>();
+  const hiddenKeys = new Set<string>();
+  for (const c of allCommodities) {
+    for (const k of commodityKeys(c)) (visibleIds.has(c.id) ? visibleKeys : hiddenKeys).add(k);
+  }
+  return entries.filter((e) => {
+    const key = e.commodity?.trim().toLowerCase();
+    if (!key) return true;
+    return visibleKeys.has(key) || !hiddenKeys.has(key);
+  });
+}

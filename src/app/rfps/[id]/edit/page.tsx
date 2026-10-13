@@ -6,7 +6,7 @@ import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
-import { filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
+import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import type {
   NewItemInput,
@@ -195,7 +195,7 @@ export default async function EditRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={toPickerEntries(supplierDirectory, ratingSummaries)}
-          itemCatalog={itemCatalog.map((i) => ({
+          itemCatalog={filterByVisibleCommodity(itemCatalog, allCommodities, commodities).map((i) => ({
             id: i.id,
             catalogName: i.catalogList.name,
             code: i.code,

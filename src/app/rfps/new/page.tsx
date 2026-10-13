@@ -10,7 +10,7 @@ import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestA
 import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
-import { filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
+import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, coerceValue } from "@/lib/customFieldsShared";
 
 export default async function NewRfpPage({
@@ -272,7 +272,7 @@ export default async function NewRfpPage({
           regions={regions}
           origins={origins}
           supplierDirectory={toPickerEntries(supplierDirectory, ratingSummaries)}
-          itemCatalog={itemCatalog.map((i) => ({
+          itemCatalog={filterByVisibleCommodity(itemCatalog, allCommodities, commodities).map((i) => ({
             id: i.id,
             catalogName: i.catalogList.name,
             code: i.code,
