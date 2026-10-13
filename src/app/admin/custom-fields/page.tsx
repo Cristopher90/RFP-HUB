@@ -5,6 +5,7 @@ import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, partitionName } from "@/lib/customFields";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { CustomFieldsManager } from "./CustomFieldsManager";
 
 export default async function CustomFieldsPage({ searchParams }: PageProps<"/admin/custom-fields">) {
@@ -17,6 +18,17 @@ export default async function CustomFieldsPage({ searchParams }: PageProps<"/adm
     ? await prisma.client.findUnique({ where: { id: effectiveClientId } })
     : null;
   const fields = client ? await loadCustomFields(client.id, undefined, false) : [];
+
+  const [lookupRows, viewGroups] = client
+    ? await Promise.all([
+        prisma.lookup.findMany({
+          where: { clientId: client.id },
+          orderBy: { name: "asc" },
+          include: { _count: { select: { values: true } } },
+        }),
+        loadViewGroups(client.id),
+      ])
+    : [[], []];
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -34,6 +46,8 @@ export default async function CustomFieldsPage({ searchParams }: PageProps<"/adm
           client={{ id: client.id, code: client.code, description: client.description }}
           fields={fields}
           tableName={partitionName(client.id)}
+          lookups={lookupRows.map((l) => ({ id: l.id, name: l.name, count: l._count.values }))}
+          viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
         />
       ) : (
         <p className="mt-2 text-sm text-slate-500">{d.selectClient}</p>

@@ -193,7 +193,10 @@ export async function publishRfp(rfpId: string) {
     rfp.selectedTemplateId,
   );
 
-  const customError = await validateStoredRfpCustom(rfp.id, user.language);
+  const customError = await validateStoredRfpCustom(rfp.id, user.language, {
+    role: user.role,
+    viewGroupIds: user.viewGroupIds,
+  });
   if (customError) return { error: customError };
 
   const unacceptedContacts = await findUnacceptedContacts(

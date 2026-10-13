@@ -73,7 +73,7 @@ export function CustomFieldInputs({
             </label>
             {field.type === "TREE" && (
               <TreePickerField
-                nodes={treeNodes(field.options, language)}
+                nodes={treeNodes(field.options, language, value)}
                 valueId={value || null}
                 onChangeId={(id) => !locked && set(field.key, id ?? "")}
                 placeholder={t("customFields.select")}
@@ -88,7 +88,9 @@ export function CustomFieldInputs({
                 onChange={(e) => set(field.key, e.target.value)}
               >
                 <option value="">{t("customFields.select")}</option>
-                {field.options.map((o) => (
+                {field.options
+                  .filter((o) => !o.hidden || o.value === value)
+                  .map((o) => (
                   <option key={o.value} value={o.value}>
                     {optionLabel(o, language)}
                   </option>

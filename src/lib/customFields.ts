@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { getDictionary } from "@/i18n/getDictionary";
 import {
+  applyViewGroupsToFields,
   headerStdSnapshot,
   labelFor,
   lineStdSnapshot,
@@ -38,7 +39,7 @@ export async function dropCustomValuesPartition(clientId: string) {
   await prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "${partitionName(clientId)}"`);
 }
 
-export function toDef(row: CustomField): CustomFieldDef {
+export function toDef(row: CustomField, lookupOptions?: CfOption[]): CustomFieldDef {
   return {
     id: row.id,
     key: row.key,
@@ -48,7 +49,13 @@ export function toDef(row: CustomField): CustomFieldDef {
     visible: row.visible,
     editable: row.editable,
     labels: (row.labels ?? {}) as Record<string, string>,
-    options: Array.isArray(row.options) ? (row.options as unknown as CfOption[]) : [],
+    // Values come from the field's lookup; fields saved before lookups existed
+    // still carry their options inline.
+    options:
+      lookupOptions ??
+      (Array.isArray(row.options) ? (row.options as unknown as CfOption[]) : []),
+    lookupId: row.lookupId,
+    viewGroupIds: row.viewGroupIds ?? [],
     condition: (row.condition ?? null) as CfCondition | null,
     mappable: row.mappable,
     importable: row.importable,
@@ -60,6 +67,29 @@ export function toDef(row: CustomField): CustomFieldDef {
   };
 }
 
+// The values of a lookup as field options (code stored, Spanish/English text,
+// parent code for trees, view groups per value).
+export async function loadLookupOptions(lookupIds: string[]): Promise<Map<string, CfOption[]>> {
+  const map = new Map<string, CfOption[]>();
+  if (lookupIds.length === 0) return map;
+  const values = await prisma.lookupValue.findMany({
+    where: { lookupId: { in: lookupIds } },
+    orderBy: [{ order: "asc" }, { code: "asc" }],
+  });
+  const codeById = new Map(values.map((v) => [v.id, v.code]));
+  for (const v of values) {
+    const list = map.get(v.lookupId) ?? [];
+    list.push({
+      value: v.code,
+      parent: v.parentId ? (codeById.get(v.parentId) ?? null) : null,
+      labels: v.descriptionEn ? { es: v.description, en: v.descriptionEn } : { es: v.description },
+      viewGroupIds: v.viewGroupIds,
+    });
+    map.set(v.lookupId, list);
+  }
+  return map;
+}
+
 export async function loadCustomFields(
   clientId: string,
   scope?: CfScope,
@@ -69,7 +99,10 @@ export async function loadCustomFields(
     where: { clientId, ...(scope ? { scope } : {}), ...(onlyActive ? { active: true } : {}) },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
   });
-  return rows.map(toDef);
+  const lookups = await loadLookupOptions([
+    ...new Set(rows.map((r) => r.lookupId).filter((id): id is string => Boolean(id))),
+  ]);
+  return rows.map((r) => toDef(r, r.lookupId ? (lookups.get(r.lookupId) ?? []) : undefined));
 }
 
 export type CustomEntityType = "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE";
@@ -252,13 +285,16 @@ export async function validateRfpCustom(args: {
 export async function validateStoredRfpCustom(
   rfpId: string,
   language: string,
+  viewer?: { role: string; viewGroupIds: string[] },
 ): Promise<string | null> {
   const rfp = await prisma.rfp.findUnique({
     where: { id: rfpId },
     include: { items: { orderBy: { order: "asc" } } },
   });
   if (!rfp) return null;
-  const fields = await loadCustomFields(rfp.clientId);
+  const loaded = await loadCustomFields(rfp.clientId);
+  // A field the publisher can't see through view groups is never demanded of them.
+  const fields = viewer ? applyViewGroupsToFields(loaded, viewer) : loaded;
   if (fields.length === 0) return null;
   const [headerMap, lineMap] = await Promise.all([
     readCustomValues(rfp.clientId, "RFP", [rfp.id]),

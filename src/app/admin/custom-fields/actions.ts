@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
-import { ensureCustomValuesPartition } from "@/lib/customFields";
+import { ensureCustomValuesPartition, loadCustomFields } from "@/lib/customFields";
+import { upsertLookupValues } from "@/lib/lookups";
+import { validViewGroupIds } from "@/lib/viewGroupsServer";
 import {
   CF_SCOPES,
   CF_TYPES,
@@ -35,7 +37,8 @@ export type CustomFieldInput = {
   visible: boolean;
   editable: boolean;
   labels: Record<string, string>;
-  options: CfOption[];
+  lookupId: string | null; // DROPDOWN/TREE: lista de valores (Lookup) del cliente
+  viewGroupIds: string[];
   condition: CfCondition | null;
   mappable: boolean;
   importable: boolean;
@@ -63,47 +66,6 @@ function cleanLabels(labels: Record<string, string>): Record<string, string> {
     if (v) out[lang] = v;
   }
   return out;
-}
-
-function cleanOptions(
-  options: CfOption[],
-  type: CfType,
-  d: Dict,
-): { error: string } | { options: CfOption[] } {
-  if (!hasOptions(type)) return { options: [] };
-  const cleaned = (options ?? [])
-    .map((o) => ({
-      value: (o.value ?? "").trim().slice(0, 80),
-      parent: type === "TREE" && o.parent ? o.parent.trim() : null,
-      labels: cleanLabels(o.labels ?? {}),
-    }))
-    .filter((o) => o.value !== "" || Object.keys(o.labels).length > 0);
-  if (cleaned.length === 0) return { error: d.errOptionsRequired };
-  const seen = new Set<string>();
-  for (const o of cleaned) {
-    if (!o.value) return { error: d.errOptionInvalid };
-    if (seen.has(o.value.toLowerCase())) {
-      return { error: d.errOptionDuplicate.replace("{value}", o.value) };
-    }
-    seen.add(o.value.toLowerCase());
-    if (!o.labels.es) o.labels.es = o.value;
-  }
-  // Parents must exist and the chain must not loop.
-  const byValue = new Map(cleaned.map((o) => [o.value, o]));
-  for (const o of cleaned) {
-    if (o.parent && !byValue.has(o.parent)) o.parent = null;
-    let cursor: string | null = o.parent;
-    const visited = new Set<string>([o.value]);
-    while (cursor) {
-      if (visited.has(cursor)) {
-        o.parent = null;
-        break;
-      }
-      visited.add(cursor);
-      cursor = byValue.get(cursor)?.parent ?? null;
-    }
-  }
-  return { options: cleaned };
 }
 
 function validCondition(
@@ -161,8 +123,15 @@ export async function saveCustomField(
   }
   const labels = cleanLabels(input.labels);
   if (!labels.es) return { error: d.errLabelRequired };
-  const opts = cleanOptions(input.options, input.type, d);
-  if ("error" in opts) return opts;
+  let lookupId: string | null = null;
+  if (hasOptions(input.type)) {
+    const lookup = input.lookupId
+      ? await prisma.lookup.findFirst({ where: { id: input.lookupId, clientId } })
+      : null;
+    if (!lookup) return { error: d.errLookupRequired };
+    lookupId = lookup.id;
+  }
+  const viewGroupIds = await validViewGroupIds(clientId, input.viewGroupIds);
 
   const existingFields = await prisma.customField.findMany({
     where: { clientId },
@@ -204,7 +173,8 @@ export async function saveCustomField(
     visible: input.visible !== false,
     editable: isRequestScope(input.scope) || input.editable !== false,
     labels,
-    options: opts.options.length > 0 ? (opts.options as object[]) : undefined,
+    lookupId,
+    viewGroupIds,
     condition: cond.condition ? (cond.condition as object) : undefined,
     mappable: input.scope !== "USER" && input.mappable,
     importable: isRequestScope(input.scope) && input.importable,
@@ -219,7 +189,7 @@ export async function saveCustomField(
       where: { id: current.id },
       data: {
         ...data,
-        options: opts.options.length > 0 ? (opts.options as object[]) : Prisma.DbNull,
+        options: Prisma.DbNull, // the legacy inline options are superseded by the lookup
         condition: cond.condition ? (cond.condition as object) : Prisma.DbNull,
       },
     });
@@ -272,6 +242,7 @@ export async function importCustomFields(
 
   const mine = rows.filter((r) => r.clientCode.trim().toLowerCase() === client.code.toLowerCase());
   const existing = await prisma.customField.findMany({ where: { clientId } });
+  const existingDefs = await loadCustomFields(clientId, undefined, false);
   type Info = { key: string; scope: CfScope; type: CfType; options: CfOption[] };
   const known = new Map<string, Info>();
   const byLabel = new Map<string, string>();
@@ -279,11 +250,8 @@ export async function importCustomFields(
     known.set(info.key, info);
     for (const l of Object.values(labels)) if (l) byLabel.set(l.trim().toLowerCase(), info.key);
   };
-  for (const f of existing) {
-    register(
-      { key: f.key, scope: f.scope, type: f.type, options: Array.isArray(f.options) ? (f.options as unknown as CfOption[]) : [] },
-      (f.labels ?? {}) as Record<string, string>,
-    );
+  for (const f of existingDefs) {
+    register({ key: f.key, scope: f.scope, type: f.type, options: f.options }, f.labels);
   }
   for (const r of mine) register({ key: sanitizeKey(r.key), scope: r.scope, type: r.type, options: r.options }, r.labels);
 
@@ -337,14 +305,26 @@ export async function importCustomFields(
       }
       condition = { kind, field, op, value };
     }
+    // Dropdown / tree fields point at a lookup (by the "lookup" column, else
+    // one named after the field); the Excel's values are loaded into it.
+    let lookupId: string | null = null;
+    if (hasOptions(r.type)) {
+      const lookupName = (r.lookupName || key).trim();
+      let lookup = await prisma.lookup.findUnique({
+        where: { clientId_name: { clientId, name: lookupName } },
+      });
+      if (!lookup) lookup = await prisma.lookup.create({ data: { clientId, name: lookupName } });
+      if (r.options.length > 0) await upsertLookupValues(lookup.id, r.options);
+      lookupId = lookup.id;
+    }
     const base = {
+      lookupId,
       scope: r.scope,
       type: r.type,
       mandatory: r.mandatory,
       visible: r.visible,
       editable: isRequestScope(r.scope) || r.editable,
       labels: r.labels,
-      options: r.options.length > 0 ? (r.options as object[]) : undefined,
       condition: condition ? (condition as object) : undefined,
       mappable: r.scope !== "USER" && r.mappable,
       importable: isRequestScope(r.scope) && r.importable,
@@ -357,7 +337,7 @@ export async function importCustomFields(
         where: { id: found.id },
         data: {
           ...base,
-          options: r.options.length > 0 ? (r.options as object[]) : Prisma.DbNull,
+          options: Prisma.DbNull,
           condition: condition ? (condition as object) : Prisma.DbNull,
         },
       });

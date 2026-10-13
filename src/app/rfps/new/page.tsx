@@ -11,7 +11,7 @@ import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
-import { CUSTOM_TARGET_PREFIX, coerceValue } from "@/lib/customFieldsShared";
+import { CUSTOM_TARGET_PREFIX, applyViewGroupsToFields, coerceValue } from "@/lib/customFieldsShared";
 
 export default async function NewRfpPage({
   searchParams,
@@ -81,7 +81,10 @@ export default async function NewRfpPage({
         prisma.client.findUnique({ where: { id: customClientId }, select: { currency: true } }),
       ])
     : [[], null];
-  const customFields = allCustomFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE");
+  const customFields = applyViewGroupsToFields(
+    allCustomFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE"),
+    user,
+  );
   const userFields = allCustomFields.filter((f) => f.scope === "USER" && f.mapToRfpKey);
   const prefill: Partial<Record<"buyerName" | "commodity" | "region" | "origin", string>> = {};
   const customPrefill: Record<string, string> = {};

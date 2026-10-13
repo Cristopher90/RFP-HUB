@@ -1,3 +1,4 @@
+import { canSeeByGroups, filterTreeByGroups, type ViewGroupUser } from "@/lib/viewGroups";
 // Client-safe pieces of the custom-fields feature (types, label/option helpers,
 // condition evaluation, Excel-import parsing). Nothing here touches the DB.
 
@@ -48,6 +49,11 @@ export type CfOption = {
   value: string;
   parent: string | null;
   labels: Record<string, string>;
+  // From the lookup value: the view groups that can see it.
+  viewGroupIds?: string[];
+  // Set for a given viewer when view groups hide this value from them: it is
+  // not offered, but a value already stored with it stays valid.
+  hidden?: boolean;
 };
 
 export type CfConditionKind =
@@ -77,6 +83,8 @@ export type CustomFieldDef = {
   editable: boolean;
   labels: Record<string, string>;
   options: CfOption[];
+  lookupId: string | null; // DROPDOWN/TREE: the lookup the values come from
+  viewGroupIds: string[]; // view groups that can see the field (empty = everyone)
   condition: CfCondition | null;
   mappable: boolean;
   importable: boolean;
@@ -194,13 +202,15 @@ export function isFieldVisible(field: CustomFieldDef, ctx: CfContext): boolean {
 }
 
 // Children of a tree option, and all of its descendants' values.
-export function treeNodes(options: CfOption[], language: string) {
-  return options.map((o) => ({
-    id: o.value,
-    parentId: o.parent,
-    label: optionLabel(o, language),
-    code: "",
-  }));
+export function treeNodes(options: CfOption[], language: string, keep?: string) {
+  return options
+    .filter((o) => !o.hidden || o.value === keep)
+    .map((o) => ({
+      id: o.value,
+      parentId: o.parent,
+      label: optionLabel(o, language),
+      code: "",
+    }));
 }
 
 // Normalises a raw input to its stored string, or an error code.
@@ -244,6 +254,7 @@ export type ImportedField = {
   labels: Record<string, string>;
   options: CfOption[];
   conditionText: string;
+  lookupName: string; // optional "lookup" column: an existing/new lookup to use
   mappable: boolean;
   importable: boolean;
   templateFilter: boolean;
@@ -349,6 +360,7 @@ export function parseImportRows(rows: unknown[][]): {
   const cValuesEn = col("values_en", "valores_en");
   const cMap = col("mappable", "mapeable");
   const cImp = col("importable", "importar");
+  const cLookup = col("lookup", "lista");
   const cVis = col("visible", "visibles");
   const cEdit = col("editable", "editables");
   const cTpl = col("templatefilter", "filtro_plantilla");
@@ -381,6 +393,7 @@ export function parseImportRows(rows: unknown[][]): {
       labels: nameEn ? { es: name, en: nameEn } : { es: name },
       options: hasOptions(type) ? parseOptionList(cell(row, cValues), type, cell(row, cValuesEn)) : [],
       conditionText: cell(row, cCond),
+      lookupName: cell(row, cLookup),
       mappable: parseBool(row[cMap]),
       importable: cImp >= 0 ? parseBool(row[cImp]) : isRequestScope(scope),
       templateFilter: parseBool(row[cTpl]),
@@ -479,4 +492,27 @@ export function coerceValue(
   if (field.type === "TEXT_SHORT") return text.slice(0, CF_TEXT_SHORT_MAX);
   const normalized = normalizeValue(field, text);
   return "value" in normalized ? normalized.value : "";
+}
+
+// Adapts field definitions to who is looking (view groups): a field the viewer
+// can't see becomes hidden and read-only (it stays for conditions and keeps its
+// stored value), and lookup values they can't see are flagged `hidden`
+// (children of a hidden value move up so the tree stays navigable).
+export function applyViewGroupsToFields(fields: CustomFieldDef[], user: ViewGroupUser): CustomFieldDef[] {
+  return fields.map((field) => {
+    let next = field;
+    if (!canSeeByGroups(user, field.viewGroupIds)) next = { ...next, visible: false, editable: false };
+    if (next.options.length > 0) {
+      const nodes = next.options.map((o) => ({ id: o.value, parentId: o.parent, viewGroupIds: o.viewGroupIds }));
+      const visibleNodes = new Map(filterTreeByGroups(nodes, user).map((n) => [n.id, n]));
+      next = {
+        ...next,
+        options: next.options.map((o) => {
+          const node = visibleNodes.get(o.value);
+          return node ? { ...o, parent: node.parentId } : { ...o, hidden: true };
+        }),
+      };
+    }
+    return next;
+  });
 }

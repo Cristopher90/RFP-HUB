@@ -141,6 +141,7 @@ model Client {
   requestRfpMapping      RequestRfpMapping?
   viewGroups             ViewGroup[]
   supplierRatings        SupplierRating[]
+  lookups                Lookup[]
 }
 
 model User {
@@ -1088,7 +1089,10 @@ model CustomField {
   type           CustomFieldType
   mandatory      Boolean          @default(false)
   labels         Json // { "es": "Prioridad", "en": "Priority" }
-  options        Json? // DROPDOWN/TREE: [{ "value": "alta", "parent": null, "labels": { "es": "Alta", "en": "High" } }]
+  options        Json? // LEGADO: antes los valores de DROPDOWN/TREE vivían aquí; ahora vienen de un Lookup (datos maestros)
+  lookupId       String? // DROPDOWN/TREE: la lista de valores (Lookup) que usa este campo
+  lookup         Lookup?          @relation(fields: [lookupId], references: [id], onDelete: SetNull)
+  viewGroupIds   String[]         @default([]) // grupos de visualización que ven el campo; vacío = todos
   condition      Json? // { "kind": "HEADER_STD|HEADER_CUSTOM|LINE_STD|LINE_CUSTOM", "field": "...", "op": "eq|neq", "value": "..." }
   visible        Boolean          @default(true) // false: el valor existe (condiciones, mapeos) pero no se muestra
   editable       Boolean          @default(true) // false: se muestra pero no se puede modificar a mano
@@ -1153,4 +1157,38 @@ model SupplierRating {
 
   @@unique([supplierDirectoryId, userId])
   @@index([clientId])
+}
+
+// Lista de valores ("lookup") de un cliente, usada por campos personalizados de
+// tipo árbol o desplegable. Solo el nombre se elige en el campo; los valores se
+// mantienen en Datos maestros → Valores de campos (a mano o desde Excel).
+model Lookup {
+  id          String        @id @default(cuid())
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime      @default(now())
+  values      LookupValue[]
+  fields      CustomField[]
+
+  @@unique([clientId, name])
+}
+
+// Un valor de un lookup. `code` es lo que se guarda en los campos; el texto en
+// español/inglés es lo que se muestra; el padre arma el árbol.
+model LookupValue {
+  id            String        @id @default(cuid())
+  lookupId      String
+  lookup        Lookup        @relation(fields: [lookupId], references: [id], onDelete: Cascade)
+  code          String
+  description   String // texto en español
+  descriptionEn String? // texto en inglés
+  parentId      String?
+  parent        LookupValue?  @relation("LookupTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children      LookupValue[] @relation("LookupTree")
+  viewGroupIds  String[]      @default([]) // grupos de visualización que ven el valor; vacío = hereda del padre o lo ve todo el mundo
+  order         Int           @default(0)
+
+  @@unique([lookupId, code])
 }

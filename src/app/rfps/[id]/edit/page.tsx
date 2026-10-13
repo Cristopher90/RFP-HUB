@@ -6,6 +6,7 @@ import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { applyViewGroupsToFields } from "@/lib/customFieldsShared";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import type {
@@ -206,7 +207,10 @@ export default async function EditRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
-          customFields={customFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE")}
+          customFields={applyViewGroupsToFields(
+            customFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE"),
+            user,
+          )}
           clientCurrency={customClient?.currency ?? "USD"}
           templates={templates.map((t) => ({
             id: t.id,

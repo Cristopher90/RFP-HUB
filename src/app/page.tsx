@@ -16,7 +16,7 @@ import { RFP_FILTERS_PREF_KEY, RFP_FILTER_PARAMS } from "@/lib/prefKeys";
 import { redirect } from "next/navigation";
 import type { RfpStatus } from "@/generated/prisma/enums";
 import { loadCustomFields, rfpIdsMatchingCustom } from "@/lib/customFields";
-import { normalizeValue } from "@/lib/customFieldsShared";
+import { applyViewGroupsToFields, normalizeValue } from "@/lib/customFieldsShared";
 import { filterTreeByGroups } from "@/lib/viewGroups";
 
 export default async function Home({
@@ -71,7 +71,9 @@ export default async function Home({
       : null
     : user.clientId;
   const customFilterFields = customFilterClientId
-    ? (await loadCustomFields(customFilterClientId, "RFP_HEAD")).filter((f) => f.listFilter)
+    ? applyViewGroupsToFields(await loadCustomFields(customFilterClientId, "RFP_HEAD"), user).filter(
+        (f) => f.listFilter && f.visible,
+      )
     : [];
   const customFilterValues: { key: string; value: string }[] = [];
   for (const f of customFilterFields) {

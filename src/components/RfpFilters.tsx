@@ -270,7 +270,7 @@ export function RfpFilters({
           return (
             <div className="w-56" key={key}>
               <TreePickerField
-                nodes={treeNodes(f.options, language)}
+                nodes={treeNodes(f.options, language, value)}
                 valueId={value || null}
                 onChangeId={(id) => setParam(key, id ?? "")}
                 placeholder={label}
@@ -295,11 +295,13 @@ export function RfpFilters({
                   <option value="false">{t("customFields.no")}</option>
                 </>
               ) : (
-                f.options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {optionLabel(o, language)}
-                  </option>
-                ))
+                f.options
+                  .filter((o) => !o.hidden || o.value === value)
+                  .map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {optionLabel(o, language)}
+                    </option>
+                  ))
               )}
             </select>
           );

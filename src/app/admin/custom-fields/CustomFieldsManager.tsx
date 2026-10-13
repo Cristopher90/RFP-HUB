@@ -17,12 +17,12 @@ import {
   parseImportRows,
   type CfCondition,
   type CfConditionKind,
-  type CfOption,
   type CfScope,
   type CfType,
   type CustomFieldDef,
   type ImportedField,
 } from "@/lib/customFieldsShared";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { deleteCustomField, importCustomFields, saveCustomField, type CustomFieldInput } from "./actions";
 
 function inputClass() {
@@ -57,7 +57,8 @@ function emptyInput(): CustomFieldInput {
     visible: true,
     editable: true,
     labels: { es: "", en: "" },
-    options: [],
+    lookupId: null,
+    viewGroupIds: [],
     condition: null,
     mappable: false,
     importable: false,
@@ -78,7 +79,8 @@ function toInput(f: CustomFieldDef): CustomFieldInput {
     visible: f.visible,
     editable: f.editable,
     labels: { es: f.labels.es ?? "", en: f.labels.en ?? "" },
-    options: f.options.map((o) => ({ ...o, labels: { es: o.labels.es ?? "", en: o.labels.en ?? "" } })),
+    lookupId: f.lookupId,
+    viewGroupIds: f.viewGroupIds,
     condition: f.condition,
     mappable: f.mappable,
     importable: f.importable,
@@ -93,10 +95,14 @@ export function CustomFieldsManager({
   client,
   fields,
   tableName,
+  lookups,
+  viewGroups,
 }: {
   client: { id: string; code: string; description: string };
   fields: CustomFieldDef[];
   tableName: string;
+  lookups: { id: string; name: string; count: number }[];
+  viewGroups: ViewGroupOption[];
 }) {
   const { t, language } = usePreferences();
   const router = useRouter();
@@ -253,6 +259,8 @@ export function CustomFieldsManager({
 
       {editing && (
         <FieldEditor
+          lookups={lookups}
+          viewGroups={viewGroups}
           clientId={client.id}
           initial={editing}
           others={fields.filter((f) => f.id !== editing.id)}
@@ -315,9 +323,13 @@ function FieldEditor({
   clientId,
   initial,
   others,
+  lookups,
+  viewGroups,
   onClose,
   onSaved,
 }: {
+  lookups: { id: string; name: string; count: number }[];
+  viewGroups: ViewGroupOption[];
   clientId: string;
   initial: CustomFieldInput;
   others: CustomFieldDef[];
@@ -333,19 +345,6 @@ function FieldEditor({
   function patch(p: Partial<CustomFieldInput>) {
     setForm((prev) => ({ ...prev, ...p }));
   }
-  function setOption(idx: number, p: Partial<CfOption> & { labelEs?: string; labelEn?: string }) {
-    setForm((prev) => ({
-      ...prev,
-      options: prev.options.map((o, i) => {
-        if (i !== idx) return o;
-        const next = { ...o, ...p, labels: { ...o.labels } };
-        if (p.labelEs !== undefined) next.labels.es = p.labelEs;
-        if (p.labelEn !== undefined) next.labels.en = p.labelEn;
-        return next as CfOption;
-      }),
-    }));
-  }
-
   // What the condition can point at, given where this field lives.
   const kinds: CfConditionKind[] =
     form.scope === "USER"
@@ -503,75 +502,45 @@ function FieldEditor({
 
         {hasOptions(form.type) && (
           <fieldset className="rounded-lg border border-slate-200 p-4">
-            <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.optionsTitle")}</legend>
-            {form.type === "TREE" && (
-              <p className="mb-2 text-xs text-slate-500">{t("customFields.optionsTreeHint")}</p>
-            )}
-            <div className="space-y-2">
-              {form.options.map((o, idx) => (
-                <div key={idx} className="flex flex-wrap items-center gap-2">
-                  <input
-                    className={`${inputClass()} !w-32 font-mono`}
-                    placeholder={t("customFields.optionValue")}
-                    value={o.value}
-                    onChange={(e) => {
-                      const oldValue = o.value;
-                      const value = e.target.value;
-                      setForm((prev) => ({
-                        ...prev,
-                        options: prev.options.map((x, i) =>
-                          i === idx ? { ...x, value } : x.parent === oldValue ? { ...x, parent: value } : x,
-                        ),
-                        condition: prev.condition,
-                      }));
-                    }}
-                  />
-                  <input
-                    className={`${inputClass()} !w-40`}
-                    placeholder={t("customFields.optionLabelEs")}
-                    value={o.labels.es ?? ""}
-                    onChange={(e) => setOption(idx, { labelEs: e.target.value })}
-                  />
-                  <input
-                    className={`${inputClass()} !w-40`}
-                    placeholder={t("customFields.optionLabelEn")}
-                    value={o.labels.en ?? ""}
-                    onChange={(e) => setOption(idx, { labelEn: e.target.value })}
-                  />
-                  {form.type === "TREE" && (
-                    <select
-                      className={`${inputClass()} !w-40`}
-                      value={o.parent ?? ""}
-                      onChange={(e) => setOption(idx, { parent: e.target.value || null })}
-                    >
-                      <option value="">{t("customFields.optionNoParent")}</option>
-                      {form.options
-                        .filter((p, i) => i !== idx && p.value)
-                        .map((p) => (
-                          <option key={p.value} value={p.value}>
-                            {p.labels.es || p.value}
-                          </option>
-                        ))}
-                    </select>
-                  )}
-                  <button
-                    type="button"
-                    className={smallBtn}
-                    onClick={() => patch({ options: form.options.filter((_, i) => i !== idx) })}
-                  >
-                    {t("customFields.removeOption")}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              className={`${smallBtn} mt-3`}
-              onClick={() => patch({ options: [...form.options, { value: "", parent: null, labels: { es: "", en: "" } }] })}
+            <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.lookupTitle")}</legend>
+            <select
+              className={inputClass()}
+              value={form.lookupId ?? ""}
+              onChange={(e) => patch({ lookupId: e.target.value || null })}
             >
-              + {t("customFields.addOption")}
-            </button>
+              <option value="">{t("customFields.lookupPick")}</option>
+              {lookups.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name} ({l.count})
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-slate-500">
+              {t("customFields.lookupHint")}{" "}
+              <a
+                href={`/admin/master-data/lookups?clientId=${clientId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-violet-600 hover:underline"
+              >
+                {t("customFields.lookupManage")}
+              </a>
+            </p>
           </fieldset>
+        )}
+
+        {viewGroups.length > 0 && (
+          <div>
+            <label className={labelClass}>{t("viewGroups.fieldLabel")}</label>
+            <div className="max-w-sm">
+              <ViewGroupPicker
+                groups={viewGroups}
+                value={form.viewGroupIds}
+                onChange={(next) => patch({ viewGroupIds: next })}
+              />
+            </div>
+            <p className="mt-1 text-xs text-slate-400">{t("viewGroups.fieldHint")}</p>
+          </div>
         )}
 
         {!isRequest && (
@@ -786,7 +755,10 @@ function ImportDialog({
     setResult(null);
     setRows(null);
     try {
-      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      // CSV is read as UTF-8 text (as an array it would be decoded as Latin-1).
+      const wb = file.name.toLowerCase().endsWith(".csv")
+        ? XLSX.read(await file.text(), { type: "string" })
+        : XLSX.read(await file.arrayBuffer(), { type: "array" });
       const sheetName = wb.SheetNames.find((n) => n.toLowerCase() === "cus_cliente") ?? wb.SheetNames[0];
       const data = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1, defval: "" });
       const parsed = parseImportRows(data);

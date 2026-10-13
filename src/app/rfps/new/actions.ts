@@ -20,6 +20,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
 import { buyerGroupIdsOf, canGenerateRfp } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
+import { applyViewGroupsToFields } from "@/lib/customFieldsShared";
 import {
   headerStdContext,
   loadCustomFields,
@@ -276,7 +277,12 @@ export async function validateAndShapeRfp(
 
   // Custom header values (as far as they're visible and valid) can decide
   // which templates apply, so settle them before matching.
-  const customFields = await loadCustomFields(clientId);
+  // Fields (and lookup values) the editor can't see through view groups are
+  // treated as hidden and read-only: their stored values are kept, never demanded.
+  const customFields = applyViewGroupsToFields(await loadCustomFields(clientId), {
+    role: user.role,
+    viewGroupIds: user.viewGroupIds ?? [],
+  });
   // Fields that can't be edited by hand keep their stored value when an
   // existing RFP is saved, whatever the payload says.
   if (existingRfpId) {

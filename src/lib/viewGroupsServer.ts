@@ -7,7 +7,7 @@ export async function loadViewGroups(clientId: string) {
 
 // Removes a deleted group's id from every list that references it.
 export async function stripViewGroupId(clientId: string, groupId: string) {
-  const tables = ["User", "SupplierDirectory", "Commodity", "Region", "RfpTemplate"];
+  const tables = ["User", "SupplierDirectory", "Commodity", "Region", "RfpTemplate", "CustomField"];
   for (const table of tables) {
     await prisma.$executeRawUnsafe(
       `UPDATE "${table}" SET "viewGroupIds" = array_remove("viewGroupIds", $1) WHERE "clientId" = $2 AND $1 = ANY("viewGroupIds")`,
@@ -15,6 +15,11 @@ export async function stripViewGroupId(clientId: string, groupId: string) {
       clientId,
     );
   }
+  await prisma.$executeRawUnsafe(
+    `UPDATE "LookupValue" SET "viewGroupIds" = array_remove("viewGroupIds", $1) WHERE "lookupId" IN (SELECT "id" FROM "Lookup" WHERE "clientId" = $2) AND $1 = ANY("viewGroupIds")`,
+    groupId,
+    clientId,
+  );
 }
 
 // Only group ids that exist for this client (a forged payload can't point elsewhere).

@@ -32,7 +32,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
-import { displayValue, labelFor } from "@/lib/customFieldsShared";
+import { applyViewGroupsToFields, displayValue, labelFor } from "@/lib/customFieldsShared";
 
 export default async function RfpDetailPage({
   params,
@@ -63,11 +63,13 @@ export default async function RfpDetailPage({
   const locale = localeForLanguage(user.language);
   const dictionary = getDictionary(user.language);
   // The client's custom fields with this RFP's stored values (header and lines).
-  const [customFieldDefs, customHeaderMap, customLineMap] = await Promise.all([
+  const [allCustomFieldDefs, customHeaderMap, customLineMap] = await Promise.all([
     loadCustomFields(rfp.clientId, undefined, false),
     readCustomValues(rfp.clientId, "RFP", [rfp.id]),
     readCustomValues(rfp.clientId, "RFP_LINE", rfp.items.map((i) => i.id)),
   ]);
+  // Fields hidden from this viewer by view groups are not displayed.
+  const customFieldDefs = applyViewGroupsToFields(allCustomFieldDefs, user);
   const customHeaderValues = customHeaderMap.get(rfp.id) ?? {};
   const dateOptions = { locale, timeZone: user.timezone };
   // Currency is derived from the RFP's owning client, not the viewer's
