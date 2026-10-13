@@ -47,6 +47,8 @@ export const SYSTEM_TABLES = [
   { key: "note", label: "Note", model: "note" },
   { key: "note-target", label: "NoteTarget", model: "noteTarget" },
   { key: "note-read", label: "NoteRead", model: "noteRead" },
+  { key: "assistant-log", label: "AssistantLog", model: "assistantLog" },
+  { key: "assistant-proposal", label: "AssistantProposal", model: "assistantProposal" },
 ] as const;
 
 // Audit-style tables: viewable here but never editable or deletable, so the
@@ -64,7 +66,7 @@ export const SYSTEM_TABLE_GROUPS: { key: string; tables: string[] }[] = [
   { key: "templates", tables: ["RfpTemplate", "TemplateItem", "TemplateQuestion", "ApprovalWorkflow", "ApprovalLevel"] },
   { key: "rfps", tables: ["Rfp", "RfpItem", "RfpQuestion", "RfpApproval", "RfpApprovalDecision", "Invitation", "Response", "Answer", "ItemPrice"] },
   { key: "requests", tables: ["RequestImportTemplate", "RequestRfpMapping", "PurchaseRequest", "PurchaseRequestLine"] },
-  { key: "audit", tables: ["EmailTemplate", "EmailLog", "LoginEvent", "SystemTableLog"] },
+  { key: "audit", tables: ["EmailTemplate", "EmailLog", "LoginEvent", "SystemTableLog", "AssistantLog", "AssistantProposal"] },
 ];
 
 export function groupOfTable(label: string): string {

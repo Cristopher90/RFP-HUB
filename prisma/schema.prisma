@@ -91,6 +91,12 @@ model Client {
   code        String   @unique
   description String
   icon        String? // emoji mostrado junto al nombre del cliente en la barra superior
+  // Asistente de IA (Claude): cada cliente usa su propia clave de API.
+  assistantEnabled    Boolean @default(false)
+  assistantApiKeyEnc  String? // clave de API cifrada (AES-256-GCM); nunca se devuelve al navegador
+  assistantApiKeyLast4 String? // últimos 4 caracteres, solo para mostrar
+  assistantModel      String  @default("claude-opus-5-5")
+
   iconImage   String? // imagen (data URL PNG/JPEG/WebP, ya reducida) que sustituye al emoji como icono del cliente
   currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
   createdAt   DateTime @default(now())
@@ -166,6 +172,9 @@ model User {
   notes       Note[]
   noteTargets NoteTarget[]
   noteReads   NoteRead[]
+
+  // Puede usar el Asistente de IA (además, el cliente debe tenerlo activado)
+  canUseAssistant Boolean @default(false)
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -992,4 +1001,36 @@ model NoteRead {
   readAt DateTime @default(now())
 
   @@unique([noteId, userId])
+}
+
+// Registro de uso del Asistente de IA: quién preguntó, qué herramientas usó y el
+// consumo de tokens (la clave de API es del cliente, así se ve cuánto gasta).
+model AssistantLog {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  clientId     String
+  userId       String
+  question     String
+  tools        Json? // nombres de las herramientas usadas
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  status       String // OK | ERROR
+  error        String?
+
+  @@index([clientId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Borrador propuesto por el Asistente: no existe como RFP hasta que el usuario
+// pulsa "Crear borrador". Caduca a las 24 h.
+model AssistantProposal {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  clientId  String
+  userId    String
+  payload   Json
+  status    String   @default("PENDING") // PENDING | CREATED | DISCARDED
+  rfpId     String?
+
+  @@index([userId, status])
 }

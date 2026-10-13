@@ -61,6 +61,7 @@ export default async function EditUserPage({
             canNoteOwn: user.canNoteOwn,
             canNoteTargeted: user.canNoteTargeted,
             canNoteAll: user.canNoteAll,
+            canUseAssistant: user.canUseAssistant,
             seeUnassignedRequests: user.seeUnassignedRequests,
             seeMyRequests: user.seeMyRequests,
             seeAssignedRequests: user.seeAssignedRequests,

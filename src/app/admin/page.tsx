@@ -192,6 +192,22 @@ export default async function AdminPage() {
       )}
 
       <CollapsibleSection
+        title={dictionary.adminDashboard.assistantTitle}
+        subtitle={dictionary.adminDashboard.assistantSubtitle}
+        storageKey="admin-hub-assistant"
+        className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/assistant"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.adminDashboard.assistantLink}
+          </Link>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         title={dictionary.adminDashboard.templatesTitle}
         subtitle={dictionary.adminDashboard.templatesSubtitle}
         storageKey="admin-hub-templates"

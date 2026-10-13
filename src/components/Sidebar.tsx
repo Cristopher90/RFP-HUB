@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LEVEL } from "@/lib/roleLabels";
 import { getDictionary } from "@/i18n/getDictionary";
 import { canViewRequests } from "@/lib/requestAccess";
+import { assistantAccess } from "@/lib/assistant/access";
 import { SidebarNav, type SidebarItem } from "@/components/SidebarNav";
 
 export async function Sidebar() {
@@ -10,6 +11,7 @@ export async function Sidebar() {
   if (!user) return null;
   const dictionary = getDictionary(user.language);
 
+  const hasAssistant = Boolean(await assistantAccess(user));
   const items: SidebarItem[] = [
     { href: "/home", label: dictionary.nav.home, icon: "home" },
     { href: "/", label: dictionary.nav.rfps, icon: "rfps" },
@@ -17,6 +19,7 @@ export async function Sidebar() {
       ? [{ href: "/requests", label: dictionary.nav.requests, icon: "requests" as const }]
       : []),
     { href: "/reports", label: dictionary.nav.reports, icon: "reports" },
+    ...(hasAssistant ? [{ href: "/assistant", label: dictionary.nav.assistant, icon: "assistant" as const }] : []),
     ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN
       ? [{ href: "/admin", label: dictionary.nav.settings, icon: "settings" as const }]
       : []),

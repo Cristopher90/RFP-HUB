@@ -65,6 +65,7 @@ export function UserForm({
     canNoteOwn: initial?.canNoteOwn ?? true,
     canNoteTargeted: initial?.canNoteTargeted ?? false,
     canNoteAll: initial?.canNoteAll ?? false,
+    canUseAssistant: initial?.canUseAssistant ?? false,
   });
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
@@ -334,6 +335,19 @@ export function UserForm({
             </label>
           ))}
         </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">{t("userForm.assistantTitle")}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t("userForm.assistantSubtitle")}</p>
+        <label className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={form.canUseAssistant}
+            onChange={(e) => update({ canUseAssistant: e.target.checked })}
+          />
+          {t("userForm.canUseAssistant")}
+        </label>
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

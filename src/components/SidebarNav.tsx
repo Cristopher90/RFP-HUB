@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type SidebarIconName = "home" | "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog";
+export type SidebarIconName = "assistant" | "home" | "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog";
 
 // Hand-drawn line icons, one per menu entry, drawn with currentColor so they
 // follow the theme and the active/hover state.
@@ -20,6 +20,14 @@ function Icon({ name }: { name: SidebarIconName }) {
     "aria-hidden": true,
   };
   switch (name) {
+    case "assistant": // sparkles: AI assistant
+      return (
+        <svg {...common}>
+          <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+          <path d="m6.3 6.3 2.4 2.4M15.3 15.3l2.4 2.4M17.7 6.3l-2.4 2.4M8.7 15.3l-2.4 2.4" />
+          <circle cx="12" cy="12" r="1.6" />
+        </svg>
+      );
     case "home": // house
       return (
         <svg {...common}>

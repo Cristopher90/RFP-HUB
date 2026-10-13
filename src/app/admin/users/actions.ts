@@ -30,6 +30,7 @@ export type UserFormInput = {
   canNoteOwn: boolean;
   canNoteTargeted: boolean;
   canNoteAll: boolean;
+  canUseAssistant: boolean;
   approvalGroups: { approvalGroupId: string; limit: string }[];
   buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
 };
@@ -156,6 +157,7 @@ export async function createUser(
       canNoteOwn: input.canNoteOwn,
       canNoteTargeted: input.canNoteTargeted,
       canNoteAll: input.canNoteAll,
+      canUseAssistant: input.canUseAssistant,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,
       seeAssignedRequests: input.seeAssignedRequests,
@@ -225,6 +227,7 @@ export async function updateUser(
       canNoteOwn: input.canNoteOwn,
       canNoteTargeted: input.canNoteTargeted,
       canNoteAll: input.canNoteAll,
+      canUseAssistant: input.canUseAssistant,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,
       seeAssignedRequests: input.seeAssignedRequests,
