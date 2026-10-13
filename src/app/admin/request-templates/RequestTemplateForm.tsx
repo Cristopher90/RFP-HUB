@@ -4,6 +4,7 @@ import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { readWorkbookInfo, type WorkbookInfo } from "@/lib/requestImport";
+import { labelFor, type CustomFieldDef } from "@/lib/customFieldsShared";
 import {
   HEADER_FIELDS,
   IMPORT_MODES,
@@ -37,11 +38,14 @@ function unique(values: (string | undefined)[]): string[] {
 export function RequestTemplateForm({
   initial,
   targetClientId,
+  requestFields = [],
 }: {
   initial?: Initial;
   targetClientId: string;
+  // The client's request custom fields flagged for import.
+  requestFields?: CustomFieldDef[];
 }) {
-  const { t } = usePreferences();
+  const { t, language } = usePreferences();
   const router = useRouter();
   const idBase = useId();
   const [name, setName] = useState(initial?.name ?? "");
@@ -75,8 +79,18 @@ export function RequestTemplateForm({
   );
   const columnsOf = (sheet: string, savedColumns: (string | undefined)[]) =>
     unique([...(workbook?.sheets.find((s) => s.name === sheet)?.headers ?? []), ...savedColumns]);
-  const headerColumns = columnsOf(headerSheet, Object.values(initial?.headerMapping ?? {}));
-  const lineColumns = columnsOf(linesSheet, Object.values(initial?.linesMapping ?? {}));
+  const stringsOf = (m: Record<string, unknown> | undefined) =>
+    Object.values(m ?? {}).filter((v): v is string => typeof v === "string");
+  const headerColumns = columnsOf(headerSheet, [
+    ...stringsOf(initial?.headerMapping),
+    ...Object.values(initial?.headerMapping.custom ?? {}),
+  ]);
+  const lineColumns = columnsOf(linesSheet, [
+    ...stringsOf(initial?.linesMapping),
+    ...Object.values(initial?.linesMapping.custom ?? {}),
+  ]);
+  const headCustomFields = requestFields.filter((f) => f.scope === "REQUEST_HEAD");
+  const lineCustomFields = requestFields.filter((f) => f.scope === "REQUEST_LINE");
   const visibleLineFields = lineFieldsFor(importMode);
   const requiredLines = requiredLineFields(importMode);
 
@@ -277,6 +291,29 @@ export function RequestTemplateForm({
         </div>
       </section>
 
+      {headCustomFields.length > 0 && (
+        <section className={sectionClass}>
+          <h2 className="text-base font-semibold text-slate-900">
+            {t("customFields.requestCustomMappingTitle")} · {t("customFields.scopeRequestHead")}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">{t("customFields.requestCustomMappingHint")}</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {headCustomFields.map((f) => (
+              <div key={f.key}>
+                <label className={labelClass}>{labelFor(f.labels, language, f.key)}</label>
+                {renderColumnInput({
+                  listId: `${idBase}-hc-${f.key}`,
+                  columns: headerColumns,
+                  value: headerMapping.custom?.[f.key] ?? "",
+                  onChange: (v) =>
+                    setHeaderMapping((prev) => ({ ...prev, custom: { ...prev.custom, [f.key]: v } })),
+                })}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className={sectionClass}>
         <h2 className="text-base font-semibold text-slate-900">
           {t("requestTemplateForm.linesMappingTitle")}
@@ -298,6 +335,29 @@ export function RequestTemplateForm({
           ))}
         </div>
       </section>
+
+      {lineCustomFields.length > 0 && (
+        <section className={sectionClass}>
+          <h2 className="text-base font-semibold text-slate-900">
+            {t("customFields.requestCustomMappingTitle")} · {t("customFields.scopeRequestLine")}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">{t("customFields.requestCustomMappingHint")}</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {lineCustomFields.map((f) => (
+              <div key={f.key}>
+                <label className={labelClass}>{labelFor(f.labels, language, f.key)}</label>
+                {renderColumnInput({
+                  listId: `${idBase}-lc-${f.key}`,
+                  columns: lineColumns,
+                  value: linesMapping.custom?.[f.key] ?? "",
+                  onChange: (v) =>
+                    setLinesMapping((prev) => ({ ...prev, custom: { ...prev.custom, [f.key]: v } })),
+                })}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="flex items-center justify-between">
         {initial ? (

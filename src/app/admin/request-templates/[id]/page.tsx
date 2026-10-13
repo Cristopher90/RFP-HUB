@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields } from "@/lib/customFields";
 import type { HeaderMapping, ImportMode, LinesMapping } from "@/lib/requestFields";
 import { RequestTemplateForm } from "../RequestTemplateForm";
 
@@ -19,6 +20,8 @@ export default async function EditRequestTemplatePage({
   if (!template) notFound();
   if (!scope.isSuperAdmin && template.clientId !== scope.user.clientId) notFound();
 
+  const requestFields = (await loadCustomFields(template.clientId)).filter((f) => f.importable);
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <Link
@@ -32,6 +35,7 @@ export default async function EditRequestTemplatePage({
         <RequestTemplateForm
           key={template.id}
           targetClientId={template.clientId}
+          requestFields={requestFields}
           initial={{
             id: template.id,
             name: template.name,

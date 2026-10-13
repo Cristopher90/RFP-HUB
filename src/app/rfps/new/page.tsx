@@ -9,6 +9,7 @@ import { buildRfpFromRequest } from "@/lib/requestToRfp";
 import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { CUSTOM_TARGET_PREFIX, coerceValue } from "@/lib/customFieldsShared";
 
 export default async function NewRfpPage({
   searchParams,
@@ -78,16 +79,27 @@ export default async function NewRfpPage({
         prisma.client.findUnique({ where: { id: customClientId }, select: { currency: true } }),
       ])
     : [[], null];
-  const customFields = allCustomFields.filter((f) => f.scope !== "USER");
+  const customFields = allCustomFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE");
   const userFields = allCustomFields.filter((f) => f.scope === "USER" && f.mapToRfpKey);
   const prefill: Partial<Record<"buyerName" | "commodity" | "region" | "origin", string>> = {};
+  const customPrefill: Record<string, string> = {};
   if (customClientId && userFields.length > 0) {
     const mine = (await readCustomValues(customClientId, "USER", [user.id])).get(user.id) ?? {};
     for (const f of userFields) {
       const raw = mine[f.key];
       if (!raw || !f.mapToRfpKey) continue;
       const opt = f.options.find((o) => o.value === raw);
-      prefill[f.mapToRfpKey as keyof typeof prefill] = opt ? (opt.labels.es ?? opt.value) : raw;
+      const text = opt ? (opt.labels.es ?? opt.value) : raw;
+      if (f.mapToRfpKey.startsWith(CUSTOM_TARGET_PREFIX)) {
+        // Copied into one of the RFP's own custom header fields.
+        const target = customFields.find(
+          (c) => c.scope === "RFP_HEAD" && c.key === f.mapToRfpKey!.slice(CUSTOM_TARGET_PREFIX.length),
+        );
+        const value = target ? coerceValue(target, text) : "";
+        if (target && value !== "") customPrefill[target.key] = value;
+      } else {
+        prefill[f.mapToRfpKey as keyof typeof prefill] = text;
+      }
     }
   }
 
@@ -123,12 +135,22 @@ export default async function NewRfpPage({
     const rfpMapping = await prisma.requestRfpMapping.findUnique({
       where: { clientId: request.clientId },
     });
-    const built = buildRfpFromRequest(
-      request,
-      rfpMapping?.mapping,
-      commodities,
-      customFields,
+    // The request's own custom fields can feed RFP fields through the mapping.
+    const requestFields = (await loadCustomFields(request.clientId)).filter(
+      (f) => f.scope === "REQUEST_HEAD" || f.scope === "REQUEST_LINE",
     );
+    const [requestHeader, requestLines] =
+      requestFields.length > 0
+        ? await Promise.all([
+            readCustomValues(request.clientId, "REQUEST", [request.id]),
+            readCustomValues(request.clientId, "REQUEST_LINE", request.lines.map((l) => l.id)),
+          ])
+        : [new Map<string, Record<string, string>>(), new Map<string, Record<string, string>>()];
+    const built = buildRfpFromRequest(request, rfpMapping?.mapping, commodities, customFields, {
+      fields: requestFields,
+      header: requestHeader.get(request.id) ?? {},
+      lines: request.lines.map((l) => requestLines.get(l.id) ?? {}),
+    });
     purchaseRequestId = request.id;
     purchaseRequestLabel = `${request.documentType} ${request.documentNumber}`;
     initial = {
@@ -192,7 +214,7 @@ export default async function NewRfpPage({
   }
 
   // A blank RFP starts with whatever the user's mapped custom fields provide.
-  const hasPrefill = Object.keys(prefill).length > 0;
+  const hasPrefill = Object.keys(prefill).length > 0 || Object.keys(customPrefill).length > 0;
   if (!initial && hasPrefill) {
     const pick = (key: "commodity" | "region" | "origin") => {
       const v = prefill[key] ?? "";
@@ -213,6 +235,7 @@ export default async function NewRfpPage({
       basedOnRfpId: null,
       basedOnRfpLabel: null,
       selectedTemplateId: null,
+      customValues: customPrefill,
       scoringEnabled: false,
       items: [],
       questions: [],

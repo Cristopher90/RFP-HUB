@@ -13,6 +13,12 @@ import {
 import { deriveRequestStatus } from "@/lib/requestStatus";
 import { BUYER_ROLES } from "@/lib/requestFields";
 import type { ParsedDocument } from "@/lib/requestImport";
+import {
+  deleteCustomValues,
+  loadCustomFields,
+  saveCustomValues,
+} from "@/lib/customFields";
+import { coerceValue, type CustomFieldDef } from "@/lib/customFieldsShared";
 
 const MAX_DOCUMENTS = 2000;
 const MAX_LINES = 20000;
@@ -29,6 +35,27 @@ export type ImportResult =
 function clean(value: unknown, max: number): string | null {
   const s = typeof value === "string" ? value.trim() : "";
   return s ? s.slice(0, max) : null;
+}
+
+// Raw custom values as sent by the client: short strings under short keys.
+function cleanCustom(input: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!input || typeof input !== "object") return out;
+  for (const [key, value] of Object.entries(input as Record<string, unknown>).slice(0, 50)) {
+    const v = clean(value, 500);
+    if (v && /^[a-z0-9_]{1,40}$/.test(key)) out[key] = v;
+  }
+  return out;
+}
+
+// Keeps only the importable fields' values that fit their type.
+function coerceCustom(fields: CustomFieldDef[], raw: Record<string, string> | undefined) {
+  const out: Record<string, string> = {};
+  for (const field of fields) {
+    const value = coerceValue(field, raw?.[field.key]);
+    if (value !== "") out[field.key] = value;
+  }
+  return out;
 }
 
 function validDocuments(input: unknown): ParsedDocument[] | null {
@@ -61,6 +88,7 @@ function validDocuments(input: unknown): ParsedDocument[] | null {
         quantity,
         unit: clean(line.unit, 50),
         commodity: clean(line.commodity, 200),
+        customValues: cleanCustom(line.customValues),
       });
     }
     if (lines.length === 0) continue;
@@ -70,6 +98,7 @@ function validDocuments(input: unknown): ParsedDocument[] | null {
       creator: clean(doc.creator, 200),
       requestDate,
       commodity: clean(doc.commodity, 200),
+      customValues: cleanCustom(doc.customValues),
       lines,
     });
   }
@@ -100,6 +129,11 @@ export async function importPurchaseRequests(
     return { error: d.tooManyDocuments };
   }
 
+  // Request custom fields flagged for import (header / line).
+  const importable = (await loadCustomFields(clientId)).filter((f) => f.importable);
+  const headFields = importable.filter((f) => f.scope === "REQUEST_HEAD");
+  const lineFields = importable.filter((f) => f.scope === "REQUEST_LINE");
+
   let created = 0;
   let updated = 0;
   let skipped = 0;
@@ -108,7 +142,12 @@ export async function importPurchaseRequests(
   for (const doc of docs) {
     try {
       const requestDate = doc.requestDate ? new Date(`${doc.requestDate}T00:00:00.000Z`) : null;
-      const lines = doc.lines.map((l, order) => ({ ...l, order }));
+      const lineCustom = doc.lines.map((l) => coerceCustom(lineFields, l.customValues));
+      const headerCustom = coerceCustom(headFields, doc.customValues);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const lines = doc.lines.map(({ customValues: _cv, ...l }, order) => ({ ...l, order }));
+      let requestId: string | null = null;
+      let oldLineIds: string[] = [];
       const existing = await prisma.purchaseRequest.findUnique({
         where: {
           clientId_documentType_documentNumber: {
@@ -121,7 +160,7 @@ export async function importPurchaseRequests(
       });
 
       if (!existing) {
-        await prisma.purchaseRequest.create({
+        const createdRequest = await prisma.purchaseRequest.create({
           data: {
             clientId,
             documentType: doc.documentType,
@@ -134,8 +173,16 @@ export async function importPurchaseRequests(
             lines: { create: lines },
           },
         });
+        requestId = createdRequest.id;
         created++;
       } else if (deriveRequestStatus(existing) === "NEW") {
+        requestId = existing.id;
+        oldLineIds = (
+          await prisma.purchaseRequestLine.findMany({
+            where: { requestId: existing.id },
+            select: { id: true },
+          })
+        ).map((l) => l.id);
         await prisma.$transaction([
           prisma.purchaseRequestLine.deleteMany({ where: { requestId: existing.id } }),
           prisma.purchaseRequest.update({
@@ -155,6 +202,19 @@ export async function importPurchaseRequests(
         updated++;
       } else {
         skipped++;
+      }
+      if (requestId && (headFields.length > 0 || lineFields.length > 0 || oldLineIds.length > 0)) {
+        await deleteCustomValues(clientId, "REQUEST_LINE", oldLineIds);
+        await saveCustomValues(clientId, "REQUEST", requestId, headerCustom);
+        const newLines = await prisma.purchaseRequestLine.findMany({
+          where: { requestId },
+          orderBy: { order: "asc" },
+          select: { id: true },
+        });
+        for (const [idx, line] of newLines.entries()) {
+          const values = lineCustom[idx] ?? {};
+          if (Object.keys(values).length > 0) await saveCustomValues(clientId, "REQUEST_LINE", line.id, values);
+        }
       }
     } catch (error) {
       console.error("[requests:import]", doc.documentNumber, error);

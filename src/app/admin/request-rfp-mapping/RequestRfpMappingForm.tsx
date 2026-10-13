@@ -2,13 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { usePreferences } from "@/i18n/PreferencesProvider";
-import { labelFor, type CustomFieldDef } from "@/lib/customFieldsShared";
+import { REQUEST_SOURCE_PREFIX, labelFor, type CustomFieldDef } from "@/lib/customFieldsShared";
 import {
   HEADER_FIELDS,
   REQUEST_PLACEHOLDERS,
   RFP_ITEM_SOURCES,
   RFP_ITEM_TARGETS,
-  type RfpItemSource,
   type RfpMapping,
 } from "@/lib/requestFields";
 import { saveRequestRfpMapping } from "./actions";
@@ -21,10 +20,12 @@ export function RequestRfpMappingForm({
   initial,
   targetClientId,
   customFields = [],
+  requestFields = [],
 }: {
   initial: RfpMapping;
   targetClientId: string;
   customFields?: CustomFieldDef[];
+  requestFields?: CustomFieldDef[];
 }) {
   const { t, language } = usePreferences();
   const [mapping, setMapping] = useState<RfpMapping>(initial);
@@ -48,6 +49,15 @@ export function RequestRfpMappingForm({
   }
 
   const labelClass = "mb-1 block text-sm font-medium text-slate-700";
+  // Request custom fields that can feed an RFP field, next to the standard sources.
+  const headRequestFields = requestFields.filter((f) => f.scope === "REQUEST_HEAD");
+  const lineRequestFields = requestFields.filter((f) => f.scope === "REQUEST_LINE");
+  const customOptions = (list: CustomFieldDef[]) =>
+    list.map((f) => (
+      <option key={f.key} value={`${REQUEST_SOURCE_PREFIX}${f.key}`}>
+        {labelFor(f.labels, language, f.key)} ({t(f.scope === "REQUEST_HEAD" ? "customFields.scopeRequestHead" : "customFields.scopeRequestLine")})
+      </option>
+    ));
 
   return (
     <div className="space-y-6">
@@ -68,7 +78,7 @@ export function RequestRfpMappingForm({
         </h2>
         <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
           <span>{t("requestRfpMappingForm.placeholdersHint")}</span>
-          {REQUEST_PLACEHOLDERS.map((p) => (
+          {[...REQUEST_PLACEHOLDERS, ...headRequestFields.map((f) => f.key)].map((p) => (
             <code key={p} className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-700">
               {`{${p}}`}
             </code>
@@ -124,7 +134,7 @@ export function RequestRfpMappingForm({
                 value={mapping.item[target]}
                 onChange={(e) =>
                   update({
-                    item: { ...mapping.item, [target]: e.target.value as RfpItemSource | "" },
+                    item: { ...mapping.item, [target]: e.target.value },
                   })
                 }
               >
@@ -134,6 +144,7 @@ export function RequestRfpMappingForm({
                     {t(`requestLineFields.${source}`)}
                   </option>
                 ))}
+                {customOptions(lineRequestFields)}
               </select>
             </div>
           ))}
@@ -174,6 +185,7 @@ export function RequestRfpMappingForm({
                         {isHead ? t(`requestHeaderFields.${source}`) : t(`requestLineFields.${source}`)}
                       </option>
                     ))}
+                    {customOptions(isHead ? headRequestFields : lineRequestFields)}
                   </select>
                 </div>
               );

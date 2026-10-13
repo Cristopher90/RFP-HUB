@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields } from "@/lib/customFields";
 import {
   HEADER_FIELDS,
   LINE_FIELDS,
@@ -62,6 +63,22 @@ export async function saveRequestImportTemplate(
   for (const field of LINE_FIELDS) {
     linesMapping[field] = lineFields.includes(field) ? str(input.linesMapping?.[field]) : "";
   }
+
+  // Custom mapping: only the client's importable request fields, with a column.
+  const importable = (await loadCustomFields(clientId)).filter((f) => f.importable);
+  const customHead: Record<string, string> = {};
+  const customLines: Record<string, string> = {};
+  for (const f of importable) {
+    if (f.scope === "REQUEST_HEAD") {
+      const column = str(input.headerMapping?.custom?.[f.key]);
+      if (column) customHead[f.key] = column;
+    } else if (f.scope === "REQUEST_LINE") {
+      const column = str(input.linesMapping?.custom?.[f.key]);
+      if (column) customLines[f.key] = column;
+    }
+  }
+  if (Object.keys(customHead).length > 0) headerMapping.custom = customHead;
+  if (Object.keys(customLines).length > 0) linesMapping.custom = customLines;
 
   for (const field of REQUIRED_HEADER_FIELDS) {
     if (!headerMapping[field]) {

@@ -3,7 +3,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
+import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { displayValue, labelFor } from "@/lib/customFieldsShared";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { canGenerateRfp, requireRequestsScope, visibilityWhere } from "@/lib/requestAccess";
@@ -136,6 +138,36 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
       }),
     ]);
 
+  // Request custom fields (header / lines) and the values stored for this page.
+  const requestCustomFields = (await loadCustomFields(effectiveClientId, undefined, false)).filter(
+    (f) => f.scope === "REQUEST_HEAD" || f.scope === "REQUEST_LINE",
+  );
+  const headCustomFields = requestCustomFields.filter((f) => f.scope === "REQUEST_HEAD");
+  const lineCustomFields = requestCustomFields.filter((f) => f.scope === "REQUEST_LINE");
+  const [headerValues, lineValues] =
+    requestCustomFields.length > 0
+      ? await Promise.all([
+          readCustomValues(effectiveClientId, "REQUEST", requests.map((r) => r.id)),
+          readCustomValues(
+            effectiveClientId,
+            "REQUEST_LINE",
+            requests.flatMap((r) => r.lines.map((l) => l.id)),
+          ),
+        ])
+      : [new Map<string, Record<string, string>>(), new Map<string, Record<string, string>>()];
+  const currency = clientRow?.currency ?? "USD";
+  const show = (field: (typeof requestCustomFields)[number], raw: string | undefined) =>
+    raw === undefined
+      ? ""
+      : displayValue(
+          field,
+          raw,
+          user.language,
+          (n) => formatCurrency(n, { locale, currency }),
+          dictionary.customFields.yes,
+          dictionary.customFields.no,
+        );
+
   const dateTime = { locale, timeZone: user.timezone };
   const rows: RequestRow[] = requests.map((r) => {
     const rowStatus = deriveRequestStatus(r);
@@ -155,6 +187,13 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
       commodity: r.commodity ?? "",
       rfpId: r.rfp && r.rfp.status !== "DELETED" ? r.rfp.id : null,
       canGenerate: rowStatus === "NEW" && canGenerateRfp(r, user.id, groupIds),
+      customHeader: headCustomFields
+        .map((f) => ({
+          key: f.key,
+          label: labelFor(f.labels, user.language, f.key),
+          value: show(f, headerValues.get(r.id)?.[f.key]),
+        }))
+        .filter((x) => x.value !== ""),
       lines: r.lines.map((l) => ({
         id: l.id,
         position: l.position,
@@ -164,6 +203,9 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
         quantity: l.quantity,
         unit: l.unit ?? "",
         commodity: l.commodity ?? "",
+        custom: Object.fromEntries(
+          lineCustomFields.map((f) => [f.key, show(f, lineValues.get(l.id)?.[f.key])]),
+        ),
       })),
     };
   });
@@ -214,7 +256,11 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
 
       <RequestsTable
         rows={rows}
-        currency={clientRow?.currency ?? "USD"}
+        currency={currency}
+        lineCustomColumns={lineCustomFields.map((f) => ({
+          key: f.key,
+          label: labelFor(f.labels, user.language, f.key),
+        }))}
         canAssign={canAssign}
         buyers={buyers.map((u) => ({ id: u.id, name: `${u.name} ${u.lastName ?? ""}`.trim() }))}
         groups={groups}

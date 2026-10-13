@@ -15,6 +15,7 @@ export type RequestLine = {
   quantity: number;
   unit: string;
   commodity: string;
+  custom: Record<string, string>; // display text per request line custom field
 };
 
 export type RequestRow = {
@@ -30,6 +31,7 @@ export type RequestRow = {
   commodity: string;
   rfpId: string | null;
   canGenerate: boolean;
+  customHeader: { key: string; label: string; value: string }[];
   lines: RequestLine[];
 };
 
@@ -49,8 +51,10 @@ export function RequestsTable({
   canAssign,
   buyers,
   groups,
+  lineCustomColumns = [],
 }: {
   rows: RequestRow[];
+  lineCustomColumns?: { key: string; label: string }[];
   currency: string;
   canAssign: boolean;
   buyers: Option[];
@@ -237,8 +241,43 @@ export function RequestsTable({
           >
             <div className="border-b border-slate-200 p-4">
               <h2 className="text-base font-semibold text-slate-900">
-                {t("requestLines.title")} · {open.documentType} {open.documentNumber}
+                {open.documentType} {open.documentNumber}
               </h2>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+                {(
+                  [
+                    ["requestsPage.documentNumber", open.documentNumber],
+                    ["requestsPage.documentType", open.documentType],
+                    ["requestsPage.creator", open.creator],
+                    ["requestsPage.requestDate", open.requestDate],
+                    ["requestsPage.commodity", open.commodity],
+                    ["requestsPage.buyer", open.buyerLabel],
+                    ["requestsPage.importedAt", open.importedAt],
+                  ] as const
+                ).map(([labelKey, value]) => (
+                  <div key={labelKey}>
+                    <dt className="text-xs text-slate-400">{t(labelKey)}</dt>
+                    <dd className="font-medium text-slate-700">{value || "—"}</dd>
+                  </div>
+                ))}
+                <div>
+                  <dt className="text-xs text-slate-400">{t("requestsPage.status")}</dt>
+                  <dd>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[open.status]}`}
+                    >
+                      {t(`requestStatus.${open.status}`)}
+                    </span>
+                  </dd>
+                </div>
+                {open.customHeader.map((f) => (
+                  <div key={f.key}>
+                    <dt className="text-xs text-slate-400">{f.label}</dt>
+                    <dd className="font-medium text-slate-700">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <h3 className="mt-4 text-sm font-semibold text-slate-700">{t("requestLines.title")}</h3>
             </div>
             <div className="max-h-96 overflow-auto">
               {open.lines.length === 0 ? (
@@ -253,6 +292,11 @@ export function RequestsTable({
                       <th className="px-4 py-2">{t("requestLines.historicalPrice")}</th>
                       <th className="px-4 py-2">{t("requestLines.quantity")}</th>
                       <th className="px-4 py-2">{t("requestLines.commodity")}</th>
+                      {lineCustomColumns.map((c) => (
+                        <th key={c.key} className="px-4 py-2">
+                          {c.label}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -269,6 +313,11 @@ export function RequestsTable({
                           {line.unit && ` ${line.unit}`}
                         </td>
                         <td className="px-4 py-2 text-slate-500">{line.commodity || "—"}</td>
+                        {lineCustomColumns.map((c) => (
+                          <td key={c.key} className="px-4 py-2 text-slate-500">
+                            {line.custom[c.key] || "—"}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

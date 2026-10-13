@@ -21,6 +21,10 @@ export default async function RequestRfpMappingPage({
   const mappableFields = effectiveClientId
     ? (await loadCustomFields(effectiveClientId)).filter((f) => f.mappable)
     : [];
+  const targetFields = mappableFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE");
+  const requestFields = mappableFields.filter(
+    (f) => f.scope === "REQUEST_HEAD" || f.scope === "REQUEST_LINE",
+  );
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -40,7 +44,8 @@ export default async function RequestRfpMappingPage({
             key={effectiveClientId}
             targetClientId={effectiveClientId}
             initial={normalizeRfpMapping(saved?.mapping)}
-            customFields={mappableFields}
+            customFields={targetFields}
+            requestFields={requestFields}
           />
         </div>
       ) : (

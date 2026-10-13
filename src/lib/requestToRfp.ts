@@ -1,6 +1,18 @@
 import type { NewItemInput } from "@/app/rfps/new/actions";
 import { normalizeRfpMapping, type RfpItemSource } from "@/lib/requestFields";
-import { coerceValue, type CustomFieldDef } from "@/lib/customFieldsShared";
+import {
+  REQUEST_SOURCE_PREFIX,
+  coerceValue,
+  displayValue,
+  type CustomFieldDef,
+} from "@/lib/customFieldsShared";
+
+// Custom (REQUEST_HEAD / REQUEST_LINE) values of a request, to use as sources.
+export type RequestCustomData = {
+  fields: CustomFieldDef[];
+  header: Record<string, string>;
+  lines: Record<string, string>[]; // aligned with request.lines
+};
 
 type RequestForRfp = {
   documentNumber: string;
@@ -44,9 +56,10 @@ export function buildRfpFromRequest(
   rawMapping: unknown,
   commodities: { code: string; description: string }[],
   customFields: CustomFieldDef[] = [],
+  requestCustom?: RequestCustomData,
 ) {
   const mapping = normalizeRfpMapping(rawMapping);
-  const vars = {
+  const vars: Record<string, string> = {
     documentNumber: request.documentNumber,
     documentType: request.documentType,
     creator: request.creator ?? "",
@@ -54,41 +67,64 @@ export function buildRfpFromRequest(
     commodity: request.commodity ?? "",
   };
 
-  const pick = (line: RequestForRfp["lines"][number], source: RfpItemSource | "") =>
-    source ? line[source] : null;
+  // Request custom fields as sources ("rc:<key>"), shown the way a person reads them.
+  const requestFields = requestCustom?.fields ?? [];
+  const show = (field: CustomFieldDef, raw: string | undefined) =>
+    raw === undefined ? "" : displayValue(field, raw, "es", (n) => n.toFixed(2));
+  for (const field of requestFields.filter((f) => f.scope === "REQUEST_HEAD")) {
+    vars[field.key] = show(field, requestCustom?.header[field.key]);
+  }
+  const headerSource = (source: string): string => {
+    if (source.startsWith(REQUEST_SOURCE_PREFIX)) return vars[source.slice(REQUEST_SOURCE_PREFIX.length)] ?? "";
+    return vars[source] ?? "";
+  };
+  const lineCustomOf = (index: number, source: string): string => {
+    const key = source.slice(REQUEST_SOURCE_PREFIX.length);
+    const field = requestFields.find((f) => f.scope === "REQUEST_LINE" && f.key === key);
+    return field ? show(field, requestCustom?.lines[index]?.[key]) : "";
+  };
+
+  const pick = (
+    line: RequestForRfp["lines"][number],
+    index: number,
+    source: string,
+  ): string | number | null => {
+    if (!source) return null;
+    if (source.startsWith(REQUEST_SOURCE_PREFIX)) return lineCustomOf(index, source);
+    return line[source as RfpItemSource];
+  };
 
   // Mappable custom fields filled from the request (header and lines).
   const customValues: Record<string, string> = {};
-  const headerSources = vars as Record<string, string>;
   for (const field of customFields.filter((f) => f.scope === "RFP_HEAD")) {
     const source = mapping.customHead[field.key];
-    if (!source || !(source in headerSources)) continue;
-    const value = coerceValue(field, headerSources[source]);
+    if (!source) continue;
+    const value = coerceValue(field, headerSource(source));
     if (value !== "") customValues[field.key] = value;
   }
   const lineFields = customFields.filter((f) => f.scope === "RFP_LINE");
 
-  const items: NewItemInput[] = request.lines.map((line) => {
+  const items: NewItemInput[] = request.lines.map((line, index) => {
     const lineCustom: Record<string, string> = {};
     for (const field of lineFields) {
-      const source = mapping.customLine[field.key] as RfpItemSource | undefined;
+      const source = mapping.customLine[field.key];
       if (!source) continue;
-      const value = coerceValue(field, line[source]);
+      const value = coerceValue(field, pick(line, index, source));
       if (value !== "") lineCustom[field.key] = value;
     }
-    const quantity = Number(pick(line, mapping.item.quantity));
-    const price = pick(line, mapping.item.historicalPrice);
+    const quantity = Number(pick(line, index, mapping.item.quantity));
+    const price = pick(line, index, mapping.item.historicalPrice);
     return {
       section: null,
-      code: String(pick(line, mapping.item.code) ?? "").trim() || null,
-      name: String(pick(line, mapping.item.name) ?? "").trim() || line.description,
-      description: String(pick(line, mapping.item.description) ?? "").trim(),
+      code: String(pick(line, index, mapping.item.code) ?? "").trim() || null,
+      name: String(pick(line, index, mapping.item.name) ?? "").trim() || line.description,
+      description: String(pick(line, index, mapping.item.description) ?? "").trim(),
       quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
-      unit: String(pick(line, mapping.item.unit) ?? "").trim() || "unidad",
+      unit: String(pick(line, index, mapping.item.unit) ?? "").trim() || "unidad",
       weight: 1,
       decimals: 2,
       historicalPrice: price === null || Number.isNaN(Number(price)) ? null : Number(price),
-      commodity: matchCommodity(String(pick(line, mapping.item.commodity) ?? ""), commodities),
+      commodity: matchCommodity(String(pick(line, index, mapping.item.commodity) ?? ""), commodities),
       customFields: [],
       customValues: lineCustom,
     };

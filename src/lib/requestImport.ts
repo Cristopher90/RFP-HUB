@@ -31,6 +31,7 @@ export type ParsedLine = {
   quantity: number;
   unit: string | null;
   commodity: string | null;
+  customValues?: Record<string, string>; // importable request custom fields: key → raw text
 };
 
 export type ParsedDocument = {
@@ -39,6 +40,7 @@ export type ParsedDocument = {
   creator: string | null;
   requestDate: string | null; // YYYY-MM-DD
   commodity: string | null;
+  customValues?: Record<string, string>;
   lines: ParsedLine[];
 };
 
@@ -125,13 +127,24 @@ export async function parseRequestsFile(
   const headerCols = new Set(sheetHeaders(headerWs));
   const lineCols = new Set(sheetHeaders(linesWs));
   const { headerMapping: hm, linesMapping: lm } = template;
-  for (const [field, column] of Object.entries(hm)) {
-    if (field === "documentTypeFixed" || !column) continue;
-    if (!headerCols.has(column)) {
+  const headerColumnsUsed = [
+    ...Object.entries(hm)
+      .filter(([field]) => field !== "documentTypeFixed" && field !== "custom")
+      .map(([, column]) => column as string),
+    ...Object.values(hm.custom ?? {}),
+  ];
+  for (const column of headerColumnsUsed) {
+    if (column && !headerCols.has(column)) {
       issues.push({ code: "missingColumn", value: `${template.headerSheet}: ${column}` });
     }
   }
-  for (const column of Object.values(lm)) {
+  const lineColumnsUsed = [
+    ...Object.entries(lm)
+      .filter(([field]) => field !== "custom")
+      .map(([, column]) => column as string),
+    ...Object.values(lm.custom ?? {}),
+  ];
+  for (const column of lineColumnsUsed) {
     if (column && !lineCols.has(column)) {
       issues.push({ code: "missingColumn", value: `${template.linesSheet}: ${column}` });
     }
@@ -139,6 +152,17 @@ export async function parseRequestsFile(
   if (issues.some((i) => i.code === "missingColumn")) return { documents: [], issues };
 
   const cell = (row: Record<string, unknown>, column?: string) => (column ? row[column] : "");
+  // Importable custom fields: raw text per field key (dates as ISO days).
+  const customOf = (row: Record<string, unknown>, mapping?: Record<string, string>) => {
+    const out: Record<string, string> = {};
+    for (const [key, column] of Object.entries(mapping ?? {})) {
+      if (!column) continue;
+      const raw = row[column];
+      const value = raw instanceof Date ? (toIsoDate(raw) ?? "") : text(raw);
+      if (value) out[key] = value;
+    }
+    return out;
+  };
 
   const headerRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(headerWs, {
     defval: "",
@@ -160,6 +184,7 @@ export async function parseRequestsFile(
       creator: optionalText(cell(row, hm.creator)),
       requestDate: toIsoDate(cell(row, hm.requestDate)),
       commodity: optionalText(cell(row, hm.commodity)),
+      customValues: customOf(row, hm.custom),
       lines: [],
     };
     documents.set(key, doc);
@@ -215,6 +240,7 @@ export async function parseRequestsFile(
       quantity,
       unit: optionalText(cell(row, lm.unit)),
       commodity: optionalText(cell(row, lm.commodity)),
+      customValues: customOf(row, lm.custom),
     });
   });
   if (orphanLines > 0) issues.push({ code: "orphanLines", value: String(orphanLines) });

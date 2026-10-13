@@ -49,6 +49,7 @@ export function toDef(row: CustomField): CustomFieldDef {
     options: Array.isArray(row.options) ? (row.options as unknown as CfOption[]) : [],
     condition: (row.condition ?? null) as CfCondition | null,
     mappable: row.mappable,
+    importable: row.importable,
     templateFilter: row.templateFilter,
     listFilter: row.listFilter,
     mapToRfpKey: row.mapToRfpKey,
@@ -69,7 +70,7 @@ export async function loadCustomFields(
   return rows.map(toDef);
 }
 
-export type CustomEntityType = "RFP" | "RFP_LINE" | "USER";
+export type CustomEntityType = "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE";
 
 export async function readCustomValues(
   clientId: string,

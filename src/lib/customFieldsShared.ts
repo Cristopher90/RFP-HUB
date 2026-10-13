@@ -9,7 +9,7 @@ export type CfType =
   | "DROPDOWN"
   | "AMOUNT"
   | "CHECKBOX";
-export type CfScope = "RFP_HEAD" | "RFP_LINE" | "USER";
+export type CfScope = "RFP_HEAD" | "RFP_LINE" | "USER" | "REQUEST_HEAD" | "REQUEST_LINE";
 
 export const CF_TYPES: CfType[] = [
   "TREE",
@@ -20,7 +20,27 @@ export const CF_TYPES: CfType[] = [
   "AMOUNT",
   "CHECKBOX",
 ];
-export const CF_SCOPES: CfScope[] = ["RFP_HEAD", "RFP_LINE", "USER"];
+export const CF_SCOPES: CfScope[] = ["RFP_HEAD", "RFP_LINE", "USER", "REQUEST_HEAD", "REQUEST_LINE"];
+
+export function isRequestScope(scope: CfScope) {
+  return scope === "REQUEST_HEAD" || scope === "REQUEST_LINE";
+}
+
+// Which "entityType" a scope's values are stored under in CustomFieldValue.
+export function entityTypeOfScope(scope: CfScope): "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE" {
+  switch (scope) {
+    case "RFP_HEAD":
+      return "RFP";
+    case "RFP_LINE":
+      return "RFP_LINE";
+    case "USER":
+      return "USER";
+    case "REQUEST_HEAD":
+      return "REQUEST";
+    case "REQUEST_LINE":
+      return "REQUEST_LINE";
+  }
+}
 export const CF_TEXT_MAX = 50;
 export const CF_TEXT_SHORT_MAX = 10;
 
@@ -55,12 +75,19 @@ export type CustomFieldDef = {
   options: CfOption[];
   condition: CfCondition | null;
   mappable: boolean;
+  importable: boolean;
   templateFilter: boolean;
   listFilter: boolean;
   mapToRfpKey: string | null;
   active: boolean;
   order: number;
 };
+
+// A user field's "copy to RFP" target: a standard header field ("buyerName")
+// or a custom RFP header field ("custom:<key>").
+export const CUSTOM_TARGET_PREFIX = "custom:";
+// A request custom field used as a source in the request → RFP mapping.
+export const REQUEST_SOURCE_PREFIX = "rc:";
 
 // Standard fields a condition (or a user-field → RFP mapping) can point at.
 export const HEADER_STD_FIELDS = [
@@ -212,6 +239,7 @@ export type ImportedField = {
   options: CfOption[];
   conditionText: string;
   mappable: boolean;
+  importable: boolean;
   templateFilter: boolean;
   listFilter: boolean;
 };
@@ -222,6 +250,10 @@ export function parseScope(raw: string): CfScope | null {
   if (v === "rfp_line" || v === "line" || v === "linea" || v === "línea" || v === "posicion" || v === "posición")
     return "RFP_LINE";
   if (v === "user" || v === "usuario") return "USER";
+  if (v === "request_head" || v === "request_header" || v === "solicitud" || v === "solicitud_cabecera")
+    return "REQUEST_HEAD";
+  if (v === "request_line" || v === "solicitud_linea" || v === "solicitud_línea" || v === "solicitud_posicion")
+    return "REQUEST_LINE";
   return null;
 }
 
@@ -310,6 +342,7 @@ export function parseImportRows(rows: unknown[][]): {
   const cValues = col("values", "valores");
   const cValuesEn = col("values_en", "valores_en");
   const cMap = col("mappable", "mapeable");
+  const cImp = col("importable", "importar");
   const cTpl = col("templatefilter", "filtro_plantilla");
   const cList = col("listfilter", "filtro_lista");
   if (cClient < 0 || cScope < 0 || cKey < 0 || cType < 0) {
@@ -339,6 +372,7 @@ export function parseImportRows(rows: unknown[][]): {
       options: hasOptions(type) ? parseOptionList(cell(row, cValues), type, cell(row, cValuesEn)) : [],
       conditionText: cell(row, cCond),
       mappable: parseBool(row[cMap]),
+      importable: cImp >= 0 ? parseBool(row[cImp]) : isRequestScope(scope),
       templateFilter: parseBool(row[cTpl]),
       listFilter: parseBool(row[cList]),
     });

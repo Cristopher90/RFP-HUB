@@ -11,6 +11,8 @@ import {
   LINE_STD_FIELDS,
   USER_MAPPABLE_RFP_FIELDS,
   hasOptions,
+  isRequestScope,
+  CUSTOM_TARGET_PREFIX,
   labelFor,
   parseImportRows,
   type CfCondition,
@@ -33,6 +35,8 @@ const SCOPE_KEY: Record<CfScope, string> = {
   RFP_HEAD: "scopeRfpHead",
   RFP_LINE: "scopeRfpLine",
   USER: "scopeUser",
+  REQUEST_HEAD: "scopeRequestHead",
+  REQUEST_LINE: "scopeRequestLine",
 };
 const TYPE_KEY: Record<CfType, string> = {
   TREE: "typeTree",
@@ -54,6 +58,7 @@ function emptyInput(): CustomFieldInput {
     options: [],
     condition: null,
     mappable: false,
+    importable: false,
     templateFilter: false,
     listFilter: false,
     mapToRfpKey: null,
@@ -72,6 +77,7 @@ function toInput(f: CustomFieldDef): CustomFieldInput {
     options: f.options.map((o) => ({ ...o, labels: { es: o.labels.es ?? "", en: o.labels.en ?? "" } })),
     condition: f.condition,
     mappable: f.mappable,
+    importable: f.importable,
     templateFilter: f.templateFilter,
     listFilter: f.listFilter,
     mapToRfpKey: f.mapToRfpKey,
@@ -108,6 +114,15 @@ export function CustomFieldsManager({
     if (c.op === "filled") return `${name}: ${t("customFields.conditionOpFilled")}`;
     if (c.op === "empty") return `${name}: ${t("customFields.conditionOpEmpty")}`;
     return `${name} ${c.op === "neq" ? "≠" : "="} ${value}`;
+  }
+
+  function mapTargetLabel(target: string) {
+    if (target.startsWith(CUSTOM_TARGET_PREFIX)) {
+      const key = target.slice(CUSTOM_TARGET_PREFIX.length);
+      const field = fields.find((x) => x.key === key);
+      return field ? labelFor(field.labels, language, key) : key;
+    }
+    return t(`customFields.stdHeader.${target}`);
   }
 
   function handleDelete(f: CustomFieldDef) {
@@ -202,9 +217,10 @@ export function CustomFieldsManager({
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {f.mappable && <Badge>{t("customFields.badgeMappable")}</Badge>}
+                      {f.importable && <Badge>{t("customFields.badgeImportable")}</Badge>}
                       {f.templateFilter && <Badge>{t("customFields.badgeTemplate")}</Badge>}
                       {f.listFilter && <Badge>{t("customFields.badgeList")}</Badge>}
-                      {f.mapToRfpKey && <Badge>→ {f.mapToRfpKey}</Badge>}
+                      {f.mapToRfpKey && <Badge>→ {mapTargetLabel(f.mapToRfpKey)}</Badge>}
                     </div>
                   </td>
                   <td className="px-4 py-2.5">{f.active ? t("customFields.yes") : t("customFields.no")}</td>
@@ -364,10 +380,14 @@ function FieldEditor({
       ? others.find((o) => o.key === cond.field)
       : undefined;
 
+  const isRequest = isRequestScope(form.scope);
+
   function changeScope(scope: CfScope) {
     patch({
       scope,
       condition: null,
+      mandatory: isRequestScope(scope) ? false : form.mandatory,
+      importable: isRequestScope(scope) ? true : false,
       mappable: scope === "USER" ? false : form.mappable,
       templateFilter: scope === "RFP_HEAD" ? form.templateFilter : false,
       listFilter: scope === "RFP_HEAD" ? form.listFilter : false,
@@ -431,10 +451,12 @@ function FieldEditor({
         </div>
 
         <div className="flex flex-wrap gap-6 text-sm text-slate-700">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={form.mandatory} onChange={(e) => patch({ mandatory: e.target.checked })} />
-            {t("customFields.mandatory")}
-          </label>
+          {!isRequest && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.mandatory} onChange={(e) => patch({ mandatory: e.target.checked })} />
+              {t("customFields.mandatory")}
+            </label>
+          )}
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={form.active} onChange={(e) => patch({ active: e.target.checked })} />
             {t("customFields.active")}
@@ -536,6 +558,7 @@ function FieldEditor({
           </fieldset>
         )}
 
+        {!isRequest && (
         <fieldset className="rounded-lg border border-slate-200 p-4">
           <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.conditionTitle")}</legend>
           <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -633,6 +656,7 @@ function FieldEditor({
             </div>
           )}
         </fieldset>
+        )}
 
         <fieldset className="rounded-lg border border-slate-200 p-4">
           <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.usageTitle")}</legend>
@@ -640,7 +664,17 @@ function FieldEditor({
             {form.scope !== "USER" && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={form.mappable} onChange={(e) => patch({ mappable: e.target.checked })} />
-                {t("customFields.mappable")}
+                {isRequest ? t("customFields.mappableRequest") : t("customFields.mappable")}
+              </label>
+            )}
+            {isRequest && (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={form.importable}
+                  onChange={(e) => patch({ importable: e.target.checked })}
+                />
+                {t("customFields.importable")}
               </label>
             )}
             {form.scope === "RFP_HEAD" && (
@@ -672,11 +706,24 @@ function FieldEditor({
                   onChange={(e) => patch({ mapToRfpKey: e.target.value || null })}
                 >
                   <option value="">{t("customFields.mapToRfpNone")}</option>
-                  {USER_MAPPABLE_RFP_FIELDS.map((k) => (
-                    <option key={k} value={k}>
-                      {t(`customFields.stdHeader.${k}`)}
-                    </option>
-                  ))}
+                  <optgroup label={t("customFields.mapToRfpStdGroup")}>
+                    {USER_MAPPABLE_RFP_FIELDS.map((k) => (
+                      <option key={k} value={k}>
+                        {t(`customFields.stdHeader.${k}`)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {others.some((o) => o.scope === "RFP_HEAD") && (
+                    <optgroup label={t("customFields.mapToRfpCustomGroup")}>
+                      {others
+                        .filter((o) => o.scope === "RFP_HEAD")
+                        .map((o) => (
+                          <option key={o.key} value={`${CUSTOM_TARGET_PREFIX}${o.key}`}>
+                            {labelFor(o.labels, language, o.key)} ({o.key})
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
                 </select>
                 <p className="mt-1 text-xs text-slate-400">{t("customFields.mapToRfpHint")}</p>
               </div>

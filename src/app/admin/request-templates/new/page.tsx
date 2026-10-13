@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields } from "@/lib/customFields";
 import { RequestTemplateForm } from "../RequestTemplateForm";
 
 export default async function NewRequestTemplatePage({
@@ -10,6 +11,10 @@ export default async function NewRequestTemplatePage({
   const sp = await searchParams;
   const { scope, clients, effectiveClientId } = await requireMasterDataScope(sp);
   const d = getDictionary(scope.user.language).requestTemplatesPage;
+
+  const requestFields = effectiveClientId
+    ? (await loadCustomFields(effectiveClientId)).filter((f) => f.importable)
+    : [];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -27,7 +32,11 @@ export default async function NewRequestTemplatePage({
       )}
       {effectiveClientId ? (
         <div className="mt-8">
-          <RequestTemplateForm key={effectiveClientId} targetClientId={effectiveClientId} />
+          <RequestTemplateForm
+            key={effectiveClientId}
+            targetClientId={effectiveClientId}
+            requestFields={requestFields}
+          />
         </div>
       ) : (
         <p className="mt-8 text-sm text-slate-500">{d.selectClient}</p>

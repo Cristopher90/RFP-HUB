@@ -207,7 +207,7 @@ export default async function EditRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
-          customFields={customFields.filter((f) => f.scope !== "USER")}
+          customFields={customFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE")}
           clientCurrency={customClient?.currency ?? "USD"}
           templates={templates.map((t) => ({
             id: t.id,

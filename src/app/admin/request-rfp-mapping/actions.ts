@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields } from "@/lib/customFields";
+import { REQUEST_SOURCE_PREFIX } from "@/lib/customFieldsShared";
 import {
   HEADER_FIELDS,
   RFP_ITEM_SOURCES,
@@ -29,22 +30,34 @@ export async function saveRequestRfpMapping(
   if (!clientId) return { error: d.selectClient };
 
   const normalized = normalizeRfpMapping(input);
+  // Sources: the request's own fields, or one of its mappable custom fields ("rc:<key>").
+  const allFields = (await loadCustomFields(clientId)).filter((f) => f.mappable);
+  const requestHeadKeys = new Set(
+    allFields.filter((f) => f.scope === "REQUEST_HEAD").map((f) => `${REQUEST_SOURCE_PREFIX}${f.key}`),
+  );
+  const requestLineKeys = new Set(
+    allFields.filter((f) => f.scope === "REQUEST_LINE").map((f) => `${REQUEST_SOURCE_PREFIX}${f.key}`),
+  );
+  const validLineSource = (source: string) =>
+    (RFP_ITEM_SOURCES as readonly string[]).includes(source) || requestLineKeys.has(source);
+  const validHeadSource = (source: string) =>
+    (HEADER_FIELDS as readonly string[]).includes(source) || requestHeadKeys.has(source);
+
   const item = { ...normalized.item };
   for (const target of RFP_ITEM_TARGETS) {
     const source = item[target];
-    if (source !== "" && !(RFP_ITEM_SOURCES as readonly string[]).includes(source)) item[target] = "";
+    if (source !== "" && !validLineSource(source)) item[target] = "";
   }
-  // Only the client's mappable custom fields can be mapped, to a valid source.
-  const mappable = (await loadCustomFields(clientId)).filter((f) => f.mappable);
+  // Only the client's mappable RFP custom fields can be mapped, to a valid source.
   const customHead: Record<string, string> = {};
   const customLine: Record<string, string> = {};
-  for (const f of mappable) {
+  for (const f of allFields) {
     if (f.scope === "RFP_HEAD") {
       const source = normalized.customHead[f.key];
-      if (source && (HEADER_FIELDS as readonly string[]).includes(source)) customHead[f.key] = source;
+      if (source && validHeadSource(source)) customHead[f.key] = source;
     } else if (f.scope === "RFP_LINE") {
       const source = normalized.customLine[f.key];
-      if (source && (RFP_ITEM_SOURCES as readonly string[]).includes(source)) customLine[f.key] = source;
+      if (source && validLineSource(source)) customLine[f.key] = source;
     }
   }
   const mapping: RfpMapping = {

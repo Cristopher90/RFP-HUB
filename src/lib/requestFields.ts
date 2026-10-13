@@ -51,8 +51,12 @@ export function requiredLineFields(mode: ImportMode): LineField[] {
 }
 
 // Excel column header per field ("" = not mapped).
-export type HeaderMapping = Partial<Record<HeaderField, string>> & { documentTypeFixed?: string };
-export type LinesMapping = Partial<Record<LineField, string>>;
+// "custom": the client's importable request custom fields → Excel column (field key → column).
+export type HeaderMapping = Partial<Record<HeaderField, string>> & {
+  documentTypeFixed?: string;
+  custom?: Record<string, string>;
+};
+export type LinesMapping = Partial<Record<LineField, string>> & { custom?: Record<string, string> };
 
 // Request line fields that can feed an RFP item.
 export const RFP_ITEM_SOURCES = [
@@ -91,7 +95,8 @@ export type RfpMapping = {
   descriptionTemplate: string;
   predecessorTemplate: string;
   estimatedFromLines: boolean;
-  item: Record<RfpItemTarget, RfpItemSource | "">;
+  // Request line field (or "rc:<key>" for a request custom field) feeding each item field.
+  item: Record<RfpItemTarget, string>;
   // Custom fields flagged "mappable": field key → the request header field
   // (customHead) or request line field (customLine) that feeds it.
   customHead: Record<string, string>;

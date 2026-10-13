@@ -9,6 +9,9 @@ import { ensureCustomValuesPartition } from "@/lib/customFields";
 import {
   CF_SCOPES,
   CF_TYPES,
+  CUSTOM_TARGET_PREFIX,
+  entityTypeOfScope,
+  isRequestScope,
   HEADER_STD_FIELDS,
   LINE_STD_FIELDS,
   USER_MAPPABLE_RFP_FIELDS,
@@ -33,6 +36,7 @@ export type CustomFieldInput = {
   options: CfOption[];
   condition: CfCondition | null;
   mappable: boolean;
+  importable: boolean;
   templateFilter: boolean;
   listFilter: boolean;
   mapToRfpKey: string | null;
@@ -116,6 +120,7 @@ function validCondition(
   }
   const kind = condition.kind as CfConditionKind;
   let ok = false;
+  if (isRequestScope(scope)) return { condition: null };
   if (kind === "HEADER_STD") ok = scope !== "USER" && (HEADER_STD_FIELDS as readonly string[]).includes(field);
   else if (kind === "LINE_STD") ok = scope === "RFP_LINE" && (LINE_STD_FIELDS as readonly string[]).includes(field);
   else if (kind === "HEADER_CUSTOM") {
@@ -169,7 +174,7 @@ export async function saveCustomField(
   const ownKey = current?.key ?? key;
 
   const cond = validCondition(
-    input.condition,
+    isRequestScope(input.scope) ? null : input.condition,
     input.scope,
     ownKey,
     existingFields.filter((f) => f.id !== current?.id),
@@ -179,20 +184,26 @@ export async function saveCustomField(
 
   let mapToRfpKey: string | null = null;
   if (input.scope === "USER" && input.mapToRfpKey) {
-    if (!(USER_MAPPABLE_RFP_FIELDS as readonly string[]).includes(input.mapToRfpKey)) {
-      return { error: d.errMapInvalid };
-    }
-    mapToRfpKey = input.mapToRfpKey;
+    const target = input.mapToRfpKey;
+    const stdOk = (USER_MAPPABLE_RFP_FIELDS as readonly string[]).includes(target);
+    const customOk =
+      target.startsWith(CUSTOM_TARGET_PREFIX) &&
+      existingFields.some(
+        (f) => f.key === target.slice(CUSTOM_TARGET_PREFIX.length) && f.scope === "RFP_HEAD",
+      );
+    if (!stdOk && !customOk) return { error: d.errMapInvalid };
+    mapToRfpKey = target;
   }
 
   const data = {
     scope: input.scope,
     type: input.type,
-    mandatory: input.mandatory,
+    mandatory: !isRequestScope(input.scope) && input.mandatory,
     labels,
     options: opts.options.length > 0 ? (opts.options as object[]) : undefined,
     condition: cond.condition ? (cond.condition as object) : undefined,
     mappable: input.scope !== "USER" && input.mappable,
+    importable: isRequestScope(input.scope) && input.importable,
     templateFilter: input.scope === "RFP_HEAD" && input.templateFilter,
     listFilter: input.scope === "RFP_HEAD" && input.listFilter,
     mapToRfpKey,
@@ -230,7 +241,7 @@ export async function deleteCustomField(
   const dependents = await prisma.customField.findMany({ where: { clientId } });
   await prisma.$transaction([
     prisma.customFieldValue.deleteMany({
-      where: { clientId, fieldKey: field.key, entityType: field.scope === "USER" ? "USER" : field.scope === "RFP_LINE" ? "RFP_LINE" : "RFP" },
+      where: { clientId, fieldKey: field.key, entityType: entityTypeOfScope(field.scope) },
     }),
     // Fields that were conditioned on the deleted one lose their condition.
     ...dependents
@@ -279,7 +290,7 @@ export async function importCustomFields(
     const key = sanitizeKey(r.key);
     if (!KEY_RE.test(key)) return { error: d.errKeyInvalid + ` (${r.key})` };
     let condition: CfCondition | null = null;
-    if (r.conditionText) {
+    if (r.conditionText && !isRequestScope(r.scope)) {
       const parsed = parseConditionText(r.conditionText);
       if (!parsed) {
         return { error: d.importBadCondition.replace("{key}", r.key).replace("{text}", r.conditionText) };
@@ -330,6 +341,7 @@ export async function importCustomFields(
       options: r.options.length > 0 ? (r.options as object[]) : undefined,
       condition: condition ? (condition as object) : undefined,
       mappable: r.scope !== "USER" && r.mappable,
+      importable: isRequestScope(r.scope) && r.importable,
       templateFilter: r.scope === "RFP_HEAD" && r.templateFilter,
       listFilter: r.scope === "RFP_HEAD" && r.listFilter,
     };

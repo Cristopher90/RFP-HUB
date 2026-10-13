@@ -1056,6 +1056,8 @@ enum CustomFieldScope {
   RFP_HEAD // cabecera de la RFP
   RFP_LINE // cada línea (artículo) de la RFP
   USER // dato del usuario (puede mapearse a un campo de cabecera de la RFP)
+  REQUEST_HEAD // cabecera de la solicitud de compra (PR)
+  REQUEST_LINE // cada línea de la solicitud de compra
 }
 
 // Definición de un campo personalizado de un cliente (la crea el Super
@@ -1072,6 +1074,7 @@ model CustomField {
   labels         Json // { "es": "Prioridad", "en": "Priority" }
   options        Json? // DROPDOWN/TREE: [{ "value": "alta", "parent": null, "labels": { "es": "Alta", "en": "High" } }]
   condition      Json? // { "kind": "HEADER_STD|HEADER_CUSTOM|LINE_STD|LINE_CUSTOM", "field": "...", "op": "eq|neq", "value": "..." }
+  importable     Boolean          @default(false) // solo REQUEST_*: aparece en el mapeo de importación de solicitudes
   mappable       Boolean          @default(false) // aparece en el mapeo de solicitud a RFP
   templateFilter Boolean          @default(false) // se puede usar para filtrar plantillas
   listFilter     Boolean          @default(false) // aparece como "Filtro del cliente" en la lista de RFPs
