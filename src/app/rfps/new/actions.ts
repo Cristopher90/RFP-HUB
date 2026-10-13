@@ -343,6 +343,11 @@ export async function validateAndShapeRfp(
     { role: user.role, viewGroupIds: user.viewGroupIds ?? [] },
   );
 
+  // An RFP can't go on without at least one template applying to it.
+  if (matchingTemplates.length === 0) {
+    return { error: dictionary.rfpActions.noTemplateApplies };
+  }
+
   const submittedItemSourceIds = new Set(
     input.items.map((i) => i.sourceTemplateItemId).filter(Boolean),
   );

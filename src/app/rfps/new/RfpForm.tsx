@@ -1085,7 +1085,7 @@ export function RfpForm({
   const headerComplete = Boolean(
     title.trim() && buyerName.trim() && deadlineAt && commodity.trim(),
   );
-  const conditionalMatchCount = splitConditionalTemplates(
+  const matchingNow = splitConditionalTemplates(
     templates.filter((t) =>
       matchesTemplate(
         t,
@@ -1095,8 +1095,13 @@ export function RfpForm({
         headCustom,
       ),
     ),
-  ).conditional.length;
-  const templateResolved = conditionalMatchCount === 0 || Boolean(selectedTemplateId);
+  );
+  const conditionalMatchCount = matchingNow.conditional.length;
+  // An RFP needs at least one template: a conditional one that matches (and is
+  // picked when there are several) or an unconditional one that always applies.
+  const hasTemplate = conditionalMatchCount > 0 || matchingNow.always.length > 0;
+  const templateResolved =
+    conditionalMatchCount === 0 ? hasTemplate : Boolean(selectedTemplateId);
   const readyForContent = mode === "edit" || (headerComplete && templateResolved);
 
   return (
@@ -1403,7 +1408,13 @@ export function RfpForm({
         </div>
       </CollapsibleSection>
 
-      {!readyForContent && (
+      {(mode === "edit" || headerComplete) && !hasTemplate && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t("rfpForm.noTemplateApplies")}
+        </div>
+      )}
+
+      {!readyForContent && !(headerComplete && !hasTemplate) && (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
           {t("rfpForm.gateMessage")}
           {conditionalMatchCount > 1 ? t("rfpForm.gateMessageTemplateSuffix") : ""}
