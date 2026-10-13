@@ -15,6 +15,8 @@ import { readUserPref } from "@/lib/userPrefs";
 import { RFP_FILTERS_PREF_KEY, RFP_FILTER_PARAMS } from "@/lib/prefKeys";
 import { redirect } from "next/navigation";
 import type { RfpStatus } from "@/generated/prisma/enums";
+import { loadCustomFields, rfpIdsMatchingCustom } from "@/lib/customFields";
+import { normalizeValue } from "@/lib/customFieldsShared";
 
 export default async function Home({
   searchParams,
@@ -31,7 +33,7 @@ export default async function Home({
     if (saved) {
       const restored = new URLSearchParams();
       for (const [key, value] of new URLSearchParams(saved)) {
-        if (RFP_FILTER_PARAMS.includes(key) && value) restored.set(key, value);
+        if ((RFP_FILTER_PARAMS.includes(key) || key.startsWith("cf_")) && value) restored.set(key, value);
       }
       if (restored.size > 0) redirect(`/?${restored.toString()}`);
     }
@@ -59,6 +61,31 @@ export default async function Home({
   const closeFrom = dateParam("closeFrom");
   const closeTo = dateParam("closeTo");
 
+  // "Filtros de cliente": the custom header fields of one client flagged as
+  // list filters. A client user always has theirs; a super admin gets them
+  // once a single client is picked on "Todas".
+  const customFilterClientId = scope.isSuperAdmin
+    ? tab === "all" && clientFilter
+      ? clientFilter
+      : null
+    : user.clientId;
+  const customFilterFields = customFilterClientId
+    ? (await loadCustomFields(customFilterClientId, "RFP_HEAD")).filter((f) => f.listFilter)
+    : [];
+  const customFilterValues: { key: string; value: string }[] = [];
+  for (const f of customFilterFields) {
+    const raw = sp[`cf_${f.key}`];
+    if (typeof raw !== "string" || !raw.trim()) continue;
+    const normalized = normalizeValue(f, raw);
+    if ("value" in normalized && normalized.value !== "") {
+      customFilterValues.push({ key: f.key, value: normalized.value });
+    }
+  }
+  const customMatchedIds =
+    customFilterClientId && customFilterValues.length > 0
+      ? await rfpIdsMatchingCustom(customFilterClientId, customFilterValues)
+      : null;
+
   // Date filters are calendar days in the viewer's own timezone: [from 00:00,
   // to 23:59:59.999] expressed as UTC instants.
   function dayRange(from: string, to: string) {
@@ -83,6 +110,7 @@ export default async function Home({
         ]
       : []),
     ...(closeFrom || closeTo ? [{ deadlineAt: dayRange(closeFrom, closeTo) }] : []),
+    ...(customMatchedIds ? [{ id: { in: customMatchedIds } }] : []),
     // Invited supplier: by name, email or company as invited, or by the
     // directory entry's code, tax ID (CIF), company name or email.
     ...(supplierFilter
@@ -216,6 +244,7 @@ export default async function Home({
     if (startTo) params.set("startTo", startTo);
     if (closeFrom) params.set("closeFrom", closeFrom);
     if (closeTo) params.set("closeTo", closeTo);
+    for (const f of customFilterValues) params.set(`cf_${f.key}`, f.value);
     params.set("tab", target);
     return `/?${params.toString()}`;
   }
@@ -299,6 +328,7 @@ export default async function Home({
               ? clients.map((c) => ({ id: c.id, description: c.description }))
               : undefined
           }
+          customFields={customFilterFields}
         />
       </div>
 

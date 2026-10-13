@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { labelFor, type CustomFieldDef } from "@/lib/customFieldsShared";
 import {
+  HEADER_FIELDS,
   REQUEST_PLACEHOLDERS,
   RFP_ITEM_SOURCES,
   RFP_ITEM_TARGETS,
@@ -18,11 +20,13 @@ function inputClass() {
 export function RequestRfpMappingForm({
   initial,
   targetClientId,
+  customFields = [],
 }: {
   initial: RfpMapping;
   targetClientId: string;
+  customFields?: CustomFieldDef[];
 }) {
-  const { t } = usePreferences();
+  const { t, language } = usePreferences();
   const [mapping, setMapping] = useState<RfpMapping>(initial);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -135,6 +139,48 @@ export function RequestRfpMappingForm({
           ))}
         </div>
       </section>
+
+      {customFields.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">{t("customFields.mappingTitle")}</h2>
+          <p className="mt-1 text-xs text-slate-500">{t("customFields.mappingHint")}</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {customFields.map((field) => {
+              const isHead = field.scope === "RFP_HEAD";
+              const current = (isHead ? mapping.customHead : mapping.customLine)[field.key] ?? "";
+              const sources: readonly string[] = isHead ? HEADER_FIELDS : RFP_ITEM_SOURCES;
+              return (
+                <div key={field.key}>
+                  <label className={labelClass}>
+                    {labelFor(field.labels, language, field.key)}{" "}
+                    <span className="text-xs font-normal text-slate-400">
+                      ({isHead ? t("customFields.scopeRfpHead") : t("customFields.scopeRfpLine")})
+                    </span>
+                  </label>
+                  <select
+                    className={inputClass()}
+                    value={current}
+                    onChange={(e) =>
+                      update(
+                        isHead
+                          ? { customHead: { ...mapping.customHead, [field.key]: e.target.value } }
+                          : { customLine: { ...mapping.customLine, [field.key]: e.target.value } },
+                      )
+                    }
+                  >
+                    <option value="">{t("customFields.mappingNone")}</option>
+                    {sources.map((source) => (
+                      <option key={source} value={source}>
+                        {isHead ? t(`requestHeaderFields.${source}`) : t(`requestLineFields.${source}`)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <div className="flex justify-end">
         <button

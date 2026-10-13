@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { dropCustomValuesPartition, ensureCustomValuesPartition } from "@/lib/customFields";
 import { requireClientScope } from "@/lib/clientScope";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 import { CURRENCIES } from "@/lib/profileOptions";
@@ -82,6 +83,7 @@ export async function saveClientList(
           error: dictionary.masterDataActions.cannotDeleteClientInUse.replace("{name}", client.description),
         };
       }
+      await dropCustomValuesPartition(client.id);
     }
   }
   for (const i of cleaned) {
@@ -91,9 +93,11 @@ export async function saveClientList(
         data: { code: i.code, description: i.description, icon: i.icon, iconImage: i.iconImage, currency: i.currency },
       });
     } else {
-      await prisma.client.create({
+      const created = await prisma.client.create({
         data: { code: i.code, description: i.description, icon: i.icon, iconImage: i.iconImage, currency: i.currency },
       });
+      // Each client keeps its custom-field values in its own partition.
+      await ensureCustomValuesPartition(created.id);
     }
   }
 
@@ -113,6 +117,7 @@ export async function clearClientList(): Promise<
   if (!scope.isSuperAdmin) {
     return { error: dictionary.masterDataActions.onlySuperAdminDeleteClientsTable };
   }
+  const clientIds = (await prisma.client.findMany({ select: { id: true } })).map((c) => c.id);
   try {
     await prisma.client.deleteMany({});
   } catch {
@@ -120,6 +125,7 @@ export async function clearClientList(): Promise<
       error: dictionary.masterDataActions.cannotDeleteAllClients,
     };
   }
+  for (const id of clientIds) await dropCustomValuesPartition(id);
   revalidatePath("/admin/master-data/clients");
   return { success: true };
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { TemplateForm } from "../TemplateForm";
+import { loadCustomFields } from "@/lib/customFields";
 
 export default async function NewTemplatePage({
   searchParams,
@@ -24,6 +25,10 @@ export default async function NewTemplatePage({
       ])
     : [[], []];
 
+  const customFilterFields = effectiveClientId
+    ? (await loadCustomFields(effectiveClientId, "RFP_HEAD")).filter((f) => f.templateFilter)
+    : [];
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
       <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-700">
@@ -43,6 +48,7 @@ export default async function NewTemplatePage({
             commodities={commodities}
             regions={regions}
             targetClientId={effectiveClientId}
+            customFilterFields={customFilterFields}
           />
         </div>
       ) : (

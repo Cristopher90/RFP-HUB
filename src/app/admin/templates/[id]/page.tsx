@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { makeClientKey } from "@/lib/clientKey";
 import { TemplateForm } from "../TemplateForm";
+import { loadCustomFields } from "@/lib/customFields";
+import { parseMatchCustom } from "@/lib/templateMatch";
 import { deleteTemplate } from "../actions";
 
 export default async function EditTemplatePage({
@@ -38,6 +40,10 @@ export default async function EditTemplatePage({
     }),
   ]);
 
+  const customFilterFields = (await loadCustomFields(template.clientId, "RFP_HEAD")).filter(
+    (f) => f.templateFilter,
+  );
+
   const questionClientKeyById = new Map(
     template.questions.map((q) => [q.id, makeClientKey()]),
   );
@@ -52,6 +58,7 @@ export default async function EditTemplatePage({
     matchPriceCondition: template.matchPriceCondition,
     matchPriceMin: template.matchPriceMin,
     matchPriceMax: template.matchPriceMax,
+    matchCustom: parseMatchCustom(template.matchCustom),
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     minSuppliers: template.minSuppliers,
@@ -132,6 +139,7 @@ export default async function EditTemplatePage({
           initial={initial}
           commodities={commodities}
           regions={regions}
+          customFilterFields={customFilterFields}
         />
       </div>
     </div>

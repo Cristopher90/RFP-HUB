@@ -29,6 +29,8 @@ import { syncAwaitingStart } from "@/lib/rfpStatus";
 import { localeForLanguage } from "@/i18n/locale";
 import { questionTypeLabel, approvalStageLabel } from "@/i18n/labels";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { displayValue, labelFor } from "@/lib/customFieldsShared";
 
 export default async function RfpDetailPage({
   params,
@@ -58,6 +60,13 @@ export default async function RfpDetailPage({
   rfp.status = await syncAwaitingStart(rfp);
   const locale = localeForLanguage(user.language);
   const dictionary = getDictionary(user.language);
+  // The client's custom fields with this RFP's stored values (header and lines).
+  const [customFieldDefs, customHeaderMap, customLineMap] = await Promise.all([
+    loadCustomFields(rfp.clientId, undefined, false),
+    readCustomValues(rfp.clientId, "RFP", [rfp.id]),
+    readCustomValues(rfp.clientId, "RFP_LINE", rfp.items.map((i) => i.id)),
+  ]);
+  const customHeaderValues = customHeaderMap.get(rfp.id) ?? {};
   const dateOptions = { locale, timeZone: user.timezone };
   // Currency is derived from the RFP's owning client, not the viewer's
   // personal preference — otherwise the same stored amount could show a
@@ -302,6 +311,23 @@ export default async function RfpDetailPage({
             {rfp.predecessorDocument || "—"}
           </p>
         </div>
+        {customFieldDefs
+          .filter((f) => f.scope === "RFP_HEAD" && customHeaderValues[f.key] !== undefined)
+          .map((f) => (
+            <div key={f.key}>
+              <p className="text-xs text-slate-400">{labelFor(f.labels, user.language, f.key)}</p>
+              <p className="font-medium text-slate-700">
+                {displayValue(
+                  f,
+                  customHeaderValues[f.key],
+                  user.language,
+                  (n) => formatCurrency(n, currencyOptions),
+                  dictionary.customFields.yes,
+                  dictionary.customFields.no,
+                ) || "—"}
+              </p>
+            </div>
+          ))}
       </div>
 
       <CollapsibleSection
@@ -366,13 +392,32 @@ export default async function RfpDetailPage({
                         </td>
                         <td className="px-6 py-3 text-slate-500">
                           {item.description ?? "—"}
-                          {customFields.length > 0 && (
+                          {(customFields.length > 0 || customLineMap.has(item.id)) && (
                             <ul className="mt-1 space-y-0.5">
                               {customFields.map((f, i) => (
                                 <li key={i} className="text-xs text-slate-400">
                                   {f.label}: {f.value}
                                 </li>
                               ))}
+                              {customFieldDefs
+                                .filter(
+                                  (f) =>
+                                    f.scope === "RFP_LINE" &&
+                                    customLineMap.get(item.id)?.[f.key] !== undefined,
+                                )
+                                .map((f) => (
+                                  <li key={f.key} className="text-xs text-slate-400">
+                                    {labelFor(f.labels, user.language, f.key)}:{" "}
+                                    {displayValue(
+                                      f,
+                                      customLineMap.get(item.id)?.[f.key],
+                                      user.language,
+                                      (n) => formatCurrency(n, currencyOptions),
+                                      dictionary.customFields.yes,
+                                      dictionary.customFields.no,
+                                    )}
+                                  </li>
+                                ))}
                             </ul>
                           )}
                         </td>

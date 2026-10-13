@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { formatRfpNumber } from "@/lib/format";
+import { readCustomValues } from "@/lib/customFields";
 import type {
   NewItemInput,
   NewQuestionInput,
@@ -84,6 +85,7 @@ export async function buildItemsFromSourceRfp(
       sourceRegion: string | null;
       sourceEstimatedPrice: number | null;
       sourceSelectedTemplateId: string | null;
+      sourceCustomValues: Record<string, string>;
     }
   | { error: string }
 > {
@@ -114,6 +116,11 @@ export async function buildItemsFromSourceRfp(
     }
   }
 
+  const [headerValues, lineValues] = await Promise.all([
+    readCustomValues(source.clientId, "RFP", [source.id]),
+    readCustomValues(source.clientId, "RFP_LINE", source.items.map((i) => i.id)),
+  ]);
+
   const items: NewItemInput[] = source.items.map((item) => ({
     section: item.section,
     code: item.code,
@@ -128,6 +135,7 @@ export async function buildItemsFromSourceRfp(
     customFields: item.customFields
       ? (JSON.parse(item.customFields) as { label: string; value: string }[])
       : [],
+    customValues: lineValues.get(item.id) ?? {},
     sourceTemplateItemId: item.sourceTemplateItemId,
     locked: item.locked,
   }));
@@ -190,5 +198,6 @@ export async function buildItemsFromSourceRfp(
     sourceRegion: source.region,
     sourceEstimatedPrice: source.estimatedPrice,
     sourceSelectedTemplateId: source.selectedTemplateId,
+    sourceCustomValues: headerValues.get(source.id) ?? {},
   };
 }

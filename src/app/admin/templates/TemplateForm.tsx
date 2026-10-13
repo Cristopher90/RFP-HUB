@@ -17,6 +17,7 @@ import {
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
+import { hasOptions, labelFor, optionLabel, type CustomFieldDef } from "@/lib/customFieldsShared";
 import {
   saveTemplate,
   type SaveTemplateInput,
@@ -173,9 +174,11 @@ export function TemplateForm({
   commodities,
   regions,
   targetClientId,
+  customFilterFields = [],
 }: {
   templateId?: string;
   targetClientId?: string;
+  customFilterFields?: CustomFieldDef[];
   commodities: {
     id: string;
     parentId: string | null;
@@ -198,6 +201,7 @@ export function TemplateForm({
     matchPriceCondition: TemplatePriceCondition | null;
     matchPriceMin: number | null;
     matchPriceMax: number | null;
+    matchCustom?: { fieldKey: string; value: string }[];
     active: boolean;
     hideResponsesUntilClosed: boolean;
     minSuppliers: number | null;
@@ -205,8 +209,11 @@ export function TemplateForm({
     questions: TemplateQuestionInput[];
   };
 }) {
-  const { t, dictionary } = usePreferences();
+  const { t, dictionary, language } = usePreferences();
   const idBase = useId();
+  const [matchCustom, setMatchCustom] = useState<{ fieldKey: string; value: string }[]>(
+    initial?.matchCustom ?? [],
+  );
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [matchCommodity, setMatchCommodity] = useState(
@@ -529,6 +536,7 @@ export function TemplateForm({
       matchPriceCondition,
       matchPriceMin,
       matchPriceMax,
+      matchCustom,
       active,
       hideResponsesUntilClosed,
       minSuppliers,
@@ -706,6 +714,109 @@ export function TemplateForm({
               )}
             </div>
           </div>
+          {customFilterFields.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("customFields.templateFiltersTitle")}
+              </label>
+              <p className="mb-2 text-xs text-slate-500">{t("customFields.templateFiltersHint")}</p>
+              <div className="space-y-2">
+                {matchCustom.map((cond, idx) => {
+                  const field = customFilterFields.find((f) => f.key === cond.fieldKey);
+                  return (
+                    <div key={idx} className="flex flex-wrap items-center gap-2">
+                      <select
+                        className={inputClass()}
+                        style={{ maxWidth: "16rem" }}
+                        value={cond.fieldKey}
+                        onChange={(e) =>
+                          setMatchCustom((prev) =>
+                            prev.map((c, i) => (i === idx ? { fieldKey: e.target.value, value: "" } : c)),
+                          )
+                        }
+                      >
+                        {customFilterFields.map((f) => (
+                          <option key={f.key} value={f.key}>
+                            {labelFor(f.labels, language, f.key)}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-sm text-slate-400">=</span>
+                      {field && hasOptions(field.type) ? (
+                        <select
+                          className={inputClass()}
+                          style={{ maxWidth: "14rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        >
+                          <option value="" />
+                          {field.options.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {optionLabel(o, language)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field?.type === "CHECKBOX" ? (
+                        <select
+                          className={inputClass()}
+                          style={{ maxWidth: "10rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        >
+                          <option value="" />
+                          <option value="true">{t("customFields.yes")}</option>
+                          <option value="false">{t("customFields.no")}</option>
+                        </select>
+                      ) : (
+                        <input
+                          className={inputClass()}
+                          style={{ maxWidth: "14rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        />
+                      )}
+                      <button
+                        type="button"
+                        className="text-xs text-slate-400 hover:text-red-600"
+                        onClick={() => setMatchCustom((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+                onClick={() =>
+                  setMatchCustom((prev) => [
+                    ...prev,
+                    {
+                      fieldKey:
+                        customFilterFields.find((f) => !prev.some((c) => c.fieldKey === f.key))?.key ??
+                        customFilterFields[0].key,
+                      value: "",
+                    },
+                  ])
+                }
+              >
+                + {t("customFields.templateFiltersAdd")}
+              </button>
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input

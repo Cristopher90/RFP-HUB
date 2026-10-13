@@ -8,7 +8,41 @@ export type MatchableTemplate = {
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: number | null;
   matchPriceMax: number | null;
+  // Conditions over the client's custom header fields, stored as JSON
+  // [{ fieldKey, value }] (see parseMatchCustom).
+  matchCustom?: unknown;
 };
+
+export type CustomMatchCondition = { fieldKey: string; value: string };
+
+export function parseMatchCustom(raw: unknown): CustomMatchCondition[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (c): c is CustomMatchCondition =>
+        typeof c === "object" &&
+        c !== null &&
+        typeof (c as CustomMatchCondition).fieldKey === "string" &&
+        typeof (c as CustomMatchCondition).value === "string" &&
+        (c as CustomMatchCondition).fieldKey !== "" &&
+        (c as CustomMatchCondition).value !== "",
+    )
+    .map((c) => ({ fieldKey: c.fieldKey, value: c.value }));
+}
+
+function matchesCustomConditions(
+  template: MatchableTemplate,
+  customValues: Record<string, string> | undefined,
+): boolean {
+  const conditions = parseMatchCustom(template.matchCustom);
+  if (conditions.length === 0) return true;
+  // Conditions on custom fields but no values to check them against: no match.
+  if (!customValues) return false;
+  return conditions.every(
+    (c) =>
+      (customValues[c.fieldKey] ?? "").trim().toLowerCase() === c.value.trim().toLowerCase(),
+  );
+}
 
 export type HierarchyNode = { id: string; parentId: string | null; description: string };
 
@@ -71,6 +105,7 @@ export function matchesTemplate(
   commodityChain: string[],
   regionChain: string[],
   estimatedPrice: number | null = null,
+  customValues?: Record<string, string>,
 ) {
   const commodityOk =
     !template.matchCommodity ||
@@ -85,7 +120,12 @@ export function matchesTemplate(
       ? chainIncludes(regionChain, template.matchRegion)
       : regionChain[0] !== undefined &&
         regionChain[0].trim().toLowerCase() === template.matchRegion.trim().toLowerCase());
-  return commodityOk && regionOk && matchesPriceCondition(template, estimatedPrice);
+  return (
+    commodityOk &&
+    regionOk &&
+    matchesPriceCondition(template, estimatedPrice) &&
+    matchesCustomConditions(template, customValues)
+  );
 }
 
 // A template with no condition at all (commodity/región/precio) applies to
@@ -94,7 +134,10 @@ export function matchesTemplate(
 // selected. Only templates with at least one condition are candidates.
 export function isConditionalTemplate(template: MatchableTemplate): boolean {
   return Boolean(
-    template.matchCommodity || template.matchRegion || template.matchPriceCondition,
+    template.matchCommodity ||
+      template.matchRegion ||
+      template.matchPriceCondition ||
+      parseMatchCustom(template.matchCustom).length > 0,
   );
 }
 

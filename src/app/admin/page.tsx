@@ -80,6 +80,14 @@ export default async function AdminPage() {
               {dictionary.adminDashboard.clients}
             </Link>
           )}
+          {scope.isSuperAdmin && (
+            <Link
+              href="/admin/custom-fields"
+              className="rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            >
+              {dictionary.customFields.adminTitle}
+            </Link>
+          )}
         </div>
       </CollapsibleSection>
 

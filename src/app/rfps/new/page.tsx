@@ -8,6 +8,7 @@ import { RfpForm, type RfpInitialData } from "./RfpForm";
 import { buildRfpFromRequest } from "@/lib/requestToRfp";
 import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
+import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 
 export default async function NewRfpPage({
   searchParams,
@@ -68,6 +69,28 @@ export default async function NewRfpPage({
     }),
   ]);
 
+  // The client's custom fields (RFP header / line) and, for the user's own
+  // custom fields mapped to an RFP field, the values that pre-fill a blank RFP.
+  const customClientId = user.clientId ?? null;
+  const [allCustomFields, customClient] = customClientId
+    ? await Promise.all([
+        loadCustomFields(customClientId),
+        prisma.client.findUnique({ where: { id: customClientId }, select: { currency: true } }),
+      ])
+    : [[], null];
+  const customFields = allCustomFields.filter((f) => f.scope !== "USER");
+  const userFields = allCustomFields.filter((f) => f.scope === "USER" && f.mapToRfpKey);
+  const prefill: Partial<Record<"buyerName" | "commodity" | "region" | "origin", string>> = {};
+  if (customClientId && userFields.length > 0) {
+    const mine = (await readCustomValues(customClientId, "USER", [user.id])).get(user.id) ?? {};
+    for (const f of userFields) {
+      const raw = mine[f.key];
+      if (!raw || !f.mapToRfpKey) continue;
+      const opt = f.options.find((o) => o.value === raw);
+      prefill[f.mapToRfpKey as keyof typeof prefill] = opt ? (opt.labels.es ?? opt.value) : raw;
+    }
+  }
+
   const isNextRound = copyMode === "next_round";
   const carriesHistory = copyMode === "based_on" || isNextRound;
 
@@ -100,7 +123,12 @@ export default async function NewRfpPage({
     const rfpMapping = await prisma.requestRfpMapping.findUnique({
       where: { clientId: request.clientId },
     });
-    const built = buildRfpFromRequest(request, rfpMapping?.mapping, commodities);
+    const built = buildRfpFromRequest(
+      request,
+      rfpMapping?.mapping,
+      commodities,
+      customFields,
+    );
     purchaseRequestId = request.id;
     purchaseRequestLabel = `${request.documentType} ${request.documentNumber}`;
     initial = {
@@ -117,6 +145,7 @@ export default async function NewRfpPage({
       basedOnRfpId: null,
       basedOnRfpLabel: null,
       selectedTemplateId: null,
+      customValues: built.customValues,
       scoringEnabled: false,
       items: built.items,
       questions: [],
@@ -151,6 +180,7 @@ export default async function NewRfpPage({
           ? `${formatRfpNumber(result.sourceNumber)} — ${result.sourceTitle}`
           : null,
         selectedTemplateId: result.sourceSelectedTemplateId,
+        customValues: result.sourceCustomValues,
         isNextRound,
         scoringEnabled: false,
         items: result.items,
@@ -159,6 +189,36 @@ export default async function NewRfpPage({
         suppliers: result.suppliers,
       };
     }
+  }
+
+  // A blank RFP starts with whatever the user's mapped custom fields provide.
+  const hasPrefill = Object.keys(prefill).length > 0;
+  if (!initial && hasPrefill) {
+    const pick = (key: "commodity" | "region" | "origin") => {
+      const v = prefill[key] ?? "";
+      const list = key === "commodity" ? commodities : key === "region" ? regions : origins;
+      return list.some((x) => x.description === v) ? v : "";
+    };
+    initial = {
+      title: "",
+      description: "",
+      buyerName: prefill.buyerName || user.name,
+      deadlineAt: "",
+      commodity: pick("commodity"),
+      region: pick("region"),
+      startDate: "",
+      estimatedPrice: "",
+      origin: pick("origin"),
+      predecessorDocument: "",
+      basedOnRfpId: null,
+      basedOnRfpLabel: null,
+      selectedTemplateId: null,
+      scoringEnabled: false,
+      items: [],
+      questions: [],
+      internalQuestions: [],
+      suppliers: [],
+    };
   }
 
   return (
@@ -200,6 +260,9 @@ export default async function NewRfpPage({
           allowFreeTextItems={user.allowFreeTextItems}
           initial={initial}
           purchaseRequestId={purchaseRequestId}
+          seedTemplates={hasPrefill && !purchaseRequestId}
+          customFields={customFields}
+          clientCurrency={customClient?.currency ?? "USD"}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,
@@ -211,6 +274,7 @@ export default async function NewRfpPage({
             matchPriceCondition: t.matchPriceCondition,
             matchPriceMin: t.matchPriceMin,
             matchPriceMax: t.matchPriceMax,
+            matchCustom: t.matchCustom,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

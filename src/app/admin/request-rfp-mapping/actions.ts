@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields } from "@/lib/customFields";
 import {
+  HEADER_FIELDS,
   RFP_ITEM_SOURCES,
   RFP_ITEM_TARGETS,
   normalizeRfpMapping,
@@ -32,12 +34,27 @@ export async function saveRequestRfpMapping(
     const source = item[target];
     if (source !== "" && !(RFP_ITEM_SOURCES as readonly string[]).includes(source)) item[target] = "";
   }
+  // Only the client's mappable custom fields can be mapped, to a valid source.
+  const mappable = (await loadCustomFields(clientId)).filter((f) => f.mappable);
+  const customHead: Record<string, string> = {};
+  const customLine: Record<string, string> = {};
+  for (const f of mappable) {
+    if (f.scope === "RFP_HEAD") {
+      const source = normalized.customHead[f.key];
+      if (source && (HEADER_FIELDS as readonly string[]).includes(source)) customHead[f.key] = source;
+    } else if (f.scope === "RFP_LINE") {
+      const source = normalized.customLine[f.key];
+      if (source && (RFP_ITEM_SOURCES as readonly string[]).includes(source)) customLine[f.key] = source;
+    }
+  }
   const mapping: RfpMapping = {
     titleTemplate: str(normalized.titleTemplate, 300),
     descriptionTemplate: str(normalized.descriptionTemplate, 1000),
     predecessorTemplate: str(normalized.predecessorTemplate, 300),
     estimatedFromLines: Boolean(normalized.estimatedFromLines),
     item,
+    customHead,
+    customLine,
   };
 
   await prisma.requestRfpMapping.upsert({

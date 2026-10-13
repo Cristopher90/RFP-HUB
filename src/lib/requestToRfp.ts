@@ -1,5 +1,6 @@
 import type { NewItemInput } from "@/app/rfps/new/actions";
 import { normalizeRfpMapping, type RfpItemSource } from "@/lib/requestFields";
+import { coerceValue, type CustomFieldDef } from "@/lib/customFieldsShared";
 
 type RequestForRfp = {
   documentNumber: string;
@@ -42,6 +43,7 @@ export function buildRfpFromRequest(
   request: RequestForRfp,
   rawMapping: unknown,
   commodities: { code: string; description: string }[],
+  customFields: CustomFieldDef[] = [],
 ) {
   const mapping = normalizeRfpMapping(rawMapping);
   const vars = {
@@ -55,7 +57,25 @@ export function buildRfpFromRequest(
   const pick = (line: RequestForRfp["lines"][number], source: RfpItemSource | "") =>
     source ? line[source] : null;
 
+  // Mappable custom fields filled from the request (header and lines).
+  const customValues: Record<string, string> = {};
+  const headerSources = vars as Record<string, string>;
+  for (const field of customFields.filter((f) => f.scope === "RFP_HEAD")) {
+    const source = mapping.customHead[field.key];
+    if (!source || !(source in headerSources)) continue;
+    const value = coerceValue(field, headerSources[source]);
+    if (value !== "") customValues[field.key] = value;
+  }
+  const lineFields = customFields.filter((f) => f.scope === "RFP_LINE");
+
   const items: NewItemInput[] = request.lines.map((line) => {
+    const lineCustom: Record<string, string> = {};
+    for (const field of lineFields) {
+      const source = mapping.customLine[field.key] as RfpItemSource | undefined;
+      if (!source) continue;
+      const value = coerceValue(field, line[source]);
+      if (value !== "") lineCustom[field.key] = value;
+    }
     const quantity = Number(pick(line, mapping.item.quantity));
     const price = pick(line, mapping.item.historicalPrice);
     return {
@@ -70,6 +90,7 @@ export function buildRfpFromRequest(
       historicalPrice: price === null || Number.isNaN(Number(price)) ? null : Number(price),
       commodity: matchCommodity(String(pick(line, mapping.item.commodity) ?? ""), commodities),
       customFields: [],
+      customValues: lineCustom,
     };
   });
 
@@ -85,6 +106,7 @@ export function buildRfpFromRequest(
     predecessorDocument: fillTemplate(mapping.predecessorTemplate, vars),
     commodity: matchCommodity(request.commodity, commodities) ?? "",
     estimatedPrice: estimated > 0 ? String(Math.round(estimated * 100) / 100) : "",
+    customValues,
     items,
   };
 }

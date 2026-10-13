@@ -1,5 +1,6 @@
 "use server";
 
+import { readCustomValues } from "@/lib/customFields";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireUser } from "@/lib/auth";
@@ -71,9 +72,10 @@ export async function awardInvitation(
   ]);
   const commodityChain = ancestorChain(commodities, rfp.commodity ?? "");
   const regionChain = ancestorChain(regions, rfp.region ?? "");
+  const storedCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const matchingTemplates = resolveAppliedTemplates(
     allTemplates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice),
+      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice, storedCustom),
     ),
     rfp.selectedTemplateId,
   );

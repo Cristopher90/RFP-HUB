@@ -9,6 +9,8 @@ import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { QuestionScoringFields } from "@/components/QuestionScoringFields";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { headerStdSnapshot, lineStdSnapshot, type CustomFieldDef } from "@/lib/customFieldsShared";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
 import {
@@ -47,6 +49,7 @@ export type TemplateData = {
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: number | null;
   matchPriceMax: number | null;
+  matchCustom?: unknown;
   items: {
     id: string;
     section: string | null;
@@ -213,6 +216,8 @@ export type RfpInitialData = {
   basedOnRfpId: string | null;
   basedOnRfpLabel: string | null;
   selectedTemplateId?: string | null;
+  // Values of the client's custom header fields (key → value).
+  customValues?: Record<string, string>;
   isNextRound?: boolean;
   scoringEnabled: boolean;
   items: NewItemInput[];
@@ -235,6 +240,9 @@ export function RfpForm({
   rfpId,
   initial,
   purchaseRequestId,
+  seedTemplates = false,
+  customFields = [],
+  clientCurrency = "USD",
 }: {
   currentUserRole: UserRole;
   currentUserName: string;
@@ -275,20 +283,32 @@ export function RfpForm({
   rfpId?: string;
   initial?: RfpInitialData;
   purchaseRequestId?: string;
+  // Pre-filled header (e.g. from the user's custom fields) that should also
+  // pull in the matching templates' content, like a request-generated RFP.
+  seedTemplates?: boolean;
+  customFields?: CustomFieldDef[];
+  clientCurrency?: string;
 }) {
   const { t, dictionary } = usePreferences();
   const idBase = useId();
   // Pre-filled from a purchase request: unlike a blank form, nothing has
   // triggered the commodity/region change that merges in the matching RFP
   // templates' (possibly locked) items and questions, so do it up front.
-  const seedFromRequest = Boolean(purchaseRequestId && initial);
+  const seedFromRequest = Boolean((purchaseRequestId || seedTemplates) && initial);
+  const [headCustom, setHeadCustom] = useState<Record<string, string>>(
+    initial?.customValues ?? {},
+  );
+  const headFields = customFields.filter((f) => f.scope === "RFP_HEAD");
+  const lineFields = customFields.filter((f) => f.scope === "RFP_LINE");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [buyerName, setBuyerName] = useState(
     initial?.buyerName ?? currentUserName,
   );
   const [deadlineAt, setDeadlineAt] = useState(
-    initial?.deadlineAt ?? defaultDeadline(),
+    initial
+      ? initial.deadlineAt || (seedTemplates ? defaultDeadline() : "")
+      : defaultDeadline(),
   );
   const [commodity, setCommodity] = useState(initial?.commodity ?? "");
   const [region, setRegion] = useState(initial?.region ?? "");
@@ -376,11 +396,12 @@ export function RfpForm({
     newRegion: string,
     newPrice: number | null,
     newSelectedTemplateId: string | null,
+    custom: Record<string, string> = headCustom,
   ) {
     const commodityChain = ancestorChain(commodities, newCommodity);
     const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, newPrice),
+      matchesTemplate(t, commodityChain, regionChain, newPrice, custom),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -428,11 +449,12 @@ export function RfpForm({
     areaFilter: "EXTERNAL" | "INTERNAL",
     newPrice: number | null,
     newSelectedTemplateId: string | null,
+    custom: Record<string, string> = headCustom,
   ) {
     const commodityChain = ancestorChain(commodities, newCommodity);
     const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, newPrice),
+      matchesTemplate(t, commodityChain, regionChain, newPrice, custom),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -493,6 +515,7 @@ export function RfpForm({
         ancestorChain(commodities, initial.commodity),
         ancestorChain(regions, initial.region),
         parsePrice(initial.estimatedPrice),
+        initial.customValues ?? {},
       ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
@@ -507,6 +530,7 @@ export function RfpForm({
     newCommodity: string,
     newRegion: string,
     newPrice: number | null,
+    custom: Record<string, string> = headCustom,
   ): string | null {
     const rawMatching = templates.filter((t) =>
       matchesTemplate(
@@ -514,6 +538,7 @@ export function RfpForm({
         ancestorChain(commodities, newCommodity),
         ancestorChain(regions, newRegion),
         newPrice,
+        custom,
       ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
@@ -562,6 +587,24 @@ export function RfpForm({
     );
     setInternalQuestions((prev) =>
       syncTemplateQuestions(prev, commodity, region, "INTERNAL", price, nextSelected),
+    );
+  }
+
+  // A custom header value can change which templates apply, so it re-syncs
+  // the template content just like the commodity/region/price do.
+  function handleCustomHeadChange(next: Record<string, string>) {
+    setHeadCustom(next);
+    const price = parsePrice(estimatedPrice);
+    const nextSelected = resolveSelection(commodity, region, price, next);
+    setSelectedTemplateId(nextSelected);
+    setItems((prev) =>
+      syncTemplateItems(prev, commodity, region, price, nextSelected, next),
+    );
+    setQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "EXTERNAL", price, nextSelected, next),
+    );
+    setInternalQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "INTERNAL", price, nextSelected, next),
     );
   }
 
@@ -1000,6 +1043,7 @@ export function RfpForm({
         purchaseRequestId,
         scoringEnabled: weightingQuestionsEnabled,
         saveAsDraft,
+        customValues: headCustom,
         items,
         questions: [...questions, ...internalQuestions],
         suppliers,
@@ -1048,6 +1092,7 @@ export function RfpForm({
         ancestorChain(commodities, commodity),
         ancestorChain(regions, region),
         parsePrice(estimatedPrice),
+        headCustom,
       ),
     ),
   ).conditional.length;
@@ -1307,6 +1352,7 @@ export function RfpForm({
                     ancestorChain(commodities, commodity),
                     ancestorChain(regions, region),
                     parsePrice(estimatedPrice),
+                    headCustom,
                   ),
                 ),
               ).conditional.map((t) => ({
@@ -1318,6 +1364,30 @@ export function RfpForm({
               onChange={(id) => handleTemplateSelectionChange(id ?? "")}
             />
           </div>
+          {headFields.length > 0 && (
+            <div className="sm:col-span-2">
+              <CustomFieldInputs
+                fields={headFields}
+                values={headCustom}
+                onChange={handleCustomHeadChange}
+                slot="headerCustom"
+                currency={clientCurrency}
+                ctx={{
+                  headerStd: headerStdSnapshot({
+                    commodity,
+                    region,
+                    origin,
+                    buyerName,
+                    estimatedPrice,
+                  }),
+                  headerCustom: headCustom,
+                  lineStd: {},
+                  lineCustom: {},
+                  userCustom: {},
+                }}
+              />
+            </div>
+          )}
           <div className="flex items-center gap-4 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
@@ -2278,6 +2348,29 @@ export function RfpForm({
                             />
                           )}
                         </div>
+                        {lineFields.length > 0 && (
+                          <CustomFieldInputs
+                            fields={lineFields}
+                            values={item.customValues ?? {}}
+                            onChange={(next) => updateItem(index, { customValues: next })}
+                            slot="lineCustom"
+                            currency={clientCurrency}
+                            columns={1}
+                            ctx={{
+                              headerStd: headerStdSnapshot({
+                                commodity,
+                                region,
+                                origin,
+                                buyerName,
+                                estimatedPrice,
+                              }),
+                              headerCustom: headCustom,
+                              lineStd: lineStdSnapshot(item),
+                              lineCustom: item.customValues ?? {},
+                              userCustom: {},
+                            }}
+                          />
+                        )}
                         <div>
                           <div className="mb-1 flex items-center justify-between">
                             <label className="text-xs font-medium text-slate-500">

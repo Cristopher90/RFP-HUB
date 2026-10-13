@@ -19,6 +19,13 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
 import { buyerGroupIdsOf, canGenerateRfp } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
+import {
+  headerStdContext,
+  loadCustomFields,
+  prepareCustomValues,
+  saveCustomValues,
+  validateRfpCustom,
+} from "@/lib/customFields";
 
 export type NewCustomField = { label: string; value: string };
 
@@ -35,6 +42,8 @@ export type NewItemInput = {
   historicalPrice: number | null;
   commodity: string | null;
   customFields: NewCustomField[];
+  // Values of the client's custom line fields, keyed by field key.
+  customValues?: Record<string, string>;
   sourceTemplateItemId?: string | null;
   sourceTemplateId?: string | null;
   locked?: boolean;
@@ -104,17 +113,24 @@ export type CreateRfpInput = {
   purchaseRequestId?: string; // solicitud de compra de la que se genera esta RFP
   scoringEnabled: boolean;
   saveAsDraft: boolean;
+  // Values of the client's custom header fields, keyed by field key.
+  customValues?: Record<string, string>;
   items: NewItemInput[];
   questions: NewQuestionInput[];
   suppliers: NewSupplierInput[];
 };
 
+type ShapedItem = Omit<ReturnType<typeof shapeItems>[number], "rawCustomValues"> & {
+  customValues: Record<string, string>;
+};
+
 export type ShapedRfpInput = {
-  items: ReturnType<typeof shapeItems>;
+  items: ShapedItem[];
   questions: ReturnType<typeof shapeQuestions>;
   suppliers: ReturnType<typeof shapeSuppliers>;
   matchingTemplates: Awaited<ReturnType<typeof findMatchingTemplates>>;
   estimatedPrice: number | null;
+  headerCustom: Record<string, string>;
 };
 
 // Returns the templates whose content actually applies: every
@@ -129,6 +145,7 @@ async function findMatchingTemplates(
   estimatedPrice: number | null,
   selectedTemplateId: string | null,
   clientId: string,
+  customValues?: Record<string, string>,
 ) {
   const [templates, commodities, regions] = await Promise.all([
     prisma.rfpTemplate.findMany({
@@ -145,7 +162,7 @@ async function findMatchingTemplates(
   const commodityChain = ancestorChain(commodities, commodity);
   const regionChain = ancestorChain(regions, region);
   const matching = templates.filter((t) =>
-    matchesTemplate(t, commodityChain, regionChain, estimatedPrice),
+    matchesTemplate(t, commodityChain, regionChain, estimatedPrice, customValues ?? {}),
   );
   return resolveAppliedTemplates(matching, selectedTemplateId);
 }
@@ -167,6 +184,7 @@ function shapeItems(items: NewItemInput[]) {
           ? Number(item.historicalPrice)
           : null,
       commodity: item.commodity?.trim() || null,
+      rawCustomValues: item.customValues,
       customFields: JSON.stringify(
         item.customFields
           .map((f) => ({ label: f.label.trim(), value: f.value.trim() }))
@@ -251,12 +269,35 @@ export async function validateAndShapeRfp(
     ? Number(input.estimatedPrice)
     : null;
 
+  // Custom header values (as far as they're visible and valid) can decide
+  // which templates apply, so settle them before matching.
+  const customFields = await loadCustomFields(clientId);
+  const earlyHeader = prepareCustomValues(
+    customFields.filter((f) => f.scope === "RFP_HEAD"),
+    input.customValues,
+    {
+      headerStd: headerStdContext({
+        commodity: input.commodity,
+        region: input.region,
+        origin: input.origin,
+        buyerName: input.buyerName,
+        estimatedPrice: input.estimatedPrice,
+      }),
+      headerCustom: {},
+      lineStd: {},
+      lineCustom: {},
+      userCustom: {},
+    },
+    "headerCustom",
+    false,
+  );
   const matchingTemplates = await findMatchingTemplates(
     input.commodity,
     input.region,
     estimatedPrice,
     input.selectedTemplateId,
     clientId,
+    "values" in earlyHeader ? earlyHeader.values : {},
   );
 
   const submittedItemSourceIds = new Set(
@@ -300,6 +341,28 @@ export async function validateAndShapeRfp(
   const questions = shapeQuestions(input.questions);
   const suppliers = shapeSuppliers(input.suppliers);
 
+  const customResult = await validateRfpCustom({
+    clientId,
+    headerStd: {
+      commodity: input.commodity,
+      region: input.region,
+      origin: input.origin,
+      buyerName: input.buyerName,
+      estimatedPrice: input.estimatedPrice,
+    },
+    headerRaw: input.customValues,
+    lines: items.map((i) => ({ std: i, raw: i.rawCustomValues })),
+    enforce: !input.saveAsDraft,
+    language: user.language,
+    fields: customFields,
+  });
+  if ("error" in customResult) return { error: customResult.error };
+  const itemsWithCustom = items.map((i, idx) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { rawCustomValues: _raw, ...rest } = i;
+    return { ...rest, customValues: customResult.lines[idx] };
+  });
+
   // Directory suppliers can only be invited through an accepted portal contact.
   if (!input.saveAsDraft) {
     const unaccepted = await findUnacceptedContacts(suppliers);
@@ -324,7 +387,14 @@ export async function validateAndShapeRfp(
     }
   }
 
-  return { items, questions, suppliers, matchingTemplates, estimatedPrice };
+  return {
+    items: itemsWithCustom,
+    questions,
+    suppliers,
+    matchingTemplates,
+    estimatedPrice,
+    headerCustom: customResult.header,
+  };
 }
 
 export async function createRfp(
@@ -354,7 +424,7 @@ export async function createRfp(
 
   const shaped = await validateAndShapeRfp(input, user, clientId);
   if ("error" in shaped) return shaped;
-  const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
+  const { items, questions, suppliers, matchingTemplates, estimatedPrice, headerCustom } = shaped;
 
   // An RFP generated from a purchase request: only its assigned buyer (or a
   // member of the assigned group) may do it, and only while it has no live RFP.
@@ -432,7 +502,7 @@ export async function createRfp(
       createdByUserId: user.id,
       items: {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        create: items.map(({ id: _id, ...item }, order) => ({
+        create: items.map(({ id: _id, customValues: _cv, ...item }, order) => ({
           ...item,
           clientId,
           order,
@@ -446,6 +516,21 @@ export async function createRfp(
       where: { id: input.purchaseRequestId },
       data: { rfpId: rfp.id },
     });
+  }
+
+  // Custom field values: the header's, then one set per created item (the
+  // items were created in submitted order).
+  await saveCustomValues(clientId, "RFP", rfp.id, headerCustom);
+  const createdItems = await prisma.rfpItem.findMany({
+    where: { rfpId: rfp.id },
+    orderBy: { order: "asc" },
+    select: { id: true },
+  });
+  for (const [idx, created] of createdItems.entries()) {
+    const values = items[idx]?.customValues ?? {};
+    if (Object.keys(values).length > 0) {
+      await saveCustomValues(clientId, "RFP_LINE", created.id, values);
+    }
   }
 
   // Questions are created sequentially (not as a nested create) so each

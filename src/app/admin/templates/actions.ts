@@ -1,5 +1,8 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
+import { loadCustomFields } from "@/lib/customFields";
+import { coerceValue } from "@/lib/customFieldsShared";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -70,6 +73,7 @@ export type SaveTemplateInput = {
   matchPriceCondition: TemplatePriceCondition | null;
   matchPriceMin: string;
   matchPriceMax: string;
+  matchCustom?: { fieldKey: string; value: string }[];
   active: boolean;
   hideResponsesUntilClosed: boolean;
   minSuppliers: string;
@@ -179,9 +183,24 @@ export async function saveTemplate(
     return { error: dictionary.templatesActions.minSuppliersInvalid };
   }
 
+  // Conditions over custom header fields: only fields the client flagged as
+  // template filters, and only values that fit them.
+  const filterFields = (await loadCustomFields(clientId)).filter(
+    (f) => f.scope === "RFP_HEAD" && f.templateFilter,
+  );
+  const matchCustom: { fieldKey: string; value: string }[] = [];
+  for (const c of input.matchCustom ?? []) {
+    const field = filterFields.find((f) => f.key === c.fieldKey);
+    const value = field ? coerceValue(field, c.value) : "";
+    if (field && value !== "" && !matchCustom.some((m) => m.fieldKey === field.key)) {
+      matchCustom.push({ fieldKey: field.key, value });
+    }
+  }
+
   const data = {
     name,
     description: input.description.trim() || null,
+    matchCustom: matchCustom.length > 0 ? matchCustom : Prisma.DbNull,
     matchCommodity: input.matchCommodity.trim() || null,
     matchCommodityIncludeDescendants: input.matchCommodity.trim()
       ? input.matchCommodityIncludeDescendants

@@ -40,7 +40,7 @@ export function FilterPicker({
   visible,
   onToggle,
 }: {
-  filters: { key: string; label: string }[];
+  filters: { key: string; label: string; group?: string }[];
   visible: Set<string>;
   onToggle: (key: string, show: boolean) => void;
 }) {
@@ -72,18 +72,22 @@ export function FilterPicker({
           <p className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
             {t("filters.chooseFilters")}
           </p>
-          {filters.map((f) => (
-            <label
-              key={f.key}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-            >
-              <input
-                type="checkbox"
-                checked={visible.has(f.key)}
-                onChange={(e) => onToggle(f.key, e.target.checked)}
-              />
-              {f.label}
-            </label>
+          {filters.map((f, i) => (
+            <div key={f.key}>
+              {f.group && f.group !== filters[i - 1]?.group && (
+                <p className="mt-1 border-t border-slate-100 px-2 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                  {f.group}
+                </p>
+              )}
+              <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={visible.has(f.key)}
+                  onChange={(e) => onToggle(f.key, e.target.checked)}
+                />
+                {f.label}
+              </label>
+            </div>
           ))}
         </div>
       )}

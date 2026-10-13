@@ -5,6 +5,7 @@ import { formatRfpNumber } from "@/lib/format";
 import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import type {
   NewItemInput,
   NewQuestionInput,
@@ -64,6 +65,13 @@ export default async function EditRfpPage({
       }),
     ]);
 
+  const [customFields, customClient, headerValues, lineValues] = await Promise.all([
+    loadCustomFields(rfp.clientId),
+    prisma.client.findUnique({ where: { id: rfp.clientId }, select: { currency: true } }),
+    readCustomValues(rfp.clientId, "RFP", [rfp.id]),
+    readCustomValues(rfp.clientId, "RFP_LINE", rfp.items.map((i) => i.id)),
+  ]);
+
   function toDatetimeLocalInput(date: Date | null) {
     if (!date) return "";
     return utcToZonedTime(date, user.timezone);
@@ -84,6 +92,7 @@ export default async function EditRfpPage({
     customFields: i.customFields
       ? (JSON.parse(i.customFields) as { label: string; value: string }[])
       : [],
+    customValues: lineValues.get(i.id) ?? {},
     sourceTemplateItemId: i.sourceTemplateItemId,
     locked: i.locked,
     sourceItemCatalogEntryId: i.sourceItemCatalogEntryId,
@@ -153,6 +162,7 @@ export default async function EditRfpPage({
       ? `${formatRfpNumber(rfp.basedOnRfp.number)} — ${rfp.basedOnRfp.title}`
       : null,
     selectedTemplateId: rfp.selectedTemplateId,
+    customValues: headerValues.get(rfp.id) ?? {},
     scoringEnabled: rfp.scoringEnabled,
     items,
     questions: mapQuestions("EXTERNAL"),
@@ -197,6 +207,8 @@ export default async function EditRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
+          customFields={customFields.filter((f) => f.scope !== "USER")}
+          clientCurrency={customClient?.currency ?? "USD"}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,
@@ -208,6 +220,7 @@ export default async function EditRfpPage({
             matchPriceCondition: t.matchPriceCondition,
             matchPriceMin: t.matchPriceMin,
             matchPriceMax: t.matchPriceMax,
+            matchCustom: t.matchCustom,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

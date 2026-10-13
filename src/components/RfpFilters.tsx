@@ -7,6 +7,7 @@ import { FilterPicker, useVisibleFilters } from "@/components/FilterPicker";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { statusLabel } from "@/i18n/labels";
 import { saveUserPref } from "@/lib/userPrefsActions";
+import { hasOptions, labelFor, optionLabel, treeNodes, type CustomFieldDef } from "@/lib/customFieldsShared";
 import { RFP_FILTERS_PREF_KEY } from "@/lib/prefKeys";
 
 function selectClass() {
@@ -47,13 +48,16 @@ export function RfpFilters({
   regions,
   creators,
   clients,
+  customFields = [],
 }: {
   commodities: CategoryOption[];
   regions: CategoryOption[];
   creators?: { id: string; name: string }[];
   clients?: { id: string; description: string }[];
+  // The client's custom header fields flagged as list filters ("Filtros de cliente").
+  customFields?: CustomFieldDef[];
 }) {
-  const { t, dictionary } = usePreferences();
+  const { t, dictionary, language } = usePreferences();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -80,8 +84,17 @@ export function RfpFilters({
     { key: "startDate", label: t("filters.startDate") },
     { key: "closeDate", label: t("filters.closeDate") },
     { key: "supplier", label: t("filters.invitedSupplier") },
+    ...customFields.map((f) => ({
+      key: `cf_${f.key}`,
+      label: labelFor(f.labels, language, f.key),
+      group: t("customFields.listFilterTitle"),
+    })),
   ];
-  const activeKeys = Object.entries(FILTER_PARAMS)
+  const filterParams: Record<string, string[]> = {
+    ...FILTER_PARAMS,
+    ...Object.fromEntries(customFields.map((f) => [`cf_${f.key}`, [`cf_${f.key}`]])),
+  };
+  const activeKeys = Object.entries(filterParams)
     .filter(([, params]) => params.some((p) => searchParams.get(p)))
     .map(([key]) => key);
   const { visible, show, hide } = useVisibleFilters(
@@ -98,7 +111,7 @@ export function RfpFilters({
     }
     hide(key);
     // Hiding a filter also drops its value, so nothing filters invisibly.
-    const owned = FILTER_PARAMS[key] ?? [];
+    const owned = filterParams[key] ?? [];
     if (owned.some((p) => searchParams.get(p))) {
       updateParams(Object.fromEntries(owned.map((p) => [p, ""])));
     }
@@ -248,15 +261,68 @@ export function RfpFilters({
           onChange={(e) => setSupplierText(e.target.value)}
         />
       )}
+      {customFields.map((f) => {
+        const key = `cf_${f.key}`;
+        if (!isShown(key)) return null;
+        const label = labelFor(f.labels, language, f.key);
+        const value = searchParams.get(key) ?? "";
+        if (f.type === "TREE") {
+          return (
+            <div className="w-56" key={key}>
+              <TreePickerField
+                nodes={treeNodes(f.options, language)}
+                valueId={value || null}
+                onChangeId={(id) => setParam(key, id ?? "")}
+                placeholder={label}
+                clearLabel={label}
+              />
+            </div>
+          );
+        }
+        if (hasOptions(f.type) || f.type === "CHECKBOX") {
+          return (
+            <select
+              key={key}
+              aria-label={label}
+              className={selectClass()}
+              value={value}
+              onChange={(e) => setParam(key, e.target.value)}
+            >
+              <option value="">{label}: {t("customFields.listFilterAll")}</option>
+              {f.type === "CHECKBOX" ? (
+                <>
+                  <option value="true">{t("customFields.yes")}</option>
+                  <option value="false">{t("customFields.no")}</option>
+                </>
+              ) : (
+                f.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {optionLabel(o, language)}
+                  </option>
+                ))
+              )}
+            </select>
+          );
+        }
+        return (
+          <CustomTextFilter
+            key={key}
+            label={label}
+            value={value}
+            onApply={(v) => setParam(key, v)}
+          />
+        );
+      })}
       <FilterPicker filters={available} visible={visible} onToggle={toggleFilter} />
       {hasFilters && (
         <button
           type="button"
           onClick={() => {
             const params = new URLSearchParams(searchParams.toString());
-            Object.values(FILTER_PARAMS)
+            Object.values(filterParams)
               .flat()
               .forEach((k) => params.delete(k));
+            [...params.keys()].filter((k) => k.startsWith("cf_")).forEach((k) => params.delete(k));
             saveUserPref(RFP_FILTERS_PREF_KEY, params.toString()).catch(() => {});
             router.push(`${pathname}?${params.toString()}`);
           }}
@@ -266,5 +332,45 @@ export function RfpFilters({
         </button>
       )}
     </div>
+  );
+}
+
+// Exact-match text/number filter on a custom field: applied after a pause.
+function CustomTextFilter({
+  label,
+  value,
+  onApply,
+}: {
+  label: string;
+  value: string;
+  onApply: (value: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  const applied = useRef(value);
+  useEffect(() => {
+    if (value !== applied.current) {
+      applied.current = value;
+      setText(value);
+    }
+  }, [value]);
+  useEffect(() => {
+    if (text.trim() === applied.current) return;
+    const timer = setTimeout(() => {
+      applied.current = text.trim();
+      onApply(text.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+    // onApply is recreated each render; only the typed text should retrigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+  return (
+    <input
+      type="search"
+      aria-label={label}
+      className={`${selectClass()} w-44`}
+      placeholder={label}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+    />
   );
 }

@@ -5,6 +5,8 @@ import { usePreferences } from "@/i18n/PreferencesProvider";
 import { roleLabel } from "@/i18n/labels";
 import { makeClientKey } from "@/lib/clientKey";
 import { TreePickerField } from "@/components/TreePickerField";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { emptyContext, type CustomFieldDef } from "@/lib/customFieldsShared";
 import type { UserRole } from "@/generated/prisma/enums";
 import { BUYER_ROLES } from "@/lib/requestFields";
 import { createUser, updateUser, type UserFormInput } from "./actions";
@@ -33,6 +35,7 @@ export function UserForm({
   buyerGroups = [],
   clients,
   actorIsSuperAdmin,
+  userFieldsByClient = {},
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
@@ -40,6 +43,8 @@ export function UserForm({
   buyerGroups?: { id: string; name: string; clientId: string }[];
   clients: { id: string; code: string; description: string }[];
   actorIsSuperAdmin: boolean;
+  // User-level custom fields per client (a client admin only gets their own).
+  userFieldsByClient?: Record<string, { currency: string; fields: CustomFieldDef[] }>;
 }) {
   const { t, dictionary } = usePreferences();
   const ROLES: UserRole[] = actorIsSuperAdmin
@@ -70,6 +75,9 @@ export function UserForm({
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
       initial?.approvalGroups?.map((g) => ({ ...g, clientKey: makeClientKey() })) ?? [],
+  );
+  const [customValues, setCustomValues] = useState<Record<string, string>>(
+    initial?.customValues ?? {},
   );
   const [buyerGroupIds, setBuyerGroupIds] = useState<string[]>(initial?.buyerGroupIds ?? []);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +115,13 @@ export function UserForm({
     setBuyerGroupIds((prev) => prev.filter((id) => allowedBuyer.has(id)));
   }
 
+  const customClientId = actorIsSuperAdmin
+    ? form.role === "ADMIN"
+      ? null
+      : form.clientId
+    : (Object.keys(userFieldsByClient)[0] ?? null);
+  const userCustom = customClientId ? userFieldsByClient[customClientId] : undefined;
+
   function update(patch: Partial<typeof form>) {
     setForm((prev) => ({ ...prev, ...patch }));
   }
@@ -136,6 +151,7 @@ export function UserForm({
         limit,
       })),
       buyerGroupIds: isBuyerRole ? buyerGroupIds : [],
+      customValues,
     };
     startTransition(async () => {
       const result = userId
@@ -300,6 +316,22 @@ export function UserForm({
           </div>
         </div>
       </section>
+
+      {userCustom && userCustom.fields.length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">{t("customFields.formUserTitle")}</h2>
+          <div className="mt-4">
+            <CustomFieldInputs
+              fields={userCustom.fields}
+              values={customValues}
+              onChange={setCustomValues}
+              slot="userCustom"
+              currency={userCustom.currency}
+              ctx={{ ...emptyContext(), userCustom: customValues }}
+            />
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">

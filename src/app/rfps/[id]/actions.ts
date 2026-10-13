@@ -26,6 +26,12 @@ import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { notifyCreatorOfStatusChange, sendPendingInvitations } from "@/lib/notifications";
+import {
+  deleteCustomValues,
+  readCustomValues,
+  saveCustomValues,
+  validateStoredRfpCustom,
+} from "@/lib/customFields";
 
 export async function inviteSupplier(
   rfpId: string,
@@ -179,12 +185,16 @@ export async function publishRfp(rfpId: string) {
   ]);
   const commodityChain = ancestorChain(commodities, rfp.commodity ?? "");
   const regionChain = ancestorChain(regions, rfp.region ?? "");
+  const storedCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const matchingTemplates = resolveAppliedTemplates(
     allTemplates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice),
+      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice, storedCustom),
     ),
     rfp.selectedTemplateId,
   );
+
+  const customError = await validateStoredRfpCustom(rfp.id, user.language);
+  if (customError) return { error: customError };
 
   const unacceptedContacts = await findUnacceptedContacts(
     rfp.invitations.map((i) => ({
@@ -271,7 +281,7 @@ export async function updateRfp(
   const clientId = existing.clientId;
   const shaped = await validateAndShapeRfp(input, user, clientId);
   if ("error" in shaped) return shaped;
-  const { items, questions, suppliers, matchingTemplates, estimatedPrice } = shaped;
+  const { items, questions, suppliers, matchingTemplates, estimatedPrice, headerCustom } = shaped;
 
   const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
@@ -319,16 +329,23 @@ export async function updateRfp(
   // Items: update existing (by id), create new, delete removed.
   const existingItemIds = new Set(existing.items.map((i) => i.id));
   const submittedItemIds = new Set(items.map((i) => i.id).filter(Boolean));
-  for (const id of existingItemIds) {
-    if (!submittedItemIds.has(id)) await prisma.rfpItem.delete({ where: { id } });
-  }
-  for (const [order, { id, ...item }] of items.entries()) {
+  const removedItemIds = [...existingItemIds].filter((id) => !submittedItemIds.has(id));
+  for (const id of removedItemIds) await prisma.rfpItem.delete({ where: { id } });
+  await deleteCustomValues(clientId, "RFP_LINE", removedItemIds);
+  for (const [order, { id, customValues, ...item }] of items.entries()) {
+    let itemId: string;
     if (id && existingItemIds.has(id)) {
       await prisma.rfpItem.update({ where: { id }, data: { ...item, order } });
+      itemId = id;
     } else {
-      await prisma.rfpItem.create({ data: { ...item, order, rfpId, clientId } });
+      const created = await prisma.rfpItem.create({
+        data: { ...item, order, rfpId, clientId },
+      });
+      itemId = created.id;
     }
+    await saveCustomValues(clientId, "RFP_LINE", itemId, customValues);
   }
+  await saveCustomValues(clientId, "RFP", rfpId, headerCustom);
 
   // Questions: same pattern, plus resolving dependsOnQuestionId via clientKey
   // across a mix of existing and newly created rows.

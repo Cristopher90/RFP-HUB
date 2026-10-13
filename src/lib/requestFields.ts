@@ -92,6 +92,10 @@ export type RfpMapping = {
   predecessorTemplate: string;
   estimatedFromLines: boolean;
   item: Record<RfpItemTarget, RfpItemSource | "">;
+  // Custom fields flagged "mappable": field key → the request header field
+  // (customHead) or request line field (customLine) that feeds it.
+  customHead: Record<string, string>;
+  customLine: Record<string, string>;
 };
 
 export const DEFAULT_RFP_MAPPING: RfpMapping = {
@@ -108,6 +112,8 @@ export const DEFAULT_RFP_MAPPING: RfpMapping = {
     historicalPrice: "historicalPrice",
     commodity: "commodity",
   },
+  customHead: {},
+  customLine: {},
 };
 
 export function normalizeRfpMapping(raw: unknown): RfpMapping {
@@ -119,5 +125,7 @@ export function normalizeRfpMapping(raw: unknown): RfpMapping {
     predecessorTemplate: value.predecessorTemplate ?? DEFAULT_RFP_MAPPING.predecessorTemplate,
     estimatedFromLines: value.estimatedFromLines ?? DEFAULT_RFP_MAPPING.estimatedFromLines,
     item,
+    customHead: { ...(value.customHead ?? {}) },
+    customLine: { ...(value.customLine ?? {}) },
   };
 }

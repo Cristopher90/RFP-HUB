@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { UserForm } from "../UserForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 
 export default async function EditUserPage({
   params,
@@ -31,6 +32,19 @@ export default async function EditUserPage({
   ]);
   if (!user) notFound();
   if (!scope.isSuperAdmin && user.clientId !== scope.user.clientId) notFound();
+
+  // User-level custom fields, per client (only those clients that define any).
+  const customClients = scope.isSuperAdmin
+    ? clients
+    : await prisma.client.findMany({ where: { id: scope.user.clientId ?? "" } });
+  const userFieldsByClient: Record<string, { currency: string; fields: Awaited<ReturnType<typeof loadCustomFields>> }> = {};
+  for (const c of customClients) {
+    const fields = await loadCustomFields(c.id, "USER");
+    if (fields.length > 0) userFieldsByClient[c.id] = { currency: c.currency, fields };
+  }
+  const userCustomValues = user.clientId
+    ? ((await readCustomValues(user.clientId, "USER", [user.id])).get(user.id) ?? {})
+    : {};
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -66,6 +80,7 @@ export default async function EditUserPage({
             seeMyRequests: user.seeMyRequests,
             seeAssignedRequests: user.seeAssignedRequests,
             seeAllRequests: user.seeAllRequests,
+            customValues: userCustomValues,
             buyerGroupIds: user.buyerGroupMemberships.map((m) => m.groupId),
             approvalGroups: user.approvalGroups.map((g) => ({
               approvalGroupId: g.approvalGroupId,
@@ -76,6 +91,7 @@ export default async function EditUserPage({
           buyerGroups={buyerGroups.map((g) => ({ id: g.id, name: g.name, clientId: g.clientId }))}
           clients={clients}
           actorIsSuperAdmin={scope.isSuperAdmin}
+          userFieldsByClient={userFieldsByClient}
         />
       </div>
     </div>

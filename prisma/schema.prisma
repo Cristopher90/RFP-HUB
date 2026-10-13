@@ -114,6 +114,7 @@ model Client {
   supplierDirectories    SupplierDirectory[]
   supplierUserLinks      SupplierUserLink[]
   notes                  Note[]
+  customFields           CustomField[]
   itemCatalogLists       ItemCatalogList[]
   itemCatalogEntries     ItemCatalogEntry[]
   templates              RfpTemplate[]
@@ -419,6 +420,7 @@ model RfpTemplate {
   updatedAt                        DateTime                @updatedAt
 
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
+  matchCustom              Json? // condiciones sobre campos personalizados de cabecera: [{ "fieldKey": "...", "value": "..." }]
   minSuppliers             Int? // cantidad mínima de proveedores a invitar para poder publicar una RFP con esta plantilla
 
   approvalWorkflowId String?
@@ -1038,4 +1040,62 @@ model AssistantProposal {
   rfpId     String?
 
   @@index([userId, status])
+}
+
+enum CustomFieldType {
+  TREE // valores jerárquicos definidos en el propio campo
+  TEXT // texto hasta 50 caracteres
+  TEXT_SHORT // texto hasta 10 caracteres
+  NUMBER
+  DROPDOWN // desplegable
+  AMOUNT // importe con 2 decimales, en la moneda del cliente
+  CHECKBOX
+}
+
+enum CustomFieldScope {
+  RFP_HEAD // cabecera de la RFP
+  RFP_LINE // cada línea (artículo) de la RFP
+  USER // dato del usuario (puede mapearse a un campo de cabecera de la RFP)
+}
+
+// Definición de un campo personalizado de un cliente (la crea el Super
+// Administrador, a mano o importando el Excel de campos). Sus valores viven en
+// CustomFieldValue, que tiene una partición física (tabla propia) por cliente.
+model CustomField {
+  id             String           @id @default(cuid())
+  clientId       String
+  client         Client           @relation(fields: [clientId], references: [id])
+  key            String // id del campo, ej. "cus_prioridad" (único por cliente)
+  scope          CustomFieldScope
+  type           CustomFieldType
+  mandatory      Boolean          @default(false)
+  labels         Json // { "es": "Prioridad", "en": "Priority" }
+  options        Json? // DROPDOWN/TREE: [{ "value": "alta", "parent": null, "labels": { "es": "Alta", "en": "High" } }]
+  condition      Json? // { "kind": "HEADER_STD|HEADER_CUSTOM|LINE_STD|LINE_CUSTOM", "field": "...", "op": "eq|neq", "value": "..." }
+  mappable       Boolean          @default(false) // aparece en el mapeo de solicitud a RFP
+  templateFilter Boolean          @default(false) // se puede usar para filtrar plantillas
+  listFilter     Boolean          @default(false) // aparece como "Filtro del cliente" en la lista de RFPs
+  mapToRfpKey    String? // solo USER: clave del campo de cabecera de la RFP que se rellena con este dato
+  active         Boolean          @default(true)
+  order          Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([clientId, key])
+}
+
+// Valores de los campos personalizados. En la base es una tabla particionada
+// por cliente (LIST sobre clientId): cada cliente tiene su propia tabla física
+// custom_values_<id>, así ninguna tabla crece con los datos de todos. La crea
+// la migración y se asegura al crear cada cliente (src/lib/customFields.ts).
+model CustomFieldValue {
+  clientId   String
+  entityType String // RFP | RFP_LINE | USER
+  entityId   String // id de la RFP, de la línea o del usuario
+  fieldKey   String
+  value      String?
+  updatedAt  DateTime @default(now())
+
+  @@id([clientId, entityType, entityId, fieldKey])
+  @@index([clientId, fieldKey, value])
 }

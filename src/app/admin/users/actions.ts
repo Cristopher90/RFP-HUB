@@ -9,6 +9,13 @@ import type { UserRole } from "@/generated/prisma/enums";
 import { getDictionary } from "@/i18n/getDictionary";
 import type { Dictionary } from "@/i18n/getDictionary";
 import { BUYER_ROLES } from "@/lib/requestFields";
+import {
+  deleteCustomValues,
+  loadCustomFields,
+  prepareCustomValues,
+  saveCustomValues,
+} from "@/lib/customFields";
+import { labelFor, emptyContext } from "@/lib/customFieldsShared";
 
 export type UserFormInput = {
   name: string;
@@ -33,7 +40,29 @@ export type UserFormInput = {
   canUseAssistant: boolean;
   approvalGroups: { approvalGroupId: string; limit: string }[];
   buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
+  customValues?: Record<string, string>; // campos personalizados a nivel usuario (clave → valor)
 };
+
+// Validates the user-level custom field values against the client's USER
+// fields; a Super Administrador has no client, so no custom fields.
+async function validUserCustomValues(
+  input: UserFormInput,
+  clientId: string | null,
+  language: string,
+): Promise<{ error: string } | { values: Record<string, string> }> {
+  if (!clientId || input.role === "ADMIN") return { values: {} };
+  const fields = await loadCustomFields(clientId, "USER");
+  const result = prepareCustomValues(fields, input.customValues, emptyContext(), "userCustom", true);
+  if ("error" in result) {
+    const d = getDictionary(language).customFields;
+    const e = result.error;
+    const label = labelFor(e.field.labels, language, e.field.key);
+    const template =
+      e.code === "mandatory" ? d.errMandatory : e.code === "tooLong" ? d.errTooLong : d.errInvalid;
+    return { error: template.replace("{field}", label) };
+  }
+  return { values: result.values };
+}
 
 // Cleans up the group-limit table: drops incomplete rows, dedupes by group
 // (last one wins), parses the amount.
@@ -141,7 +170,9 @@ export async function createUser(
     ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
   const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
-  await prisma.user.create({
+  const customResult = await validUserCustomValues(input, targetClient.clientId, scope.user.language);
+  if ("error" in customResult) return { error: customResult.error };
+  const createdUser = await prisma.user.create({
     data: {
       name,
       lastName: input.lastName.trim() || null,
@@ -167,6 +198,9 @@ export async function createUser(
       buyerGroupMemberships: { create: buyerGroupIds.map((groupId) => ({ groupId })) },
     },
   });
+  if (targetClient.clientId) {
+    await saveCustomValues(targetClient.clientId, "USER", createdUser.id, customResult.values);
+  }
 
   revalidatePath("/admin/users");
   redirect("/admin/users");
@@ -208,6 +242,8 @@ export async function updateUser(
     ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
   const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
+  const customResult = await validUserCustomValues(input, targetClient.clientId, scope.user.language);
+  if ("error" in customResult) return { error: customResult.error };
   await prisma.userApprovalGroup.deleteMany({ where: { userId } });
   await prisma.buyerGroupMember.deleteMany({ where: { userId } });
   await prisma.user.update({
@@ -237,6 +273,13 @@ export async function updateUser(
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),
     },
   });
+  // Values live under the client's partition: clear the old client's if the user moved.
+  if (target.clientId && target.clientId !== targetClient.clientId) {
+    await deleteCustomValues(target.clientId, "USER", [userId]);
+  }
+  if (targetClient.clientId) {
+    await saveCustomValues(targetClient.clientId, "USER", userId, customResult.values);
+  }
 
   revalidatePath("/admin/users");
   redirect("/admin/users");

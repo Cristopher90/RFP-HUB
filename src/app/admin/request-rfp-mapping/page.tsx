@@ -4,6 +4,7 @@ import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
 import { normalizeRfpMapping } from "@/lib/requestFields";
+import { loadCustomFields } from "@/lib/customFields";
 import { RequestRfpMappingForm } from "./RequestRfpMappingForm";
 
 export default async function RequestRfpMappingPage({
@@ -16,6 +17,10 @@ export default async function RequestRfpMappingPage({
   const saved = effectiveClientId
     ? await prisma.requestRfpMapping.findUnique({ where: { clientId: effectiveClientId } })
     : null;
+
+  const mappableFields = effectiveClientId
+    ? (await loadCustomFields(effectiveClientId)).filter((f) => f.mappable)
+    : [];
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -35,6 +40,7 @@ export default async function RequestRfpMappingPage({
             key={effectiveClientId}
             targetClientId={effectiveClientId}
             initial={normalizeRfpMapping(saved?.mapping)}
+            customFields={mappableFields}
           />
         </div>
       ) : (
