@@ -71,6 +71,10 @@ export type CustomFieldDef = {
   scope: CfScope;
   type: CfType;
   mandatory: boolean;
+  // visible=false: the value exists (conditions, mappings) but isn't shown.
+  // editable=false: shown, but can't be changed by hand.
+  visible: boolean;
+  editable: boolean;
   labels: Record<string, string>;
   options: CfOption[];
   condition: CfCondition | null;
@@ -235,6 +239,8 @@ export type ImportedField = {
   scope: CfScope;
   type: CfType;
   mandatory: boolean;
+  visible: boolean;
+  editable: boolean;
   labels: Record<string, string>;
   options: CfOption[];
   conditionText: string;
@@ -343,6 +349,8 @@ export function parseImportRows(rows: unknown[][]): {
   const cValuesEn = col("values_en", "valores_en");
   const cMap = col("mappable", "mapeable");
   const cImp = col("importable", "importar");
+  const cVis = col("visible", "visibles");
+  const cEdit = col("editable", "editables");
   const cTpl = col("templatefilter", "filtro_plantilla");
   const cList = col("listfilter", "filtro_lista");
   if (cClient < 0 || cScope < 0 || cKey < 0 || cType < 0) {
@@ -368,6 +376,8 @@ export function parseImportRows(rows: unknown[][]): {
       scope,
       type,
       mandatory: parseBool(row[cMand]),
+      visible: cVis >= 0 && String(row[cVis] ?? "").trim() !== "" ? parseBool(row[cVis]) : true,
+      editable: cEdit >= 0 && String(row[cEdit] ?? "").trim() !== "" ? parseBool(row[cEdit]) : true,
       labels: nameEn ? { es: name, en: nameEn } : { es: name },
       options: hasOptions(type) ? parseOptionList(cell(row, cValues), type, cell(row, cValuesEn)) : [],
       conditionText: cell(row, cCond),

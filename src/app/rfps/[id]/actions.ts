@@ -279,7 +279,7 @@ export async function updateRfp(
   if (!input.deadlineAt) return { error: dictionary.rfpActions.deadlineRequired };
 
   const clientId = existing.clientId;
-  const shaped = await validateAndShapeRfp(input, user, clientId);
+  const shaped = await validateAndShapeRfp(input, user, clientId, rfpId);
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice, headerCustom } = shaped;
 

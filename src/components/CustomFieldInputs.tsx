@@ -40,7 +40,8 @@ export function CustomFieldInputs({
   columns?: 1 | 2 | 3;
 }) {
   const { t, language } = usePreferences();
-  const visible = visibleFields(fields, values, ctx, slot);
+  // Hidden fields keep their value (conditions, mappings) but draw nothing.
+  const visible = visibleFields(fields, values, ctx, slot).filter((f) => f.visible);
   if (visible.length === 0) return null;
 
   function set(key: string, value: string) {
@@ -59,6 +60,7 @@ export function CustomFieldInputs({
       {visible.map((field) => {
         const label = labelFor(field.labels, language, field.key);
         const value = values[field.key] ?? "";
+        const locked = disabled || !field.editable;
         const required = field.mandatory && field.type !== "CHECKBOX";
         return (
           <div key={field.key} data-custom-field={field.key}>
@@ -73,7 +75,7 @@ export function CustomFieldInputs({
               <TreePickerField
                 nodes={treeNodes(field.options, language)}
                 valueId={value || null}
-                onChangeId={(id) => !disabled && set(field.key, id ?? "")}
+                onChangeId={(id) => !locked && set(field.key, id ?? "")}
                 placeholder={t("customFields.select")}
                 clearLabel={t("customFields.select")}
               />
@@ -82,7 +84,7 @@ export function CustomFieldInputs({
               <select
                 className={inputClass()}
                 value={value}
-                disabled={disabled}
+                disabled={locked}
                 onChange={(e) => set(field.key, e.target.value)}
               >
                 <option value="">{t("customFields.select")}</option>
@@ -98,7 +100,7 @@ export function CustomFieldInputs({
                 className={inputClass()}
                 maxLength={CF_TEXT_MAX}
                 value={value}
-                disabled={disabled}
+                disabled={locked}
                 onChange={(e) => set(field.key, e.target.value)}
               />
             )}
@@ -107,7 +109,7 @@ export function CustomFieldInputs({
                 className={inputClass()}
                 maxLength={CF_TEXT_SHORT_MAX}
                 value={value}
-                disabled={disabled}
+                disabled={locked}
                 onChange={(e) => set(field.key, e.target.value)}
               />
             )}
@@ -117,7 +119,7 @@ export function CustomFieldInputs({
                 type="number"
                 step="any"
                 value={value}
-                disabled={disabled}
+                disabled={locked}
                 onChange={(e) => set(field.key, e.target.value)}
               />
             )}
@@ -128,7 +130,7 @@ export function CustomFieldInputs({
                 step="0.01"
                 min="0"
                 value={value}
-                disabled={disabled}
+                disabled={locked}
                 onChange={(e) => set(field.key, e.target.value)}
                 onBlur={(e) => {
                   const n = Number(e.target.value);
@@ -141,7 +143,7 @@ export function CustomFieldInputs({
                 <input
                   type="checkbox"
                   checked={value === "true"}
-                  disabled={disabled}
+                  disabled={locked}
                   onChange={(e) => set(field.key, e.target.checked ? "true" : "false")}
                 />
                 {t("customFields.yes")}

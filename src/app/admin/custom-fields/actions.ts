@@ -32,6 +32,8 @@ export type CustomFieldInput = {
   scope: CfScope;
   type: CfType;
   mandatory: boolean;
+  visible: boolean;
+  editable: boolean;
   labels: Record<string, string>;
   options: CfOption[];
   condition: CfCondition | null;
@@ -199,6 +201,8 @@ export async function saveCustomField(
     scope: input.scope,
     type: input.type,
     mandatory: !isRequestScope(input.scope) && input.mandatory,
+    visible: input.visible !== false,
+    editable: isRequestScope(input.scope) || input.editable !== false,
     labels,
     options: opts.options.length > 0 ? (opts.options as object[]) : undefined,
     condition: cond.condition ? (cond.condition as object) : undefined,
@@ -337,6 +341,8 @@ export async function importCustomFields(
       scope: r.scope,
       type: r.type,
       mandatory: r.mandatory,
+      visible: r.visible,
+      editable: isRequestScope(r.scope) || r.editable,
       labels: r.labels,
       options: r.options.length > 0 ? (r.options as object[]) : undefined,
       condition: condition ? (condition as object) : undefined,

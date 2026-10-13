@@ -140,7 +140,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
 
   // Request custom fields (header / lines) and the values stored for this page.
   const requestCustomFields = (await loadCustomFields(effectiveClientId, undefined, false)).filter(
-    (f) => f.scope === "REQUEST_HEAD" || f.scope === "REQUEST_LINE",
+    (f) => f.visible && (f.scope === "REQUEST_HEAD" || f.scope === "REQUEST_LINE"),
   );
   const headCustomFields = requestCustomFields.filter((f) => f.scope === "REQUEST_HEAD");
   const lineCustomFields = requestCustomFields.filter((f) => f.scope === "REQUEST_LINE");

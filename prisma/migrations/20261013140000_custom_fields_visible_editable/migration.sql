@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "CustomField" ADD COLUMN "visible" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "editable" BOOLEAN NOT NULL DEFAULT true;

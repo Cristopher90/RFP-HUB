@@ -45,6 +45,8 @@ export function toDef(row: CustomField): CustomFieldDef {
     scope: row.scope,
     type: row.type,
     mandatory: row.mandatory,
+    visible: row.visible,
+    editable: row.editable,
     labels: (row.labels ?? {}) as Record<string, string>,
     options: Array.isArray(row.options) ? (row.options as unknown as CfOption[]) : [],
     condition: (row.condition ?? null) as CfCondition | null,
@@ -147,7 +149,8 @@ export function prepareCustomValues(
     if ("error" in normalized) return { error: { code: normalized.error, field } };
     // An unchecked checkbox is still an answer; only blanks count as missing.
     const filled = normalized.value !== "" && (field.type !== "CHECKBOX" || normalized.value === "true");
-    if (enforce && field.mandatory && !filled && field.type !== "CHECKBOX") {
+    // A hidden field can't be filled by hand, so it is never demanded.
+    if (enforce && field.mandatory && field.visible && !filled && field.type !== "CHECKBOX") {
       return { error: { code: "mandatory", field } };
     }
     if (normalized.value !== "") values[field.key] = normalized.value;

@@ -312,7 +312,7 @@ export default async function RfpDetailPage({
           </p>
         </div>
         {customFieldDefs
-          .filter((f) => f.scope === "RFP_HEAD" && customHeaderValues[f.key] !== undefined)
+          .filter((f) => f.scope === "RFP_HEAD" && f.visible && customHeaderValues[f.key] !== undefined)
           .map((f) => (
             <div key={f.key}>
               <p className="text-xs text-slate-400">{labelFor(f.labels, user.language, f.key)}</p>
@@ -403,6 +403,7 @@ export default async function RfpDetailPage({
                                 .filter(
                                   (f) =>
                                     f.scope === "RFP_LINE" &&
+                                    f.visible &&
                                     customLineMap.get(item.id)?.[f.key] !== undefined,
                                 )
                                 .map((f) => (

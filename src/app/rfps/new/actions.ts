@@ -23,6 +23,7 @@ import {
   headerStdContext,
   loadCustomFields,
   prepareCustomValues,
+  readCustomValues,
   saveCustomValues,
   validateRfpCustom,
 } from "@/lib/customFields";
@@ -263,6 +264,7 @@ export async function validateAndShapeRfp(
   input: CreateRfpInput,
   user: { role: import("@/generated/prisma/enums").UserRole; language: string },
   clientId: string,
+  existingRfpId?: string,
 ): Promise<{ error: string } | ShapedRfpInput> {
   const dictionary = getDictionary(user.language);
   const estimatedPrice = input.estimatedPrice.trim()
@@ -272,6 +274,43 @@ export async function validateAndShapeRfp(
   // Custom header values (as far as they're visible and valid) can decide
   // which templates apply, so settle them before matching.
   const customFields = await loadCustomFields(clientId);
+  // Fields that can't be edited by hand keep their stored value when an
+  // existing RFP is saved, whatever the payload says.
+  if (existingRfpId) {
+    const lockedHead = customFields.filter((f) => f.scope === "RFP_HEAD" && !f.editable);
+    const lockedLine = customFields.filter((f) => f.scope === "RFP_LINE" && !f.editable);
+    if (lockedHead.length > 0 || lockedLine.length > 0) {
+      const [storedHead, storedLines] = await Promise.all([
+        readCustomValues(clientId, "RFP", [existingRfpId]),
+        readCustomValues(
+          clientId,
+          "RFP_LINE",
+          input.items.map((i) => i.id).filter((id): id is string => Boolean(id)),
+        ),
+      ]);
+      const keep = (
+        sent: Record<string, string> | undefined,
+        stored: Record<string, string> | undefined,
+        locked: { key: string }[],
+      ) => {
+        const out = { ...(sent ?? {}) };
+        for (const f of locked) {
+          if (stored?.[f.key] !== undefined) out[f.key] = stored[f.key];
+          else delete out[f.key];
+        }
+        return out;
+      };
+      input = {
+        ...input,
+        customValues: keep(input.customValues, storedHead.get(existingRfpId), lockedHead),
+        items: input.items.map((i) =>
+          i.id
+            ? { ...i, customValues: keep(i.customValues, storedLines.get(i.id), lockedLine) }
+            : i,
+        ),
+      };
+    }
+  }
   const earlyHeader = prepareCustomValues(
     customFields.filter((f) => f.scope === "RFP_HEAD"),
     input.customValues,

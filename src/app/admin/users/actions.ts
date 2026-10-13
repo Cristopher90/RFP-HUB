@@ -13,6 +13,7 @@ import {
   deleteCustomValues,
   loadCustomFields,
   prepareCustomValues,
+  readCustomValues,
   saveCustomValues,
 } from "@/lib/customFields";
 import { labelFor, emptyContext } from "@/lib/customFieldsShared";
@@ -49,10 +50,21 @@ async function validUserCustomValues(
   input: UserFormInput,
   clientId: string | null,
   language: string,
+  existingUserId?: string,
 ): Promise<{ error: string } | { values: Record<string, string> }> {
   if (!clientId || input.role === "ADMIN") return { values: {} };
   const fields = await loadCustomFields(clientId, "USER");
-  const result = prepareCustomValues(fields, input.customValues, emptyContext(), "userCustom", true);
+  // Non-editable fields keep their stored value when an existing user is saved.
+  const sent = { ...(input.customValues ?? {}) };
+  const locked = fields.filter((f) => !f.editable);
+  if (existingUserId && locked.length > 0) {
+    const stored = (await readCustomValues(clientId, "USER", [existingUserId])).get(existingUserId);
+    for (const f of locked) {
+      if (stored?.[f.key] !== undefined) sent[f.key] = stored[f.key];
+      else delete sent[f.key];
+    }
+  }
+  const result = prepareCustomValues(fields, sent, emptyContext(), "userCustom", true);
   if ("error" in result) {
     const d = getDictionary(language).customFields;
     const e = result.error;
@@ -242,7 +254,12 @@ export async function updateUser(
     ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
   const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
-  const customResult = await validUserCustomValues(input, targetClient.clientId, scope.user.language);
+  const customResult = await validUserCustomValues(
+    input,
+    targetClient.clientId,
+    scope.user.language,
+    target.clientId === targetClient.clientId ? userId : undefined,
+  );
   if ("error" in customResult) return { error: customResult.error };
   await prisma.userApprovalGroup.deleteMany({ where: { userId } });
   await prisma.buyerGroupMember.deleteMany({ where: { userId } });

@@ -54,6 +54,8 @@ function emptyInput(): CustomFieldInput {
     scope: "RFP_HEAD",
     type: "TEXT",
     mandatory: false,
+    visible: true,
+    editable: true,
     labels: { es: "", en: "" },
     options: [],
     condition: null,
@@ -73,6 +75,8 @@ function toInput(f: CustomFieldDef): CustomFieldInput {
     scope: f.scope,
     type: f.type,
     mandatory: f.mandatory,
+    visible: f.visible,
+    editable: f.editable,
     labels: { es: f.labels.es ?? "", en: f.labels.en ?? "" },
     options: f.options.map((o) => ({ ...o, labels: { es: o.labels.es ?? "", en: o.labels.en ?? "" } })),
     condition: f.condition,
@@ -216,6 +220,8 @@ export function CustomFieldsManager({
                   <td className="px-4 py-2.5 text-xs text-slate-600">{conditionText(f)}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
+                      {!f.visible && <Badge>{t("customFields.badgeHidden")}</Badge>}
+                      {f.visible && !f.editable && <Badge>{t("customFields.badgeReadOnly")}</Badge>}
                       {f.mappable && <Badge>{t("customFields.badgeMappable")}</Badge>}
                       {f.importable && <Badge>{t("customFields.badgeImportable")}</Badge>}
                       {f.templateFilter && <Badge>{t("customFields.badgeTemplate")}</Badge>}
@@ -461,6 +467,16 @@ function FieldEditor({
             <input type="checkbox" checked={form.active} onChange={(e) => patch({ active: e.target.checked })} />
             {t("customFields.active")}
           </label>
+          <label className="flex items-center gap-2" title={t("customFields.visibleHint")}>
+            <input type="checkbox" checked={form.visible} onChange={(e) => patch({ visible: e.target.checked })} />
+            {t("customFields.visible")}
+          </label>
+          {!isRequest && form.visible && (
+            <label className="flex items-center gap-2" title={t("customFields.editableHint")}>
+              <input type="checkbox" checked={form.editable} onChange={(e) => patch({ editable: e.target.checked })} />
+              {t("customFields.editable")}
+            </label>
+          )}
         </div>
 
         <fieldset className="rounded-lg border border-slate-200 p-4">
