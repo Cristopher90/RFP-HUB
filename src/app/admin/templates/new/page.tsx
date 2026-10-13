@@ -4,6 +4,7 @@ import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { TemplateForm } from "../TemplateForm";
 import { loadCustomFields } from "@/lib/customFields";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 
 export default async function NewTemplatePage({
   searchParams,
@@ -29,6 +30,8 @@ export default async function NewTemplatePage({
     ? (await loadCustomFields(effectiveClientId, "RFP_HEAD")).filter((f) => f.templateFilter)
     : [];
 
+  const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
       <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-700">
@@ -49,6 +52,7 @@ export default async function NewTemplatePage({
             regions={regions}
             targetClientId={effectiveClientId}
             customFilterFields={customFilterFields}
+            viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
           />
         </div>
       ) : (

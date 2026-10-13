@@ -6,6 +6,7 @@ import { roleLabel } from "@/i18n/labels";
 import { makeClientKey } from "@/lib/clientKey";
 import { TreePickerField } from "@/components/TreePickerField";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { emptyContext, type CustomFieldDef } from "@/lib/customFieldsShared";
 import type { UserRole } from "@/generated/prisma/enums";
 import { BUYER_ROLES } from "@/lib/requestFields";
@@ -36,6 +37,7 @@ export function UserForm({
   clients,
   actorIsSuperAdmin,
   userFieldsByClient = {},
+  viewGroupsByClient = {},
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
@@ -45,12 +47,14 @@ export function UserForm({
   actorIsSuperAdmin: boolean;
   // User-level custom fields per client (a client admin only gets their own).
   userFieldsByClient?: Record<string, { currency: string; fields: CustomFieldDef[] }>;
+  // View groups per client (a client admin only gets their own).
+  viewGroupsByClient?: Record<string, ViewGroupOption[]>;
 }) {
   const { t, dictionary } = usePreferences();
   const ROLES: UserRole[] = actorIsSuperAdmin
     ? ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
     : ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
-  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups" | "buyerGroupIds">>({
+  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups" | "buyerGroupIds" | "viewGroupIds">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",
     clientId: initial?.clientId ?? null,
@@ -71,7 +75,10 @@ export function UserForm({
     canNoteTargeted: initial?.canNoteTargeted ?? false,
     canNoteAll: initial?.canNoteAll ?? false,
     canUseAssistant: initial?.canUseAssistant ?? false,
+    canRateSuppliers: initial?.canRateSuppliers ?? false,
+    canBlockSuppliers: initial?.canBlockSuppliers ?? false,
   });
+  const [viewGroupIds, setViewGroupIds] = useState<string[]>(initial?.viewGroupIds ?? []);
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
       initial?.approvalGroups?.map((g) => ({ ...g, clientKey: makeClientKey() })) ?? [],
@@ -113,8 +120,17 @@ export function UserForm({
       buyerGroups.filter((g) => g.clientId === clientId).map((g) => g.id),
     );
     setBuyerGroupIds((prev) => prev.filter((id) => allowedBuyer.has(id)));
+    const allowedView = new Set((clientId ? (viewGroupsByClient[clientId] ?? []) : []).map((g) => g.id));
+    setViewGroupIds((prev) => prev.filter((id) => allowedView.has(id)));
   }
 
+  const isAdminRole = form.role === "ADMIN" || form.role === "CLIENT_ADMIN";
+  const viewGroupClientId = actorIsSuperAdmin
+    ? form.role === "ADMIN"
+      ? null
+      : form.clientId
+    : (Object.keys(viewGroupsByClient)[0] ?? null);
+  const availableViewGroups = viewGroupClientId ? (viewGroupsByClient[viewGroupClientId] ?? []) : [];
   const customClientId = actorIsSuperAdmin
     ? form.role === "ADMIN"
       ? null
@@ -151,6 +167,7 @@ export function UserForm({
         limit,
       })),
       buyerGroupIds: isBuyerRole ? buyerGroupIds : [],
+      viewGroupIds: isAdminRole ? [] : viewGroupIds,
       customValues,
     };
     startTransition(async () => {
@@ -329,6 +346,33 @@ export function UserForm({
               currency={userCustom.currency}
               ctx={{ ...emptyContext(), userCustom: customValues }}
             />
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">{t("userForm.suppliersTitle")}</h2>
+        <p className="mt-1 text-sm text-slate-500">{t("userForm.suppliersSubtitle")}</p>
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {(["canRateSuppliers", "canBlockSuppliers"] as const).map((field) => (
+            <label key={field} className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={form[field]}
+                onChange={(e) => update({ [field]: e.target.checked })}
+              />
+              {t(`userForm.${field}`)}
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {!isAdminRole && (
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-900">{t("viewGroups.title")}</h2>
+          <p className="mt-1 text-sm text-slate-500">{t("viewGroups.userHint")}</p>
+          <div className="mt-4 max-w-sm">
+            <ViewGroupPicker groups={availableViewGroups} value={viewGroupIds} onChange={setViewGroupIds} />
           </div>
         </section>
       )}

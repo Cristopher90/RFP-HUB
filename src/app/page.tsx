@@ -17,6 +17,7 @@ import { redirect } from "next/navigation";
 import type { RfpStatus } from "@/generated/prisma/enums";
 import { loadCustomFields, rfpIdsMatchingCustom } from "@/lib/customFields";
 import { normalizeValue } from "@/lib/customFieldsShared";
+import { filterTreeByGroups } from "@/lib/viewGroups";
 
 export default async function Home({
   searchParams,
@@ -176,7 +177,7 @@ export default async function Home({
 
   await sweepAwaitingStart(scope.where);
 
-  const [rfps, commodities, regions, creators, clients] = await Promise.all([
+  const [rfps, allCommodities, allRegions, creators, clients] = await Promise.all([
     prisma.rfp.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -196,6 +197,10 @@ export default async function Home({
       ? prisma.client.findMany({ orderBy: { description: "asc" } })
       : null,
   ]);
+
+  // View groups limit which commodities / regions the filters offer.
+  const commodities = filterTreeByGroups(allCommodities, user);
+  const regions = filterTreeByGroups(allRegions, user);
 
   const showClientColumn = scope.isSuperAdmin && tab === "all";
 

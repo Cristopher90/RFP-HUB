@@ -9,6 +9,8 @@ import { buildRfpFromRequest } from "@/lib/requestToRfp";
 import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
+import { filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, coerceValue } from "@/lib/customFieldsShared";
 
 export default async function NewRfpPage({
@@ -26,14 +28,14 @@ export default async function NewRfpPage({
 
   const [
     templates,
-    commodities,
-    regions,
+    allCommodities,
+    allRegions,
     origins,
     supplierDirectory,
     itemCatalog,
   ] = await Promise.all([
     prisma.rfpTemplate.findMany({
-      where: { active: true, ...scope.where },
+      where: { active: true, ...scope.where, ...viewGroupWhere(user) },
       include: {
         items: { orderBy: { order: "asc" } },
         questions: { orderBy: { order: "asc" } },
@@ -52,11 +54,11 @@ export default async function NewRfpPage({
       orderBy: { description: "asc" },
     }),
     prisma.supplierDirectory.findMany({
-      where: { status: "ACTIVE", ...scope.where },
+      where: { status: "ACTIVE", ...scope.where, ...viewGroupWhere(user) },
       // Only accepted portal contacts can be invited to an RFP.
       include: {
         userLinks: {
-          where: { status: "ACCEPTED" },
+          where: { status: "ACCEPTED", blocked: false },
           include: { supplierUser: true },
           orderBy: { supplierUser: { name: "asc" } },
         },
@@ -102,6 +104,13 @@ export default async function NewRfpPage({
       }
     }
   }
+
+  const ratingSummaries = user.clientId ? await loadRatingSummaries(user.clientId) : new Map();
+
+  // View groups: a user with groups only sees the commodities / regions that
+  // share one (administrators and users without groups see everything).
+  const commodities = filterTreeByGroups(allCommodities, user);
+  const regions = filterTreeByGroups(allRegions, user);
 
   const isNextRound = copyMode === "next_round";
   const carriesHistory = copyMode === "based_on" || isNextRound;
@@ -262,14 +271,7 @@ export default async function NewRfpPage({
           commodities={commodities}
           regions={regions}
           origins={origins}
-          supplierDirectory={supplierDirectory.map((s) => ({
-            ...s,
-            contacts: s.userLinks.map((l) => ({
-              id: l.supplierUser.id,
-              name: `${l.supplierUser.name} ${l.supplierUser.lastName}`.trim(),
-              email: l.supplierUser.email,
-            })),
-          }))}
+          supplierDirectory={toPickerEntries(supplierDirectory, ratingSummaries)}
           itemCatalog={itemCatalog.map((i) => ({
             id: i.id,
             catalogName: i.catalogList.name,

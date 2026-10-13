@@ -30,6 +30,8 @@ import { localeForLanguage } from "@/i18n/locale";
 import { questionTypeLabel, approvalStageLabel } from "@/i18n/labels";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { viewGroupWhere } from "@/lib/viewGroups";
+import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import { displayValue, labelFor } from "@/lib/customFieldsShared";
 
 export default async function RfpDetailPage({
@@ -75,25 +77,18 @@ export default async function RfpDetailPage({
   const currencyOptions = { locale, currency: rfp.client.currency };
 
   const supplierDirectoryRaw = await prisma.supplierDirectory.findMany({
-    where: { status: "ACTIVE", clientId: rfp.clientId },
+    where: { status: "ACTIVE", clientId: rfp.clientId, ...viewGroupWhere(user) },
     // Only accepted portal contacts can be invited to an RFP.
       include: {
         userLinks: {
-          where: { status: "ACCEPTED" },
+          where: { status: "ACCEPTED", blocked: false },
           include: { supplierUser: true },
           orderBy: { supplierUser: { name: "asc" } },
         },
       },
     orderBy: { companyName: "asc" },
   });
-  const supplierDirectory = supplierDirectoryRaw.map((s) => ({
-    ...s,
-    contacts: s.userLinks.map((l) => ({
-      id: l.supplierUser.id,
-      name: `${l.supplierUser.name} ${l.supplierUser.lastName}`.trim(),
-      email: l.supplierUser.email,
-    })),
-  }));
+  const supplierDirectory = toPickerEntries(supplierDirectoryRaw, await loadRatingSummaries(rfp.clientId));
 
   const publishLevels =
     rfp.status === "PENDING_PUBLISH_APPROVAL"

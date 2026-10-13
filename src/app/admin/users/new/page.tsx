@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { UserForm } from "../UserForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { loadCustomFields } from "@/lib/customFields";
 
 export default async function NewUserPage() {
@@ -29,9 +30,11 @@ export default async function NewUserPage() {
     ? clients
     : await prisma.client.findMany({ where: { id: scope.user.clientId ?? "" } });
   const userFieldsByClient: Record<string, { currency: string; fields: Awaited<ReturnType<typeof loadCustomFields>> }> = {};
+  const viewGroupsByClient: Record<string, { id: string; name: string }[]> = {};
   for (const c of customClients) {
     const fields = await loadCustomFields(c.id, "USER");
     if (fields.length > 0) userFieldsByClient[c.id] = { currency: c.currency, fields };
+    viewGroupsByClient[c.id] = (await loadViewGroups(c.id)).map((g) => ({ id: g.id, name: g.name }));
   }
 
   return (
@@ -52,6 +55,7 @@ export default async function NewUserPage() {
           clients={clients}
           actorIsSuperAdmin={scope.isSuperAdmin}
           userFieldsByClient={userFieldsByClient}
+          viewGroupsByClient={viewGroupsByClient}
         />
       </div>
     </div>

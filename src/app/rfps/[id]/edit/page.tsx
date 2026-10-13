@@ -6,6 +6,8 @@ import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
+import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import type {
   NewItemInput,
   NewQuestionInput,
@@ -34,10 +36,10 @@ export default async function EditRfpPage({
   const dictionary = getDictionary(user.language);
 
   const rfpWhere = { clientId: rfp.clientId };
-  const [templates, commodities, regions, origins, supplierDirectory, itemCatalog] =
+  const [templates, allCommodities, allRegions, origins, supplierDirectory, itemCatalog] =
     await Promise.all([
       prisma.rfpTemplate.findMany({
-        where: { active: true, ...rfpWhere },
+        where: { active: true, ...rfpWhere, ...viewGroupWhere(user) },
         include: {
           items: { orderBy: { order: "asc" } },
           questions: { orderBy: { order: "asc" } },
@@ -47,11 +49,11 @@ export default async function EditRfpPage({
       prisma.region.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
       prisma.origin.findMany({ where: rfpWhere, orderBy: { description: "asc" } }),
       prisma.supplierDirectory.findMany({
-        where: { status: "ACTIVE", ...rfpWhere },
+        where: { status: "ACTIVE", ...rfpWhere, ...viewGroupWhere(user) },
         // Only accepted portal contacts can be invited to an RFP.
       include: {
         userLinks: {
-          where: { status: "ACCEPTED" },
+          where: { status: "ACCEPTED", blocked: false },
           include: { supplierUser: true },
           orderBy: { supplierUser: { name: "asc" } },
         },
@@ -64,6 +66,10 @@ export default async function EditRfpPage({
         orderBy: [{ catalogList: { name: "asc" } }, { code: "asc" }],
       }),
     ]);
+
+  const commodities = filterTreeByGroups(allCommodities, user);
+  const regions = filterTreeByGroups(allRegions, user);
+  const ratingSummaries = await loadRatingSummaries(rfp.clientId);
 
   const [customFields, customClient, headerValues, lineValues] = await Promise.all([
     loadCustomFields(rfp.clientId),
@@ -188,14 +194,7 @@ export default async function EditRfpPage({
           commodities={commodities}
           regions={regions}
           origins={origins}
-          supplierDirectory={supplierDirectory.map((s) => ({
-            ...s,
-            contacts: s.userLinks.map((l) => ({
-              id: l.supplierUser.id,
-              name: `${l.supplierUser.name} ${l.supplierUser.lastName}`.trim(),
-              email: l.supplierUser.email,
-            })),
-          }))}
+          supplierDirectory={toPickerEntries(supplierDirectory, ratingSummaries)}
           itemCatalog={itemCatalog.map((i) => ({
             id: i.id,
             catalogName: i.catalogList.name,

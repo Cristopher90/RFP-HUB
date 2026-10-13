@@ -1,6 +1,7 @@
 "use server";
 
 import { Prisma } from "@/generated/prisma/client";
+import { validViewGroupIds } from "@/lib/viewGroupsServer";
 import { loadCustomFields } from "@/lib/customFields";
 import { coerceValue } from "@/lib/customFieldsShared";
 import { revalidatePath } from "next/cache";
@@ -74,6 +75,7 @@ export type SaveTemplateInput = {
   matchPriceMin: string;
   matchPriceMax: string;
   matchCustom?: { fieldKey: string; value: string }[];
+  viewGroupIds?: string[]; // grupos de visualización que ven la plantilla (vacío = todos)
   active: boolean;
   hideResponsesUntilClosed: boolean;
   minSuppliers: string;
@@ -201,6 +203,7 @@ export async function saveTemplate(
     name,
     description: input.description.trim() || null,
     matchCustom: matchCustom.length > 0 ? matchCustom : Prisma.DbNull,
+    viewGroupIds: await validViewGroupIds(clientId, input.viewGroupIds),
     matchCommodity: input.matchCommodity.trim() || null,
     matchCommodityIncludeDescendants: input.matchCommodity.trim()
       ? input.matchCommodityIncludeDescendants

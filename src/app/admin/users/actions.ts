@@ -9,6 +9,7 @@ import type { UserRole } from "@/generated/prisma/enums";
 import { getDictionary } from "@/i18n/getDictionary";
 import type { Dictionary } from "@/i18n/getDictionary";
 import { BUYER_ROLES } from "@/lib/requestFields";
+import { validViewGroupIds } from "@/lib/viewGroupsServer";
 import {
   deleteCustomValues,
   loadCustomFields,
@@ -39,6 +40,9 @@ export type UserFormInput = {
   canNoteTargeted: boolean;
   canNoteAll: boolean;
   canUseAssistant: boolean;
+  canRateSuppliers: boolean;
+  canBlockSuppliers: boolean;
+  viewGroupIds: string[]; // grupos de visualización (no aplican a administradores)
   approvalGroups: { approvalGroupId: string; limit: string }[];
   buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
   customValues?: Record<string, string>; // campos personalizados a nivel usuario (clave → valor)
@@ -182,6 +186,11 @@ export async function createUser(
     ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
   const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
+  // Administrators are exempt from view groups, so they never carry any.
+  const viewGroupIds2 =
+    targetClient.clientId && input.role !== "ADMIN" && input.role !== "CLIENT_ADMIN"
+      ? await validViewGroupIds(targetClient.clientId, input.viewGroupIds)
+      : [];
   const customResult = await validUserCustomValues(input, targetClient.clientId, scope.user.language);
   if ("error" in customResult) return { error: customResult.error };
   const createdUser = await prisma.user.create({
@@ -201,6 +210,9 @@ export async function createUser(
       canNoteTargeted: input.canNoteTargeted,
       canNoteAll: input.canNoteAll,
       canUseAssistant: input.canUseAssistant,
+      canRateSuppliers: input.canRateSuppliers,
+      canBlockSuppliers: input.canBlockSuppliers,
+      viewGroupIds: viewGroupIds2,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,
       seeAssignedRequests: input.seeAssignedRequests,
@@ -254,6 +266,11 @@ export async function updateUser(
     ? await validApprovalGroups(input.approvalGroups, targetClient.clientId)
     : [];
   const buyerGroupIds = await validBuyerGroupIds(input.buyerGroupIds, input.role, targetClient.clientId);
+  // Administrators are exempt from view groups, so they never carry any.
+  const viewGroupIds2 =
+    targetClient.clientId && input.role !== "ADMIN" && input.role !== "CLIENT_ADMIN"
+      ? await validViewGroupIds(targetClient.clientId, input.viewGroupIds)
+      : [];
   const customResult = await validUserCustomValues(
     input,
     targetClient.clientId,
@@ -281,6 +298,9 @@ export async function updateUser(
       canNoteTargeted: input.canNoteTargeted,
       canNoteAll: input.canNoteAll,
       canUseAssistant: input.canUseAssistant,
+      canRateSuppliers: input.canRateSuppliers,
+      canBlockSuppliers: input.canBlockSuppliers,
+      viewGroupIds: viewGroupIds2,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,
       seeAssignedRequests: input.seeAssignedRequests,

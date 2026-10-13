@@ -5,6 +5,7 @@ import { requireClientScope } from "@/lib/clientScope";
 import { makeClientKey } from "@/lib/clientKey";
 import { TemplateForm } from "../TemplateForm";
 import { loadCustomFields } from "@/lib/customFields";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { parseMatchCustom } from "@/lib/templateMatch";
 import { deleteTemplate } from "../actions";
 
@@ -44,6 +45,8 @@ export default async function EditTemplatePage({
     (f) => f.templateFilter,
   );
 
+  const viewGroups = await loadViewGroups(template.clientId);
+
   const questionClientKeyById = new Map(
     template.questions.map((q) => [q.id, makeClientKey()]),
   );
@@ -59,6 +62,7 @@ export default async function EditTemplatePage({
     matchPriceMin: template.matchPriceMin,
     matchPriceMax: template.matchPriceMax,
     matchCustom: parseMatchCustom(template.matchCustom),
+    viewGroupIds: template.viewGroupIds,
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     minSuppliers: template.minSuppliers,
@@ -140,6 +144,7 @@ export default async function EditTemplatePage({
           commodities={commodities}
           regions={regions}
           customFilterFields={customFilterFields}
+          viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
         />
       </div>
     </div>

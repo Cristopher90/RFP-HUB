@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
 import type { Prisma } from "@/generated/prisma/client";
+import { viewGroupWhere } from "@/lib/viewGroups";
+import { loadRatingSummaries } from "@/lib/suppliers";
 
 // Everything the Reports screen shows, computed on the server from exactly the
 // RFPs the viewer is allowed to see (same rule as the RFP list):
@@ -18,6 +20,9 @@ export type ReportData = {
   scope: ReportScope;
   rfpCount: number;
   suppliers: { name: string; invited: number; responded: number; awarded: number }[];
+  // Every supplier of the client the viewer can see, with the average of the
+  // stars buyers gave it (null = not rated yet).
+  supplierRatings: { name: string; code: string; avg: number | null; count: number; blocked: boolean }[];
   approvals: {
     stage: "PUBLISH" | "AWARD";
     approver: string;
@@ -90,7 +95,7 @@ const personName = (u: { name: string; lastName: string | null } | null | undefi
   u ? `${u.name} ${u.lastName ?? ""}`.trim() : "—";
 
 export async function loadReportData(options: {
-  user: { id: string; role: string };
+  user: { id: string; role: string; viewGroupIds?: string[] };
   clientId: string;
   from?: Date;
   to?: Date;
@@ -108,6 +113,22 @@ export async function loadReportData(options: {
   } else if (!seesAll) {
     visibility = { createdByUserId: user.id };
   }
+
+  const [directory, ratingSummaries] = await Promise.all([
+    prisma.supplierDirectory.findMany({
+      where: { clientId, ...viewGroupWhere({ role: user.role, viewGroupIds: user.viewGroupIds ?? [] }) },
+      select: { id: true, code: true, companyName: true, blocked: true },
+      orderBy: { companyName: "asc" },
+    }),
+    loadRatingSummaries(clientId),
+  ]);
+  const supplierRatings = directory.map((d) => ({
+    name: d.companyName,
+    code: d.code,
+    avg: ratingSummaries.get(d.id)?.avg ?? null,
+    count: ratingSummaries.get(d.id)?.count ?? 0,
+    blocked: d.blocked,
+  }));
 
   const [client, rfps] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { currency: true } }),
@@ -314,6 +335,7 @@ export async function loadReportData(options: {
     scope,
     rfpCount: rfps.length,
     suppliers: [...suppliers.values()],
+    supplierRatings,
     approvals,
     rfps: rfpRows,
     noResponse,

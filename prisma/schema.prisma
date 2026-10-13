@@ -87,24 +87,24 @@ enum UserRole {
 // multi-tenant: cada dato maestro, plantilla y RFP pertenece a exactamente
 // un Cliente, y un usuario (salvo ADMIN) solo ve los datos de su Cliente.
 model Client {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  description String
-  icon        String? // emoji mostrado junto al nombre del cliente en la barra superior
+  id                   String  @id @default(cuid())
+  code                 String  @unique
+  description          String
+  icon                 String? // emoji mostrado junto al nombre del cliente en la barra superior
   // Asistente de IA (Claude): cada cliente usa su propia clave de API.
-  assistantEnabled    Boolean @default(false)
-  assistantApiKeyEnc  String? // clave de API cifrada (AES-256-GCM); nunca se devuelve al navegador
+  assistantEnabled     Boolean @default(false)
+  assistantApiKeyEnc   String? // clave de API cifrada (AES-256-GCM); nunca se devuelve al navegador
   assistantApiKeyLast4 String? // últimos 4 caracteres, solo para mostrar
-  assistantModel      String  @default("claude-opus-5-5")
+  assistantModel       String  @default("claude-opus-5-5")
   // Proveedor activo del asistente ("anthropic" o "gemini"); cada uno guarda su propia clave y modelo.
-  assistantProvider   String  @default("anthropic")
-  geminiApiKeyEnc     String?
-  geminiApiKeyLast4   String?
-  geminiModel         String  @default("gemini-3.8-flash")
+  assistantProvider    String  @default("anthropic")
+  geminiApiKeyEnc      String?
+  geminiApiKeyLast4    String?
+  geminiModel          String  @default("gemini-3.8-flash")
 
-  iconImage   String? // imagen (data URL PNG/JPEG/WebP, ya reducida) que sustituye al emoji como icono del cliente
-  currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
-  createdAt   DateTime @default(now())
+  iconImage String? // imagen (data URL PNG/JPEG/WebP, ya reducida) que sustituye al emoji como icono del cliente
+  currency  String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira
+  createdAt DateTime @default(now())
 
   users                  User[]
   commodities            Commodity[]
@@ -139,6 +139,8 @@ model Client {
   requestImportTemplates RequestImportTemplate[]
   purchaseRequests       PurchaseRequest[]
   requestRfpMapping      RequestRfpMapping?
+  viewGroups             ViewGroup[]
+  supplierRatings        SupplierRating[]
 }
 
 model User {
@@ -180,7 +182,13 @@ model User {
   noteReads   NoteRead[]
 
   // Puede usar el Asistente de IA (además, el cliente debe tenerlo activado)
-  canUseAssistant Boolean @default(false)
+  canUseAssistant   Boolean          @default(false)
+  // Proveedores: puntuar, y bloquear/desbloquear proveedores y contactos.
+  canRateSuppliers  Boolean          @default(false)
+  canBlockSuppliers Boolean          @default(false)
+  // Grupos de visualización del usuario (ids de ViewGroup). Vacío = ve todo lo de su cliente.
+  viewGroupIds      String[]         @default([])
+  supplierRatings   SupplierRating[]
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -215,30 +223,32 @@ model UserApprovalGroup {
 // etiqueta visible. parentId permite organizarlos en árbol (categoría >
 // subcategoría), siempre dentro del mismo Cliente.
 model Commodity {
-  id          String      @id @default(cuid())
-  clientId    String
-  client      Client      @relation(fields: [clientId], references: [id])
-  code        String
-  description String
-  parentId    String?
-  parent      Commodity?  @relation("CommodityTree", fields: [parentId], references: [id])
-  children    Commodity[] @relation("CommodityTree")
-  selectable  Boolean     @default(true) // si se puede elegir este nivel en una RFP/plantilla, o es solo un nodo de agrupación
-  createdAt   DateTime    @default(now())
+  id           String      @id @default(cuid())
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id])
+  code         String
+  description  String
+  parentId     String?
+  parent       Commodity?  @relation("CommodityTree", fields: [parentId], references: [id])
+  children     Commodity[] @relation("CommodityTree")
+  selectable   Boolean     @default(true) // si se puede elegir este nivel en una RFP/plantilla, o es solo un nodo de agrupación
+  viewGroupIds String[]    @default([]) // grupos de visualización que lo ven; vacío = hereda del padre o lo ve todo el mundo
+  createdAt    DateTime    @default(now())
 
   @@unique([clientId, code])
 }
 
 model Region {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  code        String
-  description String
-  parentId    String?
-  parent      Region?  @relation("RegionTree", fields: [parentId], references: [id])
-  children    Region[] @relation("RegionTree")
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  code         String
+  description  String
+  parentId     String?
+  parent       Region?  @relation("RegionTree", fields: [parentId], references: [id])
+  children     Region[] @relation("RegionTree")
+  viewGroupIds String[] @default([]) // ver Commodity.viewGroupIds
+  createdAt    DateTime @default(now())
 
   @@unique([clientId, code])
 }
@@ -301,10 +311,14 @@ model SupplierDirectory {
   email            String
   phone            String
   status           SupplierDirectoryStatus @default(ACTIVE)
+  blocked          Boolean                 @default(false) // bloqueado: no se puede invitar a RFP (igual que sin contactos)
+  blockedAt        DateTime?
+  viewGroupIds     String[]                @default([]) // grupos de visualización que lo ven; vacío = todos
   createdAt        DateTime                @default(now())
 
   userLinks SupplierUserLink[]
   suppliers Supplier[]
+  ratings   SupplierRating[]
 
   @@unique([clientId, code])
 }
@@ -352,6 +366,7 @@ model SupplierUserLink {
   supplierDirectory   SupplierDirectory  @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
   status              SupplierLinkStatus @default(SENT)
   isAdmin             Boolean            @default(false) // administrador de este proveedor: aprueba contactos y gestiona los de su empresa
+  blocked             Boolean            @default(false) // contacto bloqueado: no se puede elegir en una RFP
   inviteToken         String             @unique @default(cuid())
   invitedAt           DateTime           @default(now())
   acceptedAt          DateTime?
@@ -408,6 +423,7 @@ model RfpTemplate {
   client                           Client                  @relation(fields: [clientId], references: [id])
   name                             String
   description                      String?
+  viewGroupIds                     String[]                @default([]) // grupos de visualización que ven la plantilla; vacío = todos
   matchCommodity                   String?
   matchCommodityIncludeDescendants Boolean                 @default(false) // si matchCommodity también aplica a los niveles debajo de él en el árbol
   matchRegion                      String?
@@ -1103,4 +1119,38 @@ model CustomFieldValue {
 
   @@id([clientId, entityType, entityId, fieldKey])
   @@index([clientId, fieldKey, value])
+}
+
+// Grupo de visualización de un cliente: se asigna a usuarios y a proveedores,
+// commodities, regiones y plantillas. Un usuario con grupos solo ve lo que
+// comparte al menos un grupo (o lo que no tiene grupos); sin grupos ve todo.
+// No aplica al Super Administrador ni al Administrador de cliente.
+model ViewGroup {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@unique([clientId, name])
+}
+
+// Puntuación (1 a 5 estrellas) y comentario que un comprador da a un
+// proveedor. El puntaje del proveedor es el promedio de todos los compradores.
+model SupplierRating {
+  id                  String            @id @default(cuid())
+  clientId            String
+  client              Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierDirectoryId String
+  supplierDirectory   SupplierDirectory @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stars               Int
+  comment             String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([supplierDirectoryId, userId])
+  @@index([clientId])
 }

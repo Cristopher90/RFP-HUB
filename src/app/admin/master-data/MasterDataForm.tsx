@@ -21,8 +21,9 @@ import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
 import type { MasterDataKind } from "@/lib/masterDataSchema";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 
-type ColumnKey = "code" | "description" | "parent" | "selectable";
+type ColumnKey = "code" | "description" | "parent" | "selectable" | "groups";
 
 function columnDefs(t: (key: string) => string): ColumnDef<ColumnKey>[] {
   return [
@@ -65,12 +66,15 @@ export function MasterDataForm({
   initial,
   targetClientId,
   isSuperAdmin = false,
+  viewGroups,
 }: {
   kind: MasterDataKind;
   label: string;
   initial: MasterDataItemInput[];
   targetClientId?: string;
   isSuperAdmin?: boolean;
+  // Commodity / region only: the client's view groups, assignable per row.
+  viewGroups?: ViewGroupOption[];
 }) {
   const { t } = usePreferences();
   const [rows, setRows] = useState<MasterDataItemInput[]>(
@@ -91,10 +95,13 @@ export function MasterDataForm({
     clearMasterDataTable(kind, targetClientId),
   );
 
-  const defs =
-    kind === "commodity"
-      ? [...columnDefs(t), selectableColumnDef(t)]
-      : columnDefs(t);
+  const groupsColumn: ColumnDef<ColumnKey>[] = viewGroups
+    ? [{ key: "groups", label: t("viewGroups.columnLabel"), defaultWidth: 240, minWidth: 140 }]
+    : [];
+  const defs = [
+    ...(kind === "commodity" ? [...columnDefs(t), selectableColumnDef(t)] : columnDefs(t)),
+    ...groupsColumn,
+  ];
   const columnPrefs = useColumnPrefs(`masterdata-columns-${kind}`, defs);
 
   function updateRow(clientKey: string, patch: Partial<MasterDataItemInput>) {
@@ -569,6 +576,23 @@ export function MasterDataForm({
                                 {parentLabel(row)}
                               </span>
                             ))}
+                          {def.key === "groups" && viewGroups && (
+                            isEditing ? (
+                              <ViewGroupPicker
+                                inline
+                                groups={viewGroups}
+                                value={row.viewGroupIds ?? []}
+                                onChange={(next) => updateRow(row.clientKey, { viewGroupIds: next })}
+                              />
+                            ) : (
+                              <span className="text-xs text-slate-500">
+                                {viewGroups
+                                  .filter((g) => (row.viewGroupIds ?? []).includes(g.id))
+                                  .map((g) => g.name)
+                                  .join(", ") || "—"}
+                              </span>
+                            )
+                          )}
                           {def.key === "selectable" && (
                             <input
                               type="checkbox"

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { UserForm } from "../UserForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 
 export default async function EditUserPage({
@@ -38,9 +39,11 @@ export default async function EditUserPage({
     ? clients
     : await prisma.client.findMany({ where: { id: scope.user.clientId ?? "" } });
   const userFieldsByClient: Record<string, { currency: string; fields: Awaited<ReturnType<typeof loadCustomFields>> }> = {};
+  const viewGroupsByClient: Record<string, { id: string; name: string }[]> = {};
   for (const c of customClients) {
     const fields = await loadCustomFields(c.id, "USER");
     if (fields.length > 0) userFieldsByClient[c.id] = { currency: c.currency, fields };
+    viewGroupsByClient[c.id] = (await loadViewGroups(c.id)).map((g) => ({ id: g.id, name: g.name }));
   }
   const userCustomValues = user.clientId
     ? ((await readCustomValues(user.clientId, "USER", [user.id])).get(user.id) ?? {})
@@ -76,6 +79,9 @@ export default async function EditUserPage({
             canNoteTargeted: user.canNoteTargeted,
             canNoteAll: user.canNoteAll,
             canUseAssistant: user.canUseAssistant,
+            canRateSuppliers: user.canRateSuppliers,
+            canBlockSuppliers: user.canBlockSuppliers,
+            viewGroupIds: user.viewGroupIds,
             seeUnassignedRequests: user.seeUnassignedRequests,
             seeMyRequests: user.seeMyRequests,
             seeAssignedRequests: user.seeAssignedRequests,
@@ -92,6 +98,7 @@ export default async function EditUserPage({
           clients={clients}
           actorIsSuperAdmin={scope.isSuperAdmin}
           userFieldsByClient={userFieldsByClient}
+          viewGroupsByClient={viewGroupsByClient}
         />
       </div>
     </div>

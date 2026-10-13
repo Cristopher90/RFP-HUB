@@ -17,6 +17,7 @@ export type MasterDataItemInput = {
   iconImage?: string | null; // solo kind: "client": data URL de la imagen del icono, null = sin imagen
   currency?: string; // solo usado por kind: "client" (ver ClientsForm.tsx)
   selectable?: boolean; // solo usado por kind: "commodity"
+  viewGroupIds?: string[]; // solo commodity/region: grupos de visualización que lo ven
 };
 
 function pathFor(kind: Exclude<MasterDataKind, "client">) {
@@ -152,6 +153,7 @@ export async function saveMasterDataList(
       description: i.description.trim(),
       parentClientKey: i.parentClientKey,
       selectable: i.selectable ?? true,
+      viewGroupIds: i.viewGroupIds ?? [],
     }))
     .filter((i) => i.code.length > 0 && i.description.length > 0);
 
@@ -193,6 +195,7 @@ export async function saveMasterDataList(
         code: string;
         description: string;
         selectable?: boolean;
+        viewGroupIds?: string[];
       };
     }): Promise<{ id: string }>;
     update(args: {
@@ -210,6 +213,12 @@ export async function saveMasterDataList(
           ? prisma.approvalGroup
           : prisma.origin;
 
+  // Only this client's own view groups can be attached (commodity / region).
+  const withGroups = kind === "commodity" || kind === "region";
+  const knownGroups = withGroups
+    ? new Set((await prisma.viewGroup.findMany({ where: { clientId }, select: { id: true } })).map((g) => g.id))
+    : new Set<string>();
+
   await model.deleteMany({ where: { clientId } });
   const idByKey = new Map<string, string>();
   for (const i of cleaned) {
@@ -219,6 +228,7 @@ export async function saveMasterDataList(
         code: i.code,
         description: i.description,
         ...(kind === "commodity" ? { selectable: i.selectable } : {}),
+        ...(withGroups ? { viewGroupIds: i.viewGroupIds.filter((g) => knownGroups.has(g)) } : {}),
       },
     });
     idByKey.set(i.clientKey, row.id);

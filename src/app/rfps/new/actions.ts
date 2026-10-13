@@ -10,6 +10,7 @@ import {
   strictestMinSuppliers,
 } from "@/lib/templateMatch";
 import { findUnacceptedContacts } from "@/lib/supplierContacts";
+import { viewGroupWhere } from "@/lib/viewGroups";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -147,10 +148,12 @@ async function findMatchingTemplates(
   selectedTemplateId: string | null,
   clientId: string,
   customValues?: Record<string, string>,
+  viewer?: { role: string; viewGroupIds: string[] },
 ) {
   const [templates, commodities, regions] = await Promise.all([
     prisma.rfpTemplate.findMany({
-      where: { active: true, clientId },
+      // Templates the user can't see through view groups never apply to their RFP.
+      where: { active: true, clientId, ...(viewer ? viewGroupWhere(viewer) : {}) },
       include: {
         items: true,
         questions: true,
@@ -262,7 +265,7 @@ function shapeSuppliers(suppliers: NewSupplierInput[]) {
 // persistence.
 export async function validateAndShapeRfp(
   input: CreateRfpInput,
-  user: { role: import("@/generated/prisma/enums").UserRole; language: string },
+  user: { role: import("@/generated/prisma/enums").UserRole; language: string; viewGroupIds?: string[] },
   clientId: string,
   existingRfpId?: string,
 ): Promise<{ error: string } | ShapedRfpInput> {
@@ -337,6 +340,7 @@ export async function validateAndShapeRfp(
     input.selectedTemplateId,
     clientId,
     "values" in earlyHeader ? earlyHeader.values : {},
+    { role: user.role, viewGroupIds: user.viewGroupIds ?? [] },
   );
 
   const submittedItemSourceIds = new Set(

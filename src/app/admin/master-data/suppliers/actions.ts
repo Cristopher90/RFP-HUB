@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { addContact, removeLink, sendInvitation } from "@/lib/supplierContacts";
 import { getDictionary } from "@/i18n/getDictionary";
+import { validViewGroupIds } from "@/lib/viewGroupsServer";
 
 export type SupplierDirectoryStatus = "ACTIVE" | "INACTIVE";
 
@@ -18,6 +19,7 @@ export type SupplierDirectoryItemInput = {
   email: string;
   phone: string;
   status: SupplierDirectoryStatus;
+  viewGroupIds?: string[]; // grupos de visualización que lo ven (undefined = no tocar)
 };
 
 // Guarda una única fila (crea o actualiza), en vez del reemplazo total de
@@ -69,6 +71,9 @@ export async function saveSupplierRow(
     email: item.email.trim(),
     phone: item.phone.trim(),
     status: item.status,
+    ...(item.viewGroupIds !== undefined
+      ? { viewGroupIds: await validViewGroupIds(clientId, item.viewGroupIds) }
+      : {}),
   };
 
   const saved = isUpdate
@@ -107,6 +112,7 @@ export async function saveSupplierDirectory(
       email: i.email.trim(),
       phone: i.phone.trim(),
       status: i.status,
+      viewGroupIds: i.viewGroupIds,
     }))
     .filter((i) => i.code.length > 0 && i.companyName.length > 0);
 
@@ -150,6 +156,9 @@ export async function saveSupplierDirectory(
       email: i.email,
       phone: i.phone,
       status: i.status,
+      ...(i.viewGroupIds !== undefined
+        ? { viewGroupIds: await validViewGroupIds(clientId, i.viewGroupIds) }
+        : {}),
     };
     if (existingIds.has(i.clientKey)) {
       await prisma.supplierDirectory.update({

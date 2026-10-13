@@ -4,6 +4,7 @@ import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { MasterDataForm } from "../MasterDataForm";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 
 export default async function RegionsPage({
   searchParams,
@@ -19,6 +20,8 @@ export default async function RegionsPage({
         orderBy: { code: "asc" },
       })
     : [];
+
+  const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -47,11 +50,13 @@ export default async function RegionsPage({
             label={dictionary.masterDataKind.region}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
+            viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
             initial={regions.map((r) => ({
               clientKey: r.id,
               code: r.code,
               description: r.description,
               parentClientKey: r.parentId,
+              viewGroupIds: r.viewGroupIds,
             }))}
           />
         </div>

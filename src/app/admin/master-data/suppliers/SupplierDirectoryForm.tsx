@@ -21,6 +21,7 @@ import {
 import { PaginationBar, usePagination } from "@/components/Pagination";
 import { useClearTableAction } from "@/lib/useClearTableAction";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 
 type ColumnKey =
   | "code"
@@ -30,7 +31,8 @@ type ColumnKey =
   | "contactLastName"
   | "email"
   | "phone"
-  | "status";
+  | "status"
+  | "groups";
 
 function columnDefs(t: (key: string) => string): ColumnDef<ColumnKey>[] {
   return [
@@ -72,7 +74,9 @@ export function SupplierDirectoryForm({
   targetClientId,
   supplierUsersByDirectoryId = {},
   isSuperAdmin = false,
+  viewGroups,
 }: {
+  viewGroups?: ViewGroupOption[];
   initial: SupplierDirectoryItemInput[];
   targetClientId?: string;
   supplierUsersByDirectoryId?: Record<string, SupplierUserItemInput[]>;
@@ -112,7 +116,12 @@ export function SupplierDirectoryForm({
     clearSupplierDirectory(targetClientId),
   );
 
-  const defs = columnDefs(t);
+  const defs: ColumnDef<ColumnKey>[] = [
+    ...columnDefs(t),
+    ...(viewGroups
+      ? [{ key: "groups" as const, label: t("viewGroups.columnLabel"), defaultWidth: 220, minWidth: 140 }]
+      : []),
+  ];
   const columnPrefs = useColumnPrefs("masterdata-columns-suppliers", defs);
 
   function updateRow(
@@ -485,7 +494,23 @@ export function SupplierDirectoryForm({
                         style={{ width: columnPrefs.widths[def.key] }}
                         className="px-3 py-2"
                       >
-                        {def.key === "status" ? (
+                        {def.key === "groups" && viewGroups ? (
+                          isEditing ? (
+                            <ViewGroupPicker
+                              inline
+                              groups={viewGroups}
+                              value={row.viewGroupIds ?? []}
+                              onChange={(next) => updateRow(row.clientKey, { viewGroupIds: next })}
+                            />
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              {viewGroups
+                                .filter((g) => (row.viewGroupIds ?? []).includes(g.id))
+                                .map((g) => g.name)
+                                .join(", ") || "—"}
+                            </span>
+                          )
+                        ) : def.key === "status" ? (
                           isEditing ? (
                             <select
                               className={smallInputClass()}
@@ -516,7 +541,7 @@ export function SupplierDirectoryForm({
                           <input
                             type={def.key === "email" ? "email" : "text"}
                             className={smallInputClass()}
-                            value={row[def.key]}
+                            value={row[def.key as Exclude<ColumnKey, "groups">]}
                             onChange={(e) =>
                               updateRow(row.clientKey, {
                                 [def.key]: e.target.value,
@@ -525,7 +550,7 @@ export function SupplierDirectoryForm({
                           />
                         ) : (
                           <span className="text-slate-700">
-                            {row[def.key] || "—"}
+                            {row[def.key as Exclude<ColumnKey, "groups">] || "—"}
                           </span>
                         )}
                       </td>

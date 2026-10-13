@@ -15,6 +15,7 @@ import {
   requiresAnswerLabel,
 } from "@/i18n/labels";
 import { groupBySection, nextSectionName } from "@/lib/sections";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
 import { hasOptions, labelFor, optionLabel, type CustomFieldDef } from "@/lib/customFieldsShared";
@@ -175,7 +176,9 @@ export function TemplateForm({
   regions,
   targetClientId,
   customFilterFields = [],
+  viewGroups = [],
 }: {
+  viewGroups?: ViewGroupOption[];
   templateId?: string;
   targetClientId?: string;
   customFilterFields?: CustomFieldDef[];
@@ -202,6 +205,7 @@ export function TemplateForm({
     matchPriceMin: number | null;
     matchPriceMax: number | null;
     matchCustom?: { fieldKey: string; value: string }[];
+    viewGroupIds?: string[];
     active: boolean;
     hideResponsesUntilClosed: boolean;
     minSuppliers: number | null;
@@ -214,6 +218,7 @@ export function TemplateForm({
   const [matchCustom, setMatchCustom] = useState<{ fieldKey: string; value: string }[]>(
     initial?.matchCustom ?? [],
   );
+  const [viewGroupIds, setViewGroupIds] = useState<string[]>(initial?.viewGroupIds ?? []);
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [matchCommodity, setMatchCommodity] = useState(
@@ -537,6 +542,7 @@ export function TemplateForm({
       matchPriceMin,
       matchPriceMax,
       matchCustom,
+      viewGroupIds,
       active,
       hideResponsesUntilClosed,
       minSuppliers,
@@ -815,6 +821,17 @@ export function TemplateForm({
               >
                 + {t("customFields.templateFiltersAdd")}
               </button>
+            </div>
+          )}
+          {viewGroups.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("viewGroups.fieldLabel")}
+              </label>
+              <div className="max-w-sm">
+                <ViewGroupPicker groups={viewGroups} value={viewGroupIds} onChange={setViewGroupIds} />
+              </div>
+              <p className="mt-1 text-xs text-slate-400">{t("viewGroups.fieldHint")}</p>
             </div>
           )}
           <div className="sm:col-span-2">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export type SidebarIconName = "assistant" | "home" | "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog";
+export type SidebarIconName = "assistant" | "home" | "rfps" | "requests" | "reports" | "settings" | "systemTables" | "emailLog" | "suppliers";
 
 // Hand-drawn line icons, one per menu entry, drawn with currentColor so they
 // follow the theme and the active/hover state.
@@ -51,6 +51,15 @@ function Icon({ name }: { name: SidebarIconName }) {
           <path d="M3 4h2l2.4 11h10.2l2-8H6.2" />
           <circle cx="9.5" cy="19" r="1.5" />
           <circle cx="16.5" cy="19" r="1.5" />
+        </svg>
+      );
+    case "suppliers": // two people: suppliers and their contacts
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8" r="3.2" />
+          <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+          <circle cx="17" cy="9" r="2.4" />
+          <path d="M16 14.2c3 .2 5 2.3 5 5.3" />
         </svg>
       );
     case "reports": // bar chart

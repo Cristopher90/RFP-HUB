@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePreferences } from "@/i18n/PreferencesProvider";
+import { StarRating } from "@/components/StarRating";
 
 export type SupplierContact = { id: string; name: string; email: string };
 
@@ -15,6 +16,8 @@ export type SupplierDirectoryEntry = {
   email: string;
   phone: string;
   contacts?: SupplierContact[];
+  blocked?: boolean;
+  rating?: { avg: number; count: number } | null;
 };
 
 export type PickedContact = { name: string; email: string };
@@ -217,6 +220,7 @@ export function SupplierSearchPicker({
                         <tr>
                           <th className="px-4 py-2">{t("supplierSearchPicker.code")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.company")}</th>
+                          <th className="px-4 py-2">{t("suppliersScreen.ratingTitle")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.contact")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.email")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.phone")}</th>
@@ -243,8 +247,22 @@ export function SupplierSearchPicker({
                               {s.companyName}
                               {!selectable && (
                                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                  {t("supplierSearchPicker.noContactUser")}
+                                  {s.blocked
+                                    ? t("suppliersScreen.blocked")
+                                    : t("supplierSearchPicker.noContactUser")}
                                 </span>
+                              )}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-2 text-slate-500">
+                              {s.rating ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <StarRating value={s.rating.avg} size={14} />
+                                  <span className="text-xs">
+                                    {s.rating.avg.toFixed(1)} ({s.rating.count})
+                                  </span>
+                                </span>
+                              ) : (
+                                "—"
                               )}
                             </td>
                             <td className="px-4 py-2 text-slate-600">

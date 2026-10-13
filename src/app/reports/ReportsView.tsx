@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { statusLabel } from "@/i18n/labels";
 import { Chart, ChartToggle, type ChartType } from "@/components/charts/ChartKit";
+import { StarRating } from "@/components/StarRating";
 import type { ReportData } from "@/lib/reportsData";
 
-type TabKey = "summary" | "spend" | "suppliers" | "areas" | "buyers" | "times" | "noResponse" | "prices";
-const TABS: TabKey[] = ["summary", "spend", "suppliers", "areas", "buyers", "times", "noResponse", "prices"];
+type TabKey = "summary" | "spend" | "suppliers" | "supplierRatings" | "areas" | "buyers" | "times" | "noResponse" | "prices";
+const TABS: TabKey[] = ["summary", "spend", "suppliers", "supplierRatings", "areas", "buyers", "times", "noResponse", "prices"];
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 const avg = (values: number[]) => (values.length ? sum(values) / values.length : 0);
@@ -366,6 +367,50 @@ export function ReportsView({ data }: { data: ReportData }) {
     );
   }
 
+  // Suppliers by rating: how many sit at each star level (rounded average)
+  // plus the full ranking, best rated first.
+  function supplierRatingsTab() {
+    const rated = data.supplierRatings.filter((s) => s.avg !== null);
+    const ordered = [...data.supplierRatings].sort(
+      (a, b) => (b.avg ?? -1) - (a.avg ?? -1) || b.count - a.count || a.name.localeCompare(b.name),
+    );
+    const levels = [5, 4, 3, 2, 1].map((n) => ({
+      label: `${n} ★`,
+      value: rated.filter((s) => Math.round(s.avg as number) === n).length,
+    }));
+    const unrated = data.supplierRatings.length - rated.length;
+    const chartData = [...levels, { label: t("reportsPage.unratedSuppliers"), value: unrated }].filter((d) => d.value > 0);
+    return (
+      <Card title={t("reportsPage.ratingsTitle")} hint={t("reportsPage.ratingsHint")}>
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Kpi label={t("reportsPage.ratingsKpiRated")} value={String(rated.length)} sub={`/ ${data.supplierRatings.length}`} />
+          <Kpi
+            label={t("reportsPage.ratingsKpiAverage")}
+            value={rated.length ? avg(rated.map((s) => s.avg as number)).toFixed(1) : "—"}
+          />
+          <Kpi label={t("reportsPage.ratingsKpiTop")} value={String(rated.filter((s) => (s.avg as number) >= 4).length)} sub="≥ 4 ★" />
+          <Kpi label={t("reportsPage.ratingsKpiLow")} value={String(rated.filter((s) => (s.avg as number) < 3).length)} sub="< 3 ★" tone={rated.some((s) => (s.avg as number) < 3) ? "bad" : undefined} />
+        </div>
+        <Chart type="column" data={chartData} />
+        <Table
+          columns={[t("reportsPage.gSupplier"), t("reportsPage.ratingsCode"), t("reportsPage.ratingsStars"), t("reportsPage.ratingsCount"), t("reportsPage.ratingsBlocked")]}
+          rows={ordered.map((s) => [
+            s.name,
+            s.code,
+            s.avg === null ? "—" : (
+              <span className="inline-flex items-center justify-end gap-1.5">
+                <StarRating value={s.avg} size={14} />
+                {s.avg.toFixed(1)}
+              </span>
+            ),
+            s.count,
+            s.blocked ? t("customFields.yes") : "",
+          ])}
+        />
+      </Card>
+    );
+  }
+
   function areasTab() {
     const keyOf = (r: { commodity: string; region: string }) => (areaDim === "commodity" ? r.commodity : r.region) || noValue;
     const rfpGroups = groupBy(data.rfps, keyOf);
@@ -588,6 +633,7 @@ export function ReportsView({ data }: { data: ReportData }) {
     summary: summaryTab,
     spend: spendTab,
     suppliers: suppliersTab,
+    supplierRatings: supplierRatingsTab,
     areas: areasTab,
     buyers: buyersTab,
     times: timesTab,

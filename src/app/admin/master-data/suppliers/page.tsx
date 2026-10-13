@@ -5,6 +5,7 @@ import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { SupplierDirectoryForm } from "./SupplierDirectoryForm";
 import type { SupplierUserItemInput } from "./actions";
 import { getDictionary } from "@/i18n/getDictionary";
+import { loadViewGroups } from "@/lib/viewGroupsServer";
 
 export default async function SuppliersPage({
   searchParams,
@@ -21,6 +22,8 @@ export default async function SuppliersPage({
         orderBy: { code: "asc" },
       })
     : [];
+
+  const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
 
   const supplierUsersByDirectoryId: Record<string, SupplierUserItemInput[]> = {};
   for (const s of suppliers) {
@@ -59,6 +62,7 @@ export default async function SuppliersPage({
             key={effectiveClientId}
             targetClientId={effectiveClientId}
             isSuperAdmin={scope.isSuperAdmin}
+            viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
             supplierUsersByDirectoryId={supplierUsersByDirectoryId}
             initial={suppliers.map((s) => ({
               clientKey: s.id,
@@ -70,6 +74,7 @@ export default async function SuppliersPage({
               email: s.email,
               phone: s.phone,
               status: s.status,
+              viewGroupIds: s.viewGroupIds,
             }))}
           />
         </div>

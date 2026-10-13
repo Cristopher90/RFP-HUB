@@ -198,7 +198,7 @@ export async function acceptLink(linkId: string): Promise<void> {
   });
 }
 
-// Which of these RFP contacts are NOT an accepted portal contact of the
+// Which of these RFP contacts are NOT an accepted, unblocked portal contact of the
 // directory entry they were picked from. An RFP can only invite accepted ones.
 export async function findUnacceptedContacts(
   items: { email: string; supplierDirectoryId?: string | null }[],
@@ -208,6 +208,9 @@ export async function findUnacceptedContacts(
   const accepted = await prisma.supplierUserLink.findMany({
     where: {
       status: "ACCEPTED",
+      // A blocked contact, or one of a blocked supplier, can't be invited.
+      blocked: false,
+      supplierDirectory: { blocked: false },
       supplierDirectoryId: { in: [...new Set(fromDirectory.map((i) => i.supplierDirectoryId!))] },
     },
     include: { supplierUser: { select: { email: true } } },

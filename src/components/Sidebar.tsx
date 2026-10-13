@@ -18,6 +18,9 @@ export async function Sidebar() {
     ...(canViewRequests(user)
       ? [{ href: "/requests", label: dictionary.nav.requests, icon: "requests" as const }]
       : []),
+    ...(user.role !== "APPROVER"
+      ? [{ href: "/suppliers", label: dictionary.nav.suppliers, icon: "suppliers" as const }]
+      : []),
     { href: "/reports", label: dictionary.nav.reports, icon: "reports" },
     ...(hasAssistant ? [{ href: "/assistant", label: dictionary.nav.assistant, icon: "assistant" as const }] : []),
     ...(ROLE_LEVEL[user.role] >= ROLE_LEVEL.CLIENT_ADMIN
