@@ -497,7 +497,7 @@ export function SupplierDirectoryForm({
                         {def.key === "groups" && viewGroups ? (
                           isEditing ? (
                             <ViewGroupPicker
-                              inline
+                              compact
                               groups={viewGroups}
                               value={row.viewGroupIds ?? []}
                               onChange={(next) => updateRow(row.clientKey, { viewGroupIds: next })}

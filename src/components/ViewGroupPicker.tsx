@@ -23,7 +23,22 @@ export function ViewGroupPicker({
 }) {
   const { t } = usePreferences();
   const [open, setOpen] = useState(false);
+  // The list is drawn with fixed positioning so a table's scroll container
+  // can't clip it; it follows the button and closes on scroll/resize.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -64,8 +79,13 @@ export function ViewGroupPicker({
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const rect = buttonRef.current?.getBoundingClientRect();
+          if (rect) setPos({ top: rect.bottom + 4, left: rect.left });
+          setOpen((o) => !o);
+        }}
         aria-expanded={open}
         className={`flex w-full items-center justify-between rounded-md border border-slate-300 bg-white text-left shadow-sm hover:border-violet-400 ${
           compact ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"
@@ -74,8 +94,11 @@ export function ViewGroupPicker({
         <span className="truncate">{summary}</span>
         <span className="ml-2 text-slate-400">▾</span>
       </button>
-      {open && (
-        <div className="absolute left-0 z-30 mt-1 max-h-60 w-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+      {open && pos && (
+        <div
+          style={{ top: pos.top, left: pos.left }}
+          className="fixed z-50 max-h-60 w-64 overflow-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg"
+        >
           {groups.length === 0 ? (
             <p className="px-2 py-1 text-xs text-slate-400">{t("viewGroups.noGroupsDefined")}</p>
           ) : (

@@ -1,9 +1,9 @@
 // Grupos de visualización: qué ve un usuario según los grupos que comparte con
 // cada proveedor, commodity, región o plantilla. Client-safe (sin DB).
 //
-// Reglas: el Super Administrador y el Administrador de cliente ven todo. Un
-// usuario sin grupos ve todo lo de su cliente. Un usuario con grupos ve lo que
-// no tiene grupos asignados más lo que comparte al menos un grupo.
+// Reglas: el Super Administrador y el Administrador de cliente ven todo. Los
+// demás usuarios ven lo que no tiene grupos asignados más lo que comparte al
+// menos un grupo con ellos; un usuario sin grupos solo ve lo que no tiene grupos.
 
 export type ViewGroupUser = { role: string; viewGroupIds: string[] };
 
@@ -11,9 +11,9 @@ export function isViewGroupExempt(user: { role: string }): boolean {
   return user.role === "ADMIN" || user.role === "CLIENT_ADMIN";
 }
 
-// True when the user has no restriction at all.
+// True when the user has no restriction at all (only the administrators).
 export function seesEverything(user: ViewGroupUser): boolean {
-  return isViewGroupExempt(user) || user.viewGroupIds.length === 0;
+  return isViewGroupExempt(user);
 }
 
 export function canSeeByGroups(user: ViewGroupUser, entityGroupIds: string[] | null | undefined): boolean {
@@ -26,6 +26,8 @@ export function canSeeByGroups(user: ViewGroupUser, entityGroupIds: string[] | n
 // Prisma `where` fragment for an entity with a viewGroupIds column ({} = no restriction).
 export function viewGroupWhere(user: ViewGroupUser): Record<string, unknown> {
   if (seesEverything(user)) return {};
+  // No groups of their own: only what has no groups.
+  if (user.viewGroupIds.length === 0) return { viewGroupIds: { isEmpty: true } };
   return {
     OR: [{ viewGroupIds: { isEmpty: true } }, { viewGroupIds: { hasSome: user.viewGroupIds } }],
   };
