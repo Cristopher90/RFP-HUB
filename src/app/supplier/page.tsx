@@ -72,7 +72,7 @@ export default async function SupplierHomePage() {
   }));
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
+    <div className="mx-auto max-w-[1600px] px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">
         {dictionary.supplierPortal.titlePrefix} &middot; {companyNames(supplierUser)}
       </h1>

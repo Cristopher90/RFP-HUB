@@ -610,6 +610,10 @@ export const en: Dictionary = {
     save: "Save",
   },
   supplierPortal: {
+    groupBy: "Group by",
+    noGrouping: "No grouping",
+    collapseAll: "Collapse all",
+    expandAll: "Expand all",
     contactsMenu: "Settings",
     titlePrefix: "RFPs received",
     subtitle: "Requests for quotation sent to you, their status, and whether you've already participated.",

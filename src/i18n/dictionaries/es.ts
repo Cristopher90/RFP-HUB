@@ -611,6 +611,10 @@ export const es = {
     save: "Guardar",
   },
   supplierPortal: {
+    groupBy: "Agrupar por",
+    noGrouping: "Sin agrupar",
+    collapseAll: "Contraer todo",
+    expandAll: "Expandir todo",
     contactsMenu: "Configuración",
     titlePrefix: "RFP recibidas",
     subtitle: "Solicitudes de cotización que te enviaron, con su estado y si ya participaste.",
