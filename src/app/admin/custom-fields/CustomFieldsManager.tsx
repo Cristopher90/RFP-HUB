@@ -13,7 +13,6 @@ import {
   hasOptions,
   labelFor,
   parseImportRows,
-  sanitizeKey,
   type CfCondition,
   type CfConditionKind,
   type CfOption,
@@ -400,7 +399,7 @@ function FieldEditor({
               className={`${inputClass()} font-mono`}
               value={form.key}
               disabled={isEdit}
-              onChange={(e) => patch({ key: sanitizeKey(e.target.value) })}
+              onChange={(e) => patch({ key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") })}
               placeholder="cus_priority"
             />
             {!isEdit && <p className="mt-1 text-xs text-slate-400">{t("customFields.fieldKeyHint")}</p>}
