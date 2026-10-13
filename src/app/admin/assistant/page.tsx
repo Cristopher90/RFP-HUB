@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
 import { getDictionary } from "@/i18n/getDictionary";
-import { ASSISTANT_MODELS } from "@/lib/assistant/access";
+import { ASSISTANT_MODELS, isProvider } from "@/lib/assistant/access";
 import { AssistantSettingsForm } from "./AssistantSettingsForm";
 
 export default async function AssistantSettingsPage({ searchParams }: PageProps<"/admin/assistant">) {
@@ -15,7 +15,11 @@ export default async function AssistantSettingsPage({ searchParams }: PageProps<
   const client = effectiveClientId
     ? await prisma.client.findUnique({
         where: { id: effectiveClientId },
-        select: { assistantEnabled: true, assistantApiKeyEnc: true, assistantApiKeyLast4: true, assistantModel: true },
+        select: {
+          assistantEnabled: true, assistantProvider: true,
+          assistantApiKeyEnc: true, assistantApiKeyLast4: true, assistantModel: true,
+          geminiApiKeyEnc: true, geminiApiKeyLast4: true, geminiModel: true,
+        },
       })
     : null;
   const since = new Date();
@@ -50,11 +54,11 @@ export default async function AssistantSettingsPage({ searchParams }: PageProps<
             targetClientId={effectiveClientId}
             initial={{
               enabled: client.assistantEnabled,
-              model: client.assistantModel,
-              hasKey: Boolean(client.assistantApiKeyEnc),
-              last4: client.assistantApiKeyLast4,
+              provider: isProvider(client.assistantProvider) ? client.assistantProvider : "anthropic",
+              anthropic: { model: client.assistantModel, hasKey: Boolean(client.assistantApiKeyEnc), last4: client.assistantApiKeyLast4 },
+              gemini: { model: client.geminiModel, hasKey: Boolean(client.geminiApiKeyEnc), last4: client.geminiApiKeyLast4 },
             }}
-            models={ASSISTANT_MODELS.map((m) => ({ id: m.id, label: m.label, note: m.note }))}
+            models={ASSISTANT_MODELS}
             usage={{
               questions: usage?._count._all ?? 0,
               inputTokens: usage?._sum.inputTokens ?? 0,

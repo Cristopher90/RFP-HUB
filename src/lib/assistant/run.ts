@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/secretBox";
 import { executeTool, TOOLS, type Artifact, type ToolContext } from "@/lib/assistant/tools";
+import { GeminiError, runGemini } from "@/lib/assistant/gemini";
+import type { AssistantProvider } from "@/lib/assistant/access";
 
 const MAX_STEPS = 8; // tool-use round trips per question
 const MAX_HISTORY = 20; // earlier messages sent along
@@ -42,6 +44,7 @@ function friendlyApiError(error: unknown): { error: string; code: "auth" | "rate
 export async function runAssistant(options: {
   ctx: ToolContext;
   clientName: string;
+  provider: AssistantProvider;
   model: string;
   encryptedKey: string;
   history: ChatTurn[];
@@ -56,9 +59,38 @@ export async function runAssistant(options: {
   const recent = await prisma.assistantLog.count({ where: { userId: ctx.user.id, createdAt: { gt: new Date(Date.now() - 3_600_000) } } });
   if (recent >= HOURLY_LIMIT) return { error: "rate", code: "rate" };
 
+  const toolsUsed: string[] = [];
+  const logTo = (inputTokens: number, outputTokens: number, status: "OK" | "ERROR", error?: string) =>
+    prisma.assistantLog.create({
+      data: { clientId: ctx.client.id, userId: ctx.user.id, question: last.text.slice(0, 500), tools: toolsUsed, inputTokens, outputTokens, status, error: error?.slice(0, 300) ?? null },
+    });
+
+  if (options.provider === "gemini") {
+    try {
+      const outcome = await runGemini({
+        apiKey: decryptSecret(options.encryptedKey),
+        model,
+        system: systemPrompt(ctx, options.clientName),
+        history: turns,
+        ctx,
+        toolsUsed,
+      });
+      await logTo(outcome.inputTokens, outcome.outputTokens, "OK", outcome.kind === "reply" ? undefined : outcome.kind);
+      if (outcome.kind === "refused") return { error: "refused", code: "refused" };
+      if (outcome.kind === "maxSteps") {
+        return { reply: ctx.user.language === "en" ? "I needed too many steps for that question. Could you narrow it down?" : "Necesité demasiados pasos para esa pregunta. ¿Puedes acotarla un poco?", artifacts: ctx.artifacts };
+      }
+      return { reply: outcome.reply, artifacts: ctx.artifacts };
+    } catch (error) {
+      console.error("[assistant:gemini]", error);
+      const code = error instanceof GeminiError ? error.kind : "api";
+      await logTo(0, 0, "ERROR", error instanceof Error ? error.message : "error");
+      return { error: code, code };
+    }
+  }
+
   const client = new Anthropic({ apiKey: decryptSecret(options.encryptedKey), maxRetries: 2 });
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = turns.map((t) => ({ role: t.role, content: t.text }));
-  const toolsUsed: string[] = [];
   let inputTokens = 0;
   let outputTokens = 0;
   const log = (status: "OK" | "ERROR", error?: string) =>

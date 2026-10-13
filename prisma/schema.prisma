@@ -96,6 +96,11 @@ model Client {
   assistantApiKeyEnc  String? // clave de API cifrada (AES-256-GCM); nunca se devuelve al navegador
   assistantApiKeyLast4 String? // últimos 4 caracteres, solo para mostrar
   assistantModel      String  @default("claude-opus-5-5")
+  // Proveedor activo del asistente ("anthropic" o "gemini"); cada uno guarda su propia clave y modelo.
+  assistantProvider   String  @default("anthropic")
+  geminiApiKeyEnc     String?
+  geminiApiKeyLast4   String?
+  geminiModel         String  @default("gemini-3.8-flash")
 
   iconImage   String? // imagen (data URL PNG/JPEG/WebP, ya reducida) que sustituye al emoji como icono del cliente
   currency    String   @default("USD") // moneda en la que se muestran los precios de las RFPs de este cliente, sin importar la preferencia personal de quien las mira

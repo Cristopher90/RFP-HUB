@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
 import { decryptSecret, encryptSecret } from "@/lib/secretBox";
-import { ASSISTANT_MODELS } from "@/lib/assistant/access";
+import { ASSISTANT_MODELS, DEFAULT_MODEL, isProvider, type AssistantProvider } from "@/lib/assistant/access";
+import { GeminiError, testGemini } from "@/lib/assistant/gemini";
 
 // Per-client AI assistant settings: on/off, model and the client's own Anthropic API key.
 
@@ -22,31 +23,37 @@ async function resolveClient(targetClientId?: string): Promise<Resolved> {
 }
 
 export async function saveAssistantSettings(
-  input: { enabled: boolean; model: string; apiKey: string; removeKey: boolean },
+  input: { provider: string; enabled: boolean; model: string; apiKey: string; removeKey: boolean },
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const resolved = await resolveClient(targetClientId);
   if (resolved.error !== undefined) return { error: resolved.error };
   const { clientId, d } = resolved;
-  if (!ASSISTANT_MODELS.some((m) => m.id === input.model)) return { error: d.invalidModel };
+  if (!isProvider(input.provider)) return { error: d.invalidProvider };
+  const provider = input.provider;
+  if (!ASSISTANT_MODELS[provider].some((m) => m.id === input.model)) return { error: d.invalidModel };
 
   const apiKey = input.apiKey.trim();
-  if (apiKey && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(apiKey)) return { error: d.invalidKeyFormat };
-  const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { assistantApiKeyEnc: true } });
-  const willHaveKey = Boolean(apiKey) || (Boolean(existing?.assistantApiKeyEnc) && !input.removeKey);
+  if (apiKey && !validKeyFormat(provider, apiKey)) return { error: provider === "gemini" ? d.invalidKeyFormatGemini : d.invalidKeyFormat };
+  const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { assistantApiKeyEnc: true, geminiApiKeyEnc: true } });
+  const hasSaved = Boolean(provider === "gemini" ? existing?.geminiApiKeyEnc : existing?.assistantApiKeyEnc);
+  const willHaveKey = Boolean(apiKey) || (hasSaved && !input.removeKey);
   if (input.enabled && !willHaveKey) return { error: d.keyRequired };
 
+  const keyData = apiKey
+    ? { enc: encryptSecret(apiKey), last4: apiKey.slice(-4) }
+    : input.removeKey
+      ? { enc: null, last4: null }
+      : null;
   try {
     await prisma.client.update({
       where: { id: clientId },
       data: {
+        assistantProvider: provider,
         assistantEnabled: input.enabled && willHaveKey,
-        assistantModel: input.model,
-        ...(apiKey
-          ? { assistantApiKeyEnc: encryptSecret(apiKey), assistantApiKeyLast4: apiKey.slice(-4) }
-          : input.removeKey
-            ? { assistantApiKeyEnc: null, assistantApiKeyLast4: null }
-            : {}),
+        ...(provider === "gemini"
+          ? { geminiModel: input.model, ...(keyData ? { geminiApiKeyEnc: keyData.enc, geminiApiKeyLast4: keyData.last4 } : {}) }
+          : { assistantModel: input.model, ...(keyData ? { assistantApiKeyEnc: keyData.enc, assistantApiKeyLast4: keyData.last4 } : {}) }),
       },
     });
   } catch (error) {
@@ -58,21 +65,40 @@ export async function saveAssistantSettings(
   return { success: true };
 }
 
+function validKeyFormat(provider: AssistantProvider, key: string) {
+  return provider === "gemini" ? /^\S{20,}$/.test(key) : /^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key);
+}
+
 // Makes one tiny request with the key (the typed one, or the saved one).
 export async function testAssistantConnection(
-  input: { apiKey: string; model: string },
+  input: { provider: string; apiKey: string; model: string },
   targetClientId?: string,
 ): Promise<{ error: string } | { success: true }> {
   const resolved = await resolveClient(targetClientId);
   if (resolved.error !== undefined) return { error: resolved.error };
   const { clientId, d } = resolved;
+  if (!isProvider(input.provider)) return { error: d.invalidProvider };
+  const provider = input.provider;
   let key = input.apiKey.trim();
   if (!key) {
-    const saved = await prisma.client.findUnique({ where: { id: clientId }, select: { assistantApiKeyEnc: true } });
-    if (!saved?.assistantApiKeyEnc) return { error: d.keyRequired };
-    key = decryptSecret(saved.assistantApiKeyEnc);
+    const saved = await prisma.client.findUnique({ where: { id: clientId }, select: { assistantApiKeyEnc: true, geminiApiKeyEnc: true } });
+    const enc = provider === "gemini" ? saved?.geminiApiKeyEnc : saved?.assistantApiKeyEnc;
+    if (!enc) return { error: d.keyRequired };
+    key = decryptSecret(enc);
   }
-  const model = ASSISTANT_MODELS.some((m) => m.id === input.model) ? input.model : "claude-opus-5-5";
+  const model = ASSISTANT_MODELS[provider].some((m) => m.id === input.model) ? input.model : DEFAULT_MODEL[provider];
+
+  if (provider === "gemini") {
+    try {
+      await testGemini(key, model);
+      return { success: true };
+    } catch (error) {
+      if (error instanceof GeminiError && error.kind === "auth") return { error: d.testAuthFailed };
+      if (error instanceof GeminiError && error.kind === "rate") return { error: d.testRateLimited };
+      if (error instanceof GeminiError && /^404/.test(error.message)) return { error: d.testModelNotFound };
+      return { error: `${d.testFailed} ${error instanceof Error ? error.message.slice(0, 160) : ""}`.trim() };
+    }
+  }
   try {
     await new Anthropic({ apiKey: key, maxRetries: 0 }).messages.create({
       model,

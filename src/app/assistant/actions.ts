@@ -22,6 +22,7 @@ export async function askAssistant(history: ChatTurn[]): Promise<AskResult> {
   const result = await runAssistant({
     ctx: { user: toolUser(user), client: { id: access.client.id, currency: access.client.currency }, artifacts: [] },
     clientName: access.client.description,
+    provider: access.provider,
     model: access.model,
     encryptedKey: access.encryptedKey,
     history: history.slice(-30).map((t) => ({ role: t.role === "assistant" ? "assistant" : "user", text: String(t.text ?? "").slice(0, 8000) })),
