@@ -5,6 +5,7 @@ import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
 import { roleLabel } from "@/i18n/labels";
 import { UserListFilter } from "./UserListFilter";
+import { UsersTable } from "./UsersTable";
 
 export default async function UsersPage({
   searchParams,
@@ -63,66 +64,21 @@ export default async function UsersPage({
         <UserListFilter />
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-5 py-3">{dictionary.usersPage.name}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.client}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.email}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.company}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.plant}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.costCenter}</th>
-              <th className="px-5 py-3">{dictionary.usersPage.group}</th>
-              <th className="px-5 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filtered.map((u) => (
-              <tr key={u.id} className="hover:bg-slate-50">
-                <td className="px-5 py-4 font-medium text-slate-800">
-                  {u.name} {u.lastName}
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {u.client?.description || "—"}
-                </td>
-                <td className="px-5 py-4 text-slate-600">{u.email}</td>
-                <td className="px-5 py-4 text-slate-600">
-                  {u.companyCode || "—"}
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {u.plant || "—"}
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {u.costCenter || "—"}
-                </td>
-                <td className="px-5 py-4 text-slate-600">
-                  {roleLabel(dictionary, u.role)}
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <Link
-                    href={`/admin/users/${u.id}`}
-                    className="text-sm font-medium text-violet-600 hover:text-violet-700"
-                  >
-                    {dictionary.usersPage.edit}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-5 py-8 text-center text-slate-500"
-                >
-                  {dictionary.usersPage.noMatches}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-        </div>
+      <div className="mt-4">
+        <UsersTable
+          rows={filtered.map((u) => ({
+            id: u.id,
+            name: `${u.name} ${u.lastName ?? ""}`.trim(),
+            client: u.client?.description ?? "",
+            email: u.email,
+            company: u.companyCode ?? "",
+            plant: u.plant ?? "",
+            costCenter: u.costCenter ?? "",
+            group: roleLabel(dictionary, u.role),
+            createdAt: u.createdAt.toISOString(),
+            modifiedAt: u.modifiedAt.toISOString(),
+          }))}
+        />
       </div>
     </div>
   );

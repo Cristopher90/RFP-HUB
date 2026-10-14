@@ -291,6 +291,7 @@ export async function updateUser(
   await prisma.user.update({
     where: { id: userId },
     data: {
+      modifiedAt: new Date(),
       name,
       lastName: input.lastName.trim() || null,
       clientId: targetClient.clientId,

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { UserMultiPicker, type PickableUser } from "@/components/UserMultiPicker";
 import { utcToZonedTime } from "@/lib/timezone";
-import { mentionKey, splitMentions, type Mention } from "@/lib/mentionsShared";
+import { mentionKey, splitMentions, type Mention, type MentionKind } from "@/lib/mentionsShared";
 import { extractTags, splitTags } from "@/lib/tags";
 import { MentionTextarea } from "./MentionTextarea";
 import { deleteNote, saveNote, setNoteRead } from "./actions";
@@ -57,10 +57,12 @@ function NoteBody({
   body,
   mentions,
   onTag,
+  onNoAccess,
 }: {
   body: string;
   mentions: Record<string, Mention>;
   onTag: (tag: string) => void;
+  onNoAccess: (kind: MentionKind, raw: string) => void;
 }) {
   return (
     <>
@@ -86,7 +88,19 @@ function NoteBody({
           );
         }
         const target = mentions[mentionKey(seg.kind, seg.id)];
-        if (!target) return <span key={i}>{seg.raw}</span>;
+        // A mention the viewer can't open: it says so in a popup instead of a "not found" page.
+        if (!target) {
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onNoAccess(seg.kind, seg.raw)}
+              className="rounded bg-white/40 px-1 font-semibold line-through decoration-slate-400 hover:bg-white/70"
+            >
+              🔒 {seg.raw}
+            </button>
+          );
+        }
         return (
           <Link
             key={i}
@@ -133,6 +147,7 @@ export function NotesBoard({
   const { t, formatDate, timeZone } = usePreferences();
   const [filter, setFilter] = useState<Filter>("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [noAccess, setNoAccess] = useState<{ kind: MentionKind; raw: string } | null>(null);
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [viewing, setViewing] = useState<NoteView | null>(null);
@@ -295,7 +310,7 @@ export function NotesBoard({
               <p
                 className={`flex-1 whitespace-pre-wrap break-words text-sm leading-snug ${isLong(n.body) ? "line-clamp-4" : ""}`}
               >
-                <NoteBody body={n.body} mentions={mentions} onTag={pickTag} />
+                <NoteBody body={n.body} mentions={mentions} onTag={pickTag} onNoAccess={(kind, raw) => setNoAccess({ kind, raw })} />
               </p>
               {isLong(n.body) && (
                 <button type="button" onClick={() => setViewing(n)} className="mt-1 self-start text-xs font-semibold underline">
@@ -403,6 +418,7 @@ export function NotesBoard({
                   setViewing(null);
                   pickTag(tag);
                 }}
+                onNoAccess={(kind, raw) => setNoAccess({ kind, raw })}
               />
             </p>
             <div className="mt-4 space-y-0.5 text-xs opacity-80">
@@ -422,6 +438,29 @@ export function NotesBoard({
               </button>
             </div>
           </article>
+        </div>
+      )}
+
+      {noAccess && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-slate-900/40 px-4 py-24" onClick={() => setNoAccess(null)}>
+          <div className="w-full max-w-md rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-slate-200 px-5 py-3">
+              <h2 className="text-base font-semibold text-slate-900">🔒 {t("homeNotes.noAccessTitle")}</h2>
+            </div>
+            <p className="px-5 py-4 text-sm text-slate-600">
+              {t(`homeNotes.noAccessBody_${noAccess.kind}`).replace("{ref}", noAccess.raw)}
+            </p>
+            <div className="flex justify-end border-t border-slate-200 px-5 py-3">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setNoAccess(null)}
+                className="rounded-md bg-violet-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+              >
+                {t("homeNotes.close")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

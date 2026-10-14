@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { requireClientScope } from "@/lib/clientScope";
 import { buyerGroupIdsOf, canViewRequests, visibilityWhere } from "@/lib/requestAccess";
 import { viewGroupWhere } from "@/lib/viewGroups";
+import { isRfpAdmin, participantWhere, rfpAccess } from "@/lib/rfpAccess";
 import { formatRfpNumber } from "@/lib/format";
 import { MENTIONABLE_ID, mentionKey, splitMentions, type Mention, type MentionKind } from "@/lib/mentionsShared";
 
@@ -28,9 +29,11 @@ export async function resolveMentions(scope: Scope, bodies: string[]): Promise<R
   if (numbers.length > 0) {
     const rfps = await prisma.rfp.findMany({
       where: { ...scope.where, number: { in: numbers }, status: { not: "DELETED" } },
-      select: { id: true, number: true, title: true },
+      select: { id: true, number: true, title: true, createdByUserId: true },
     });
     for (const r of rfps) {
+      // Only link what the viewer can really open (creator, team, administrators, involved approvers).
+      if (!(await rfpAccess(user, r))) continue;
       result[mentionKey("RFP", String(r.number))] = { href: `/rfps/${r.id}`, title: r.title };
     }
   }
@@ -83,7 +86,9 @@ export async function searchMentionTargets(scope: Scope, rawQuery: string): Prom
       where: {
         ...scope.where,
         status: { not: "DELETED" },
-        OR: [{ title: contains }, ...(asNumber !== null ? [{ number: asNumber }] : [])],
+        // Only RFPs the user can open.
+        ...(isRfpAdmin(user) ? {} : participantWhere(user.id)),
+        AND: [{ OR: [{ title: contains }, ...(asNumber !== null ? [{ number: asNumber }] : [])] }],
       },
       select: { number: true, title: true },
       orderBy: { createdAt: "desc" },

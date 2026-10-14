@@ -321,27 +321,20 @@ export default async function RfpDetailPage({
         </div>
       )}
 
-      <CollapsibleSection
-        title={dictionary.rfpTeam.title}
-        subtitle={dictionary.rfpTeam.subtitle}
-        storageKey="rfp-detail-team"
-        className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-      >
-        <TeamSection
-          rfpId={rfp.id}
-          owner={ownerUser ? { name: personName(ownerUser), email: ownerUser.email } : null}
-          members={teamMembers.map((m) => ({
-            id: m.id,
-            name: personName(m.user),
-            email: m.user.email,
-            permission: m.permission,
-          }))}
-          candidates={teamCandidates
-            .filter((u) => !memberIds.has(u.id))
-            .map((u) => ({ id: u.id, name: personName(u), email: u.email }))}
-          canManage={manageTeam}
-        />
-      </CollapsibleSection>
+      <TeamSection
+        rfpId={rfp.id}
+        owner={ownerUser ? { name: personName(ownerUser), email: ownerUser.email } : null}
+        members={teamMembers.map((m) => ({
+          id: m.id,
+          name: personName(m.user),
+          email: m.user.email,
+          permission: m.permission,
+        }))}
+        candidates={teamCandidates
+          .filter((u) => !memberIds.has(u.id))
+          .map((u) => ({ id: u.id, name: personName(u), email: u.email }))}
+        canManage={manageTeam}
+      />
 
       {appliedTemplates.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">

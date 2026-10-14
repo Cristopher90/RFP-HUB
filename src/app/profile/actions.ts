@@ -50,7 +50,7 @@ export async function updateOwnProfile(
   };
 
   if (user) {
-    await prisma.user.update({ where: { id: user.id }, data });
+    await prisma.user.update({ where: { id: user.id }, data: { ...data, modifiedAt: new Date() } });
   } else {
     await prisma.supplierUser.update({ where: { id: supplierUser!.id }, data });
   }
