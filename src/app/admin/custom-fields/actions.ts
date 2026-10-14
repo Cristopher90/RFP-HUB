@@ -84,7 +84,7 @@ function validCondition(
   }
   const kind = condition.kind as CfConditionKind;
   let ok = false;
-  if (isRequestScope(scope)) return { condition: null };
+  if (isRequestScope(scope) || scope === "SUPPLIER") return { condition: null };
   if (kind === "HEADER_STD") ok = scope !== "USER" && (HEADER_STD_FIELDS as readonly string[]).includes(field);
   else if (kind === "LINE_STD") ok = scope === "RFP_LINE" && (LINE_STD_FIELDS as readonly string[]).includes(field);
   else if (kind === "HEADER_CUSTOM") {
@@ -176,7 +176,7 @@ export async function saveCustomField(
     lookupId,
     viewGroupIds,
     condition: cond.condition ? (cond.condition as object) : undefined,
-    mappable: input.scope !== "USER" && input.mappable,
+    mappable: input.scope !== "USER" && input.scope !== "SUPPLIER" && input.mappable,
     importable: isRequestScope(input.scope) && input.importable,
     templateFilter: input.scope === "RFP_HEAD" && input.templateFilter,
     listFilter: input.scope === "RFP_HEAD" && input.listFilter,
@@ -326,7 +326,7 @@ export async function importCustomFields(
       editable: isRequestScope(r.scope) || r.editable,
       labels: r.labels,
       condition: condition ? (condition as object) : undefined,
-      mappable: r.scope !== "USER" && r.mappable,
+      mappable: r.scope !== "USER" && r.scope !== "SUPPLIER" && r.mappable,
       importable: isRequestScope(r.scope) && r.importable,
       templateFilter: r.scope === "RFP_HEAD" && r.templateFilter,
       listFilter: r.scope === "RFP_HEAD" && r.listFilter,

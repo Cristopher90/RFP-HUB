@@ -208,6 +208,7 @@ model User {
   supplierDocuments SupplierDocument[]
   rfpMemberships    RfpMember[]
   rfpEvents         RfpEvent[]
+  supplierEvents    SupplierEvent[]
 }
 
 // Un usuario puede pertenecer a varios grupos de aprobación a la vez, cada
@@ -324,6 +325,9 @@ model SupplierDirectory {
   status           SupplierDirectoryStatus @default(ACTIVE)
   blocked          Boolean                 @default(false) // bloqueado: no se puede invitar a RFP (igual que sin contactos)
   blockedAt        DateTime?
+  initialBlock     Boolean                 @default(false) // bloqueado al crearlo un usuario sin permiso de bloqueo; se apaga al desbloquearlo
+  commodity        String? // descripción del commodity (árbol de datos maestros)
+  region           String? // descripción de la región
   viewGroupIds     String[]                @default([]) // grupos de visualización que lo ven; vacío = todos
   createdAt        DateTime                @default(now())
 
@@ -338,6 +342,7 @@ model SupplierDirectory {
   aiSummaryModel   String?
   aiSummaryKey     String? // nombre|CIF con el que se generó (para avisar si cambiaron)
   aiSummarySources Json? // [{ title, url }]
+  events           SupplierEvent[]
 
   @@unique([clientId, code])
 }
@@ -1102,6 +1107,7 @@ enum CustomFieldScope {
   USER // dato del usuario (puede mapearse a un campo de cabecera de la RFP)
   REQUEST_HEAD // cabecera de la solicitud de compra (PR)
   REQUEST_LINE // cada línea de la solicitud de compra
+  SUPPLIER // dato del proveedor (ficha de la pantalla Proveedores)
 }
 
 // Definición de un campo personalizado de un cliente (la crea el Super
@@ -1295,4 +1301,20 @@ model RfpEvent {
   createdAt DateTime @default(now())
 
   @@index([rfpId, createdAt])
+}
+
+// Registro de cambios de un proveedor del directorio (ediciones, bloqueos,
+// documentos eliminados...). Se muestra en su historial junto con los hitos que
+// ya se derivan de otras tablas (creación, documentos subidos, contactos).
+model SupplierEvent {
+  id                  String            @id @default(cuid())
+  supplierDirectoryId String
+  supplierDirectory   SupplierDirectory @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  userId              String?
+  user                User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind                String // INITIAL_BLOCK | EDITED | BLOCKED | UNBLOCKED | DOCUMENT_DELETED | CONTACT_BLOCKED | CONTACT_UNBLOCKED
+  detail              Json?
+  createdAt           DateTime          @default(now())
+
+  @@index([supplierDirectoryId, createdAt])
 }

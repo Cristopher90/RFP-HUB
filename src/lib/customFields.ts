@@ -105,7 +105,7 @@ export async function loadCustomFields(
   return rows.map((r) => toDef(r, r.lookupId ? (lookups.get(r.lookupId) ?? []) : undefined));
 }
 
-export type CustomEntityType = "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE";
+export type CustomEntityType = "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE" | "SUPPLIER";
 
 export async function readCustomValues(
   clientId: string,

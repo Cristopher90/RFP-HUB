@@ -16,6 +16,10 @@ import { addContact } from "@/lib/supplierContacts";
 import { clientAi, researchSupplier, ResearchError } from "@/lib/supplierResearch";
 import { canSeeByGroups } from "@/lib/viewGroups";
 import { validViewGroupIds } from "@/lib/viewGroupsServer";
+import { logSupplierEvent } from "@/lib/supplierEvents";
+import { filterTreeByGroups } from "@/lib/viewGroups";
+import { loadCustomFields, prepareCustomValues, readCustomValues, saveCustomValues } from "@/lib/customFields";
+import { applyViewGroupsToFields, emptyContext, labelFor } from "@/lib/customFieldsShared";
 
 type Result = { error: string } | { success: true };
 
@@ -79,7 +83,11 @@ export async function setSupplierBlocked(directoryId: string, blocked: boolean):
   if (!supplier) return { error: d.notFound };
   await prisma.supplierDirectory.update({
     where: { id: supplier.id },
-    data: { blocked, blockedAt: blocked ? new Date() : null },
+    // Any manual block / unblock ends the "initial block" mark.
+    data: { blocked, blockedAt: blocked ? new Date() : null, initialBlock: false },
+  });
+  await logSupplierEvent(supplier.id, user.id, blocked ? "BLOCKED" : "UNBLOCKED", {
+    wasInitial: supplier.initialBlock,
   });
   revalidatePath("/suppliers");
   return { success: true };
@@ -102,6 +110,13 @@ export async function setContactBlocked(linkId: string, blocked: boolean): Promi
     return { error: d.contactNotFound };
   }
   await prisma.supplierUserLink.update({ where: { id: link.id }, data: { blocked } });
+  const person = await prisma.supplierUser.findUnique({
+    where: { id: link.supplierUserId },
+    select: { name: true, lastName: true, email: true },
+  });
+  await logSupplierEvent(link.supplierDirectoryId, user.id, blocked ? "CONTACT_BLOCKED" : "CONTACT_UNBLOCKED", {
+    name: person ? `${person.name} ${person.lastName}`.trim() || person.email : "",
+  });
   revalidatePath("/suppliers");
   return { success: true };
 }
@@ -165,7 +180,14 @@ export async function deleteSupplierDocument(documentId: string): Promise<Result
   if (!canManageSupplierDocs(user)) return { error: d.errNoPermission };
   const doc = await prisma.supplierDocument.findUnique({
     where: { id: documentId },
-    select: { id: true, clientId: true, supplierDirectory: { select: { viewGroupIds: true } }, type: { select: { viewGroupIds: true } } },
+    select: {
+      id: true,
+      clientId: true,
+      supplierDirectoryId: true,
+      fileName: true,
+      supplierDirectory: { select: { viewGroupIds: true } },
+      type: { select: { viewGroupIds: true, name: true } },
+    },
   });
   if (
     !doc ||
@@ -176,6 +198,10 @@ export async function deleteSupplierDocument(documentId: string): Promise<Result
     return { error: d.errNotFound };
   }
   await prisma.supplierDocument.delete({ where: { id: doc.id } });
+  await logSupplierEvent(doc.supplierDirectoryId, user.id, "DOCUMENT_DELETED", {
+    type: doc.type.name,
+    fileName: doc.fileName,
+  });
   revalidatePath("/suppliers");
   return { success: true };
 }
@@ -190,7 +216,64 @@ export type NewSupplierInput = {
   phone: string;
   status: "ACTIVE" | "INACTIVE";
   viewGroupIds: string[];
+  commodity?: string;
+  region?: string;
+  customValues?: Record<string, string>; // the client's SUPPLIER custom fields (key → value)
 };
+
+// Commodity / region (must exist in the client's trees and be visible to the user)
+// and the supplier custom fields, validated. On update, values the user can't
+// edit or see keep what is stored.
+async function shapeSupplierExtras(
+  clientId: string,
+  user: Parameters<typeof applyViewGroupsToFields>[1] & { language: string },
+  input: NewSupplierInput,
+  existingId?: string,
+): Promise<
+  | { error: string }
+  | { commodity: string | null; region: string | null; values: Record<string, string>; fieldLabels: Map<string, string> }
+> {
+  const [commodities, regions, allFields] = await Promise.all([
+    prisma.commodity.findMany({ where: { clientId } }),
+    prisma.region.findMany({ where: { clientId } }),
+    loadCustomFields(clientId, "SUPPLIER"),
+  ]);
+  const d = getDictionary(user.language).suppliersScreen;
+  const pick = (list: { id: string; parentId: string | null; description: string; viewGroupIds: string[] }[], wanted?: string) => {
+    const value = (wanted ?? "").trim();
+    if (!value) return { ok: true as const, value: null };
+    const found = filterTreeByGroups(list, user).find((n) => n.description === value);
+    return found ? { ok: true as const, value } : { ok: false as const, value: null };
+  };
+  const commodity = pick(commodities, input.commodity);
+  if (!commodity.ok) return { error: d.invalidCommodity };
+  const region = pick(regions, input.region);
+  if (!region.ok) return { error: d.invalidRegion };
+
+  const fields = applyViewGroupsToFields(allFields, user);
+  const sent = { ...(input.customValues ?? {}) };
+  const stored = existingId ? ((await readCustomValues(clientId, "SUPPLIER", [existingId])).get(existingId) ?? {}) : {};
+  for (const f of fields) {
+    if (!f.editable || !f.visible) {
+      if (stored[f.key] !== undefined) sent[f.key] = stored[f.key];
+      else delete sent[f.key];
+    }
+  }
+  const result = prepareCustomValues(fields, sent, emptyContext(), "userCustom", true);
+  if ("error" in result) {
+    const cf = getDictionary(user.language).customFields;
+    const e = result.error;
+    const label = labelFor(e.field.labels, user.language, e.field.key);
+    const template = e.code === "mandatory" ? cf.errMandatory : e.code === "tooLong" ? cf.errTooLong : cf.errInvalid;
+    return { error: template.replace("{field}", label) };
+  }
+  return {
+    commodity: commodity.value,
+    region: region.value,
+    values: result.values,
+    fieldLabels: new Map(fields.map((f) => [f.key, labelFor(f.labels, user.language, f.key)])),
+  };
+}
 
 // Creates a supplier-directory entry with the same data the master-data screen
 // holds. A user who can't block/unblock suppliers creates it blocked: someone
@@ -225,10 +308,16 @@ export async function createSupplier(
   }
   if (sameCode) return { error: d.createCodeExists.replace("{code}", code) };
 
+  const extras = await shapeSupplierExtras(clientId, user, input);
+  if ("error" in extras) return extras;
+
   const canBlock = canBlockSuppliers(user);
   const created = await prisma.supplierDirectory.create({
     data: {
       clientId,
+      commodity: extras.commodity,
+      region: extras.region,
+      initialBlock: !canBlock,
       code,
       taxId,
       companyName,
@@ -242,6 +331,8 @@ export async function createSupplier(
       blockedAt: canBlock ? null : new Date(),
     },
   });
+  if (Object.keys(extras.values).length > 0) await saveCustomValues(clientId, "SUPPLIER", created.id, extras.values);
+  if (!canBlock) await logSupplierEvent(created.id, user.id, "INITIAL_BLOCK");
   revalidatePath("/suppliers");
   return { success: true, id: created.id, blocked: !canBlock };
 }
@@ -278,9 +369,36 @@ export async function updateSupplier(
     }
   }
 
+  const extras = await shapeSupplierExtras(supplier.clientId, user, input, supplier.id);
+  if ("error" in extras) return extras;
+  const newGroups = await validViewGroupIds(supplier.clientId, input.viewGroupIds);
+  const storedCustom = (await readCustomValues(supplier.clientId, "SUPPLIER", [supplier.id])).get(supplier.id) ?? {};
+
+  // What changed, for the history.
+  const text = (v: string | null | undefined) => (v ?? "").trim();
+  const newStatus = input.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+  const changed = [
+    text(supplier.code) !== code && "code",
+    text(supplier.taxId) !== taxId && "taxId",
+    text(supplier.companyName) !== companyName && "companyName",
+    text(supplier.contactFirstName) !== text(input.contactFirstName) && "contactFirstName",
+    text(supplier.contactLastName) !== text(input.contactLastName) && "contactLastName",
+    text(supplier.email) !== text(input.email) && "email",
+    text(supplier.phone) !== text(input.phone) && "phone",
+    supplier.status !== newStatus && "status",
+    [...supplier.viewGroupIds].sort().join(",") !== [...newGroups].sort().join(",") && "viewGroups",
+    text(supplier.commodity) !== text(extras.commodity) && "commodity",
+    text(supplier.region) !== text(extras.region) && "region",
+  ].filter((f): f is string => Boolean(f));
+  const changedCustom = [...new Set([...Object.keys(storedCustom), ...Object.keys(extras.values)])]
+    .filter((k) => (storedCustom[k] ?? "") !== (extras.values[k] ?? ""))
+    .map((k) => extras.fieldLabels.get(k) ?? k);
+
   await prisma.supplierDirectory.update({
     where: { id: supplier.id },
     data: {
+      commodity: extras.commodity,
+      region: extras.region,
       code,
       taxId,
       companyName,
@@ -289,9 +407,13 @@ export async function updateSupplier(
       email: (input.email ?? "").trim().slice(0, 200),
       phone: (input.phone ?? "").trim().slice(0, 50),
       status: input.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
-      viewGroupIds: await validViewGroupIds(supplier.clientId, input.viewGroupIds),
+      viewGroupIds: newGroups,
     },
   });
+  await saveCustomValues(supplier.clientId, "SUPPLIER", supplier.id, extras.values);
+  if (changed.length > 0 || changedCustom.length > 0) {
+    await logSupplierEvent(supplier.id, user.id, "EDITED", { fields: changed, custom: changedCustom });
+  }
   revalidatePath("/suppliers");
   return { success: true };
 }

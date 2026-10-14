@@ -10,7 +10,7 @@ export type CfType =
   | "DROPDOWN"
   | "AMOUNT"
   | "CHECKBOX";
-export type CfScope = "RFP_HEAD" | "RFP_LINE" | "USER" | "REQUEST_HEAD" | "REQUEST_LINE";
+export type CfScope = "RFP_HEAD" | "RFP_LINE" | "USER" | "REQUEST_HEAD" | "REQUEST_LINE" | "SUPPLIER";
 
 export const CF_TYPES: CfType[] = [
   "TREE",
@@ -21,14 +21,14 @@ export const CF_TYPES: CfType[] = [
   "AMOUNT",
   "CHECKBOX",
 ];
-export const CF_SCOPES: CfScope[] = ["RFP_HEAD", "RFP_LINE", "USER", "REQUEST_HEAD", "REQUEST_LINE"];
+export const CF_SCOPES: CfScope[] = ["RFP_HEAD", "RFP_LINE", "USER", "REQUEST_HEAD", "REQUEST_LINE", "SUPPLIER"];
 
 export function isRequestScope(scope: CfScope) {
   return scope === "REQUEST_HEAD" || scope === "REQUEST_LINE";
 }
 
 // Which "entityType" a scope's values are stored under in CustomFieldValue.
-export function entityTypeOfScope(scope: CfScope): "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE" {
+export function entityTypeOfScope(scope: CfScope): "RFP" | "RFP_LINE" | "USER" | "REQUEST" | "REQUEST_LINE" | "SUPPLIER" {
   switch (scope) {
     case "RFP_HEAD":
       return "RFP";
@@ -40,6 +40,8 @@ export function entityTypeOfScope(scope: CfScope): "RFP" | "RFP_LINE" | "USER" |
       return "REQUEST";
     case "REQUEST_LINE":
       return "REQUEST_LINE";
+    case "SUPPLIER":
+      return "SUPPLIER";
   }
 }
 export const CF_TEXT_MAX = 50;
@@ -267,6 +269,7 @@ export function parseScope(raw: string): CfScope | null {
   if (v === "rfp_line" || v === "line" || v === "linea" || v === "línea" || v === "posicion" || v === "posición")
     return "RFP_LINE";
   if (v === "user" || v === "usuario") return "USER";
+  if (v === "supplier" || v === "proveedor") return "SUPPLIER";
   if (v === "request_head" || v === "request_header" || v === "solicitud" || v === "solicitud_cabecera")
     return "REQUEST_HEAD";
   if (v === "request_line" || v === "solicitud_linea" || v === "solicitud_línea" || v === "solicitud_posicion")

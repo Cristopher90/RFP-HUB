@@ -37,6 +37,7 @@ const SCOPE_KEY: Record<CfScope, string> = {
   USER: "scopeUser",
   REQUEST_HEAD: "scopeRequestHead",
   REQUEST_LINE: "scopeRequestLine",
+  SUPPLIER: "scopeSupplier",
 };
 const TYPE_KEY: Record<CfType, string> = {
   TREE: "typeTree",
@@ -386,6 +387,7 @@ function FieldEditor({
       : undefined;
 
   const isRequest = isRequestScope(form.scope);
+  const isSupplier = form.scope === "SUPPLIER";
 
   function changeScope(scope: CfScope) {
     patch({
@@ -393,7 +395,7 @@ function FieldEditor({
       condition: null,
       mandatory: isRequestScope(scope) ? false : form.mandatory,
       importable: isRequestScope(scope) ? true : false,
-      mappable: scope === "USER" ? false : form.mappable,
+      mappable: scope === "USER" || scope === "SUPPLIER" ? false : form.mappable,
       templateFilter: scope === "RFP_HEAD" ? form.templateFilter : false,
       listFilter: scope === "RFP_HEAD" ? form.listFilter : false,
       mapToRfpKey: scope === "USER" ? form.mapToRfpKey : null,
@@ -543,7 +545,7 @@ function FieldEditor({
           </div>
         )}
 
-        {!isRequest && (
+        {!isRequest && !isSupplier && (
         <fieldset className="rounded-lg border border-slate-200 p-4">
           <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.conditionTitle")}</legend>
           <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -646,7 +648,7 @@ function FieldEditor({
         <fieldset className="rounded-lg border border-slate-200 p-4">
           <legend className="px-1 text-sm font-semibold text-slate-800">{t("customFields.usageTitle")}</legend>
           <div className="space-y-2 text-sm text-slate-700">
-            {form.scope !== "USER" && (
+            {form.scope !== "USER" && !isSupplier && (
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={form.mappable} onChange={(e) => patch({ mappable: e.target.checked })} />
                 {isRequest ? t("customFields.mappableRequest") : t("customFields.mappable")}

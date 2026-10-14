@@ -8,6 +8,10 @@ import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { formatRfpNumber } from "@/lib/format";
+import { TreePickerField } from "@/components/TreePickerField";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { emptyContext, type CustomFieldDef } from "@/lib/customFieldsShared";
 import {
   addSupplierContact,
   createSupplier,
@@ -27,6 +31,7 @@ export type SupplierListItem = {
   companyName: string;
   taxId: string;
   blocked: boolean;
+  initialBlock: boolean; // blocked since creation by a user who could not unblock
   inactive: boolean;
   contactCount: number;
   ratingAvg: number | null;
@@ -61,6 +66,12 @@ export type SupplierDetail = {
   contactName: string;
   contactFirstName: string;
   contactLastName: string;
+  initialBlock: boolean;
+  commodity: string;
+  region: string;
+  customValues: Record<string, string>;
+  customDisplay: { label: string; value: string }[];
+  history: { date: string; label: string; detail?: string }[];
   groupIds: string[];
   status: "ACTIVE" | "INACTIVE";
   ai: {
@@ -95,7 +106,7 @@ export type SupplierDetail = {
   }[];
 };
 
-type Filter = "all" | "active" | "blocked" | "rated";
+type Filter = "all" | "active" | "blocked" | "initialBlock" | "rated";
 type Sort = "name" | "rating";
 
 // Order of the status groups in "my processes".
@@ -121,9 +132,17 @@ export function SuppliersView({
   autoSummary,
   clientId,
   viewGroups,
+  commodities,
+  regions,
+  customFields,
+  currency,
   isReviewer,
   language,
 }: {
+  commodities: SupplierExtras["commodities"];
+  regions: SupplierExtras["regions"];
+  customFields: CustomFieldDef[];
+  currency: string;
   canCreate: boolean;
   canEdit: boolean;
   canAddContacts: boolean;
@@ -142,6 +161,7 @@ export function SuppliersView({
   language: string;
 }) {
   const { t } = usePreferences();
+  const extras: SupplierExtras = { commodities, regions, customFields, currency };
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -158,6 +178,7 @@ export function SuppliersView({
       if (q && !s.searchText.includes(q)) return false;
       if (filter === "active") return !s.blocked && !s.inactive;
       if (filter === "blocked") return s.blocked;
+      if (filter === "initialBlock") return s.initialBlock;
       if (filter === "rated" && s.ratingCount === 0) return false;
       if (docFilter || docType) {
         const wanted = docFilter === "expired" ? "expired" : docFilter === "active" ? "active" : null;
@@ -219,6 +240,7 @@ export function SuppliersView({
             {chip("all", t("suppliersScreen.filterAll"))}
             {chip("active", t("suppliersScreen.filterActive"))}
             {chip("blocked", t("suppliersScreen.filterBlocked"))}
+            {chip("initialBlock", t("suppliersScreen.filterInitialBlock"))}
             {chip("rated", t("suppliersScreen.filterRated"))}
           </div>
           <select
@@ -288,8 +310,12 @@ export function SuppliersView({
                   </span>
                 </span>
                 {s.blocked && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-600">
-                    {t("suppliersScreen.blocked")}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      s.initialBlock ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"
+                    }`}
+                  >
+                    {s.initialBlock ? t("suppliersScreen.initialBlock") : t("suppliersScreen.blocked")}
                   </span>
                 )}
               </Link>
@@ -303,6 +329,7 @@ export function SuppliersView({
           <CreateSupplierForm
             clientId={clientId}
             viewGroups={viewGroups}
+            extras={extras}
             canBlock={canBlock}
             onCancel={() => setCreating(false)}
             onCreated={(id) => {
@@ -324,6 +351,7 @@ export function SuppliersView({
             aiAvailable={aiAvailable}
             autoSummary={autoSummary}
             viewGroups={viewGroups}
+            extras={extras}
             docTypes={docTypes}
             isReviewer={isReviewer}
             language={language}
@@ -349,10 +377,12 @@ function SupplierPanel({
   aiAvailable,
   autoSummary,
   viewGroups,
+  extras,
   docTypes,
   isReviewer,
   language,
 }: {
+  extras: SupplierExtras;
   detail: SupplierDetail;
   canRate: boolean;
   canBlock: boolean;
@@ -484,8 +514,12 @@ function SupplierPanel({
                 <StarRating value={detail.rating?.avg ?? 0} size={18} />
                 <span className="text-sm text-slate-600">{ratingText}</span>
                 {detail.blocked && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
-                    {t("suppliersScreen.blocked")}
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      detail.initialBlock ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"
+                    }`}
+                  >
+                    {detail.initialBlock ? t("suppliersScreen.initialBlock") : t("suppliersScreen.blocked")}
                   </span>
                 )}
                 {detail.groups.map((g) => (
@@ -512,8 +546,12 @@ function SupplierPanel({
           )}
         </div>
         {detail.blocked && (
-          <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {t("suppliersScreen.supplierBlockedNote")}
+          <p
+            className={`mt-4 rounded-md px-3 py-2 text-sm ${
+              detail.initialBlock ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"
+            }`}
+          >
+            {detail.initialBlock ? t("suppliersScreen.initialBlockNote") : t("suppliersScreen.supplierBlockedNote")}
           </p>
         )}
       </div>
@@ -522,6 +560,7 @@ function SupplierPanel({
         <EditSupplierForm
           detail={detail}
           viewGroups={viewGroups}
+          extras={extras}
           onCancel={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
@@ -558,12 +597,20 @@ function SupplierPanel({
                   "suppliersScreen.status",
                   detail.inactive ? t("suppliersScreen.statusInactive") : t("suppliersScreen.statusActive"),
                 ],
+                ["suppliersScreen.commodity", detail.commodity],
+                ["suppliersScreen.region", detail.region],
                 ["suppliersScreen.groups", detail.groups.join(", ")],
               ] as const
             ).map(([labelKey, value]) => (
               <div key={labelKey}>
                 <dt className="text-xs text-slate-400">{t(labelKey)}</dt>
                 <dd className="font-medium text-slate-700">{value || "—"}</dd>
+              </div>
+            ))}
+            {detail.customDisplay.map((c) => (
+              <div key={c.label}>
+                <dt className="text-xs text-slate-400">{c.label}</dt>
+                <dd className="font-medium text-slate-700">{c.value || "—"}</dd>
               </div>
             ))}
           </dl>
@@ -917,6 +964,28 @@ function SupplierPanel({
           </div>
         )}
       </div>
+
+      <CollapsibleSection
+        title={t("supplierHistory.title")}
+        defaultOpen={false}
+        storageKey="supplier-history"
+        className={card}
+      >
+        <ul className="space-y-2">
+          {detail.history.map((h, idx) => (
+            <li
+              key={idx}
+              className="flex items-baseline justify-between gap-4 border-b border-slate-100 pb-2 text-sm last:border-0"
+            >
+              <span className="text-slate-700">
+                {h.label}
+                {h.detail && <span className="ml-1.5 text-slate-400">— {h.detail}</span>}
+              </span>
+              <span className="shrink-0 text-xs text-slate-500">{h.date}</span>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -930,6 +999,16 @@ type SupplierFormState = {
   email: string;
   phone: string;
   status: "ACTIVE" | "INACTIVE";
+  commodity: string;
+  region: string;
+};
+
+// Master data and custom fields the supplier forms need.
+export type SupplierExtras = {
+  commodities: { id: string; parentId: string | null; code: string; description: string; selectable: boolean }[];
+  regions: { id: string; parentId: string | null; code: string; description: string }[];
+  customFields: CustomFieldDef[];
+  currency: string;
 };
 
 const FIELD_CLASS =
@@ -943,12 +1022,18 @@ function SupplierFields({
   groups,
   setGroups,
   viewGroups,
+  extras,
+  customValues,
+  setCustomValues,
 }: {
   form: SupplierFormState;
   setForm: (f: SupplierFormState) => void;
   groups: string[];
   setGroups: (g: string[]) => void;
   viewGroups: ViewGroupOption[];
+  extras: SupplierExtras;
+  customValues: Record<string, string>;
+  setCustomValues: (v: Record<string, string>) => void;
 }) {
   const { t } = usePreferences();
   const field = FIELD_CLASS;
@@ -994,10 +1079,48 @@ function SupplierFields({
           <option value="INACTIVE">{t("suppliersScreen.createInactive")}</option>
         </select>
       </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.commodity")}</label>
+        <TreePickerField
+          nodes={extras.commodities.map((c) => ({
+            id: c.id,
+            parentId: c.parentId,
+            label: c.description,
+            code: c.code,
+            selectable: c.selectable,
+          }))}
+          valueId={extras.commodities.find((c) => c.description === form.commodity)?.id ?? null}
+          onChangeId={(id) => setForm({ ...form, commodity: extras.commodities.find((c) => c.id === id)?.description ?? "" })}
+          placeholder={t("suppliersScreen.pickCommodity")}
+          clearLabel={t("suppliersScreen.pickCommodity")}
+        />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.region")}</label>
+        <TreePickerField
+          nodes={extras.regions.map((r) => ({ id: r.id, parentId: r.parentId, label: r.description, code: r.code }))}
+          valueId={extras.regions.find((r) => r.description === form.region)?.id ?? null}
+          onChangeId={(id) => setForm({ ...form, region: extras.regions.find((r) => r.id === id)?.description ?? "" })}
+          placeholder={t("suppliersScreen.pickRegion")}
+          clearLabel={t("suppliersScreen.pickRegion")}
+        />
+      </div>
       {viewGroups.length > 0 && (
         <div>
           <label className={label}>{t("suppliersScreen.createGroups")}</label>
           <ViewGroupPicker groups={viewGroups} value={groups} onChange={setGroups} />
+        </div>
+      )}
+      {extras.customFields.length > 0 && (
+        <div className="sm:col-span-2">
+          <CustomFieldInputs
+            fields={extras.customFields}
+            values={customValues}
+            onChange={setCustomValues}
+            slot="userCustom"
+            currency={extras.currency}
+            ctx={{ ...emptyContext(), userCustom: customValues }}
+          />
         </div>
       )}
     </div>
@@ -1007,12 +1130,14 @@ function SupplierFields({
 function CreateSupplierForm({
   clientId,
   viewGroups,
+  extras,
   canBlock,
   onCancel,
   onCreated,
 }: {
   clientId: string;
   viewGroups: ViewGroupOption[];
+  extras: SupplierExtras;
   canBlock: boolean;
   onCancel: () => void;
   onCreated: (id: string) => void;
@@ -1027,7 +1152,10 @@ function CreateSupplierForm({
     email: "",
     phone: "",
     status: "ACTIVE",
+    commodity: "",
+    region: "",
   });
+  const [customValues, setCustomValues] = useState<Record<string, string>>({});
   const [groups, setGroups] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -1036,7 +1164,7 @@ function CreateSupplierForm({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await createSupplier({ ...form, viewGroupIds: groups }, clientId);
+      const result = await createSupplier({ ...form, viewGroupIds: groups, customValues }, clientId);
       if ("error" in result) setError(result.error);
       else onCreated(result.id);
     });
@@ -1051,7 +1179,16 @@ function CreateSupplierForm({
         </p>
       )}
       {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <SupplierFields form={form} setForm={setForm} groups={groups} setGroups={setGroups} viewGroups={viewGroups} />
+      <SupplierFields
+        form={form}
+        setForm={setForm}
+        groups={groups}
+        setGroups={setGroups}
+        viewGroups={viewGroups}
+        extras={extras}
+        customValues={customValues}
+        setCustomValues={setCustomValues}
+      />
       <div className="mt-5 flex justify-end gap-3">
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
           {t("suppliersScreen.createCancel")}
@@ -1071,11 +1208,13 @@ function CreateSupplierForm({
 function EditSupplierForm({
   detail,
   viewGroups,
+  extras,
   onCancel,
   onSaved,
 }: {
   detail: SupplierDetail;
   viewGroups: ViewGroupOption[];
+  extras: SupplierExtras;
   onCancel: () => void;
   onSaved: () => void;
 }) {
@@ -1089,7 +1228,10 @@ function EditSupplierForm({
     email: detail.email,
     phone: detail.phone,
     status: detail.status,
+    commodity: detail.commodity,
+    region: detail.region,
   });
+  const [customValues, setCustomValues] = useState<Record<string, string>>(detail.customValues);
   const [groups, setGroups] = useState<string[]>(detail.groupIds);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -1098,7 +1240,7 @@ function EditSupplierForm({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await updateSupplier(detail.id, { ...form, viewGroupIds: groups });
+      const result = await updateSupplier(detail.id, { ...form, viewGroupIds: groups, customValues });
       if ("error" in result) setError(result.error);
       else onSaved();
     });
@@ -1108,7 +1250,16 @@ function EditSupplierForm({
     <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.editTitle")}</h3>
       {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <SupplierFields form={form} setForm={setForm} groups={groups} setGroups={setGroups} viewGroups={viewGroups} />
+      <SupplierFields
+        form={form}
+        setForm={setForm}
+        groups={groups}
+        setGroups={setGroups}
+        viewGroups={viewGroups}
+        extras={extras}
+        customValues={customValues}
+        setCustomValues={setCustomValues}
+      />
       <div className="mt-5 flex justify-end gap-3">
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
           {t("suppliersScreen.createCancel")}
