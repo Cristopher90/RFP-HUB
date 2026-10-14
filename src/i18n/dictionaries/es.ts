@@ -1365,6 +1365,8 @@ export const es = {
     openRow: "Abrir registro",
   },
   systemTablePage: {
+    whatIsTitle: "¿Qué es?",
+    whatForTitle: "¿Para qué se usa?",
     backToList: "← Tablas del sistema",
     rowSingular: "fila en total",
     rowPlural: "filas en total",

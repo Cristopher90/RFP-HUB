@@ -1,0 +1,336 @@
+// What each system table is and what it is used for, shown at the top of the
+// table screen (Super Administrador). [es what, es use, en what, en use].
+type Doc = [string, string, string, string];
+
+const DOCS: Record<string, Doc> = {
+  Client: [
+    "Las empresas (clientes) que usan la plataforma. Cada cliente tiene su código, descripción, moneda, icono y la configuración de su asistente de IA.",
+    "Es la raíz del aislamiento multi-cliente: casi todo dato (usuarios, plantillas, RFPs, proveedores…) cuelga de un cliente y un usuario solo ve el de su empresa.",
+    "The companies (clients) that use the platform. Each has a code, description, currency, icon and its AI assistant settings.",
+    "It is the root of multi-client isolation: almost every record (users, templates, RFPs, suppliers…) belongs to a client, and a user only sees their own company's data.",
+  ],
+  User: [
+    "Las personas de la empresa compradora que entran en la plataforma: rol, cliente, sociedad/centro/centro de coste, permisos, preferencias y grupos de visualización.",
+    "Sirve para iniciar sesión, decidir qué puede hacer y ver cada persona y asignarle RFPs, solicitudes, aprobaciones y notas.",
+    "The people from the buying company who sign in: role, client, company/plant/cost center, permissions, preferences and view groups.",
+    "Used to sign in, decide what each person can do and see, and to assign RFPs, requests, approvals and notes.",
+  ],
+  UserApprovalGroup: [
+    "Pertenencia de un usuario a un grupo de aprobación, con el límite de importe que puede aprobar.",
+    "Define quién puede aprobar qué importes en los flujos de aprobación de publicación y adjudicación.",
+    "A user's membership in an approval group, with the amount limit they can approve.",
+    "Defines who can approve which amounts in the publish and award approval flows.",
+  ],
+  Commodity: [
+    "Árbol de commodities (familias de compra) del cliente.",
+    "Clasifica RFPs, solicitudes, plantillas y proveedores, y decide qué plantilla aplica a cada RFP.",
+    "The client's commodity tree (purchase families).",
+    "Classifies RFPs, requests, templates and suppliers, and decides which template applies to an RFP.",
+  ],
+  Region: [
+    "Árbol de regiones del cliente.",
+    "Se usa para clasificar RFPs y proveedores y como condición de aplicación de plantillas.",
+    "The client's region tree.",
+    "Used to classify RFPs and suppliers and as a condition for applying templates.",
+  ],
+  Origin: [
+    "Catálogo de orígenes de la compra (de dónde viene la necesidad).",
+    "Se elige en la cabecera de la RFP para saber su procedencia.",
+    "Catalog of purchase origins (where the need comes from).",
+    "Picked in the RFP header to record where it came from.",
+  ],
+  ApprovalGroup: [
+    "Grupos de aprobadores del cliente.",
+    "Son los destinatarios de los niveles de los flujos de aprobación.",
+    "The client's groups of approvers.",
+    "They are the recipients of the levels in the approval flows.",
+  ],
+  SupplierDirectory: [
+    "El maestro de proveedores del cliente: código, CIF, empresa, contacto, estado, bloqueo, commodity, región, grupos de visualización y resumen de IA.",
+    "Es de donde se eligen los proveedores a invitar a una RFP, y la base de la pantalla Proveedores.",
+    "The client's supplier master: code, tax ID, company, contact, status, block, commodity, region, view groups and AI summary.",
+    "It is where suppliers to invite to an RFP are picked from, and the base of the Suppliers screen.",
+  ],
+  ItemCatalogList: [
+    "Listas (catálogos) de artículos del cliente.",
+    "Agrupan los artículos que se pueden añadir a una RFP desde el catálogo.",
+    "The client's item lists (catalogs).",
+    "They group the articles that can be added to an RFP from the catalog.",
+  ],
+  ItemCatalogEntry: [
+    "Cada artículo de un catálogo: código, nombre, unidad, commodity y último precio.",
+    "Permite rellenar rápido las líneas de una RFP y guardar el último precio adjudicado.",
+    "Each article of a catalog: code, name, unit, commodity and last price.",
+    "Lets RFP lines be filled quickly and keeps the last awarded price.",
+  ],
+  RfpTemplate: [
+    "Plantillas base de RFP: condiciones de aplicación (commodity, región, precio, campos), grupos de visualización, documentación requerida y otras opciones.",
+    "Definen qué artículos y preguntas lleva por defecto una RFP según sus datos de cabecera.",
+    "Base RFP templates: application conditions (commodity, region, price, fields), view groups, required documentation and other options.",
+    "They define which items and questions an RFP carries by default according to its header data.",
+  ],
+  ApprovalWorkflow: [
+    "Flujos de aprobación configurados para un cliente.",
+    "Deciden por qué niveles pasa una RFP para publicarse o adjudicarse.",
+    "Approval flows set up for a client.",
+    "They decide which levels an RFP goes through to be published or awarded.",
+  ],
+  ApprovalLevel: [
+    "Niveles de un flujo de aprobación (orden, tipo de aprobador, importes, acumulativo).",
+    "Se copian a la RFP cuando empieza su aprobación.",
+    "Levels of an approval flow (order, approver type, amounts, cumulative).",
+    "They are copied to the RFP when its approval starts.",
+  ],
+  TemplateItem: [
+    "Artículos por defecto de una plantilla.",
+    "Se añaden a la RFP cuando la plantilla aplica.",
+    "Default items of a template.",
+    "They are added to the RFP when the template applies.",
+  ],
+  TemplateQuestion: [
+    "Preguntas por defecto de una plantilla (para proveedores o internas), con tipo, peso, condiciones y secciones.",
+    "Se añaden a la RFP cuando la plantilla aplica.",
+    "Default questions of a template (for suppliers or internal), with type, weight, conditions and sections.",
+    "They are added to the RFP when the template applies.",
+  ],
+  Rfp: [
+    "Las RFPs (solicitudes de cotización): cabecera, estado, fechas, notas internas y etiquetas, adjudicación y plantillas aplicadas.",
+    "Es el documento central del proceso de compra: se invita a proveedores, se comparan respuestas y se adjudica.",
+    "The RFPs (requests for quotation): header, status, dates, internal notes and tags, award and applied templates.",
+    "The central document of the purchasing process: suppliers are invited, responses compared and the award made.",
+  ],
+  RfpApproval: [
+    "Niveles de aprobación concretos de una RFP (publicación o adjudicación) y su estado.",
+    "Registra en qué nivel está la aprobación y quién debe decidir.",
+    "The concrete approval levels of an RFP (publish or award) and their status.",
+    "Records which level the approval is at and who has to decide.",
+  ],
+  RfpApprovalDecision: [
+    "Cada decisión (aprobada o rechazada) que un usuario tomó en un nivel.",
+    "Es el histórico de quién aprobó o rechazó, cuándo y por qué.",
+    "Each decision (approved or rejected) a user made on a level.",
+    "It is the history of who approved or rejected, when and why.",
+  ],
+  RfpItem: [
+    "Líneas (artículos) de una RFP: cantidad, unidad, peso y datos adicionales.",
+    "Son lo que los proveedores cotizan.",
+    "Lines (items) of an RFP: quantity, unit, weight and extra data.",
+    "They are what suppliers quote.",
+  ],
+  RfpQuestion: [
+    "Preguntas de una RFP (para proveedores o internas), con tipo, peso, condiciones y requisitos.",
+    "Los proveedores las responden y el comprador las puntúa en la comparación.",
+    "Questions of an RFP (for suppliers or internal), with type, weight, conditions and requirements.",
+    "Suppliers answer them and the buyer scores them in the comparison.",
+  ],
+  Supplier: [
+    "Proveedor invitado a una RFP concreta (nombre, correo, empresa), con vínculo opcional al maestro de proveedores.",
+    "Es el destinatario de la invitación; una persona puede aparecer en varias RFPs.",
+    "A supplier invited to a specific RFP (name, email, company), optionally linked to the supplier master.",
+    "It is the recipient of the invitation; a person can appear in several RFPs.",
+  ],
+  Invitation: [
+    "La invitación de un proveedor a una RFP: token de acceso, estado (invitado, visto, respondido) y fechas.",
+    "El proveedor entra con su enlace/token a responder; aquí se ve quién fue invitado y quién respondió.",
+    "A supplier's invitation to an RFP: access token, status (invited, viewed, responded) and dates.",
+    "The supplier uses their link/token to respond; this shows who was invited and who responded.",
+  ],
+  Response: [
+    "La respuesta enviada por un proveedor a una invitación.",
+    "Agrupa sus precios y respuestas; es lo que se compara y adjudica.",
+    "The response a supplier submitted to an invitation.",
+    "It groups their prices and answers; it is what gets compared and awarded.",
+  ],
+  Answer: [
+    "Respuesta de un proveedor a una pregunta de la RFP, con la puntuación del comprador.",
+    "Alimenta la comparación y el puntaje de la adjudicación.",
+    "A supplier's answer to an RFP question, with the buyer's score.",
+    "Feeds the comparison and the award scoring.",
+  ],
+  ItemPrice: [
+    "Precio unitario que un proveedor cotizó para cada artículo de la RFP.",
+    "Se usa para comparar ofertas y calcular el valor adjudicado.",
+    "Unit price a supplier quoted for each RFP item.",
+    "Used to compare offers and compute the awarded value.",
+  ],
+  EmailTemplate: [
+    "Textos (asunto y cuerpo) de los correos que envía la plataforma, por tipo y cliente.",
+    "Permiten personalizar invitaciones, avisos y recordatorios.",
+    "Subject and body texts of the emails the platform sends, by kind and client.",
+    "They let invitations, notices and reminders be customized.",
+  ],
+  EmailLog: [
+    "Registro de cada correo enviado (destinatario, tipo, estado, error). Solo lectura.",
+    "Sirve para auditar y diagnosticar envíos.",
+    "Log of every email sent (recipient, kind, status, error). Read-only.",
+    "Used to audit and troubleshoot deliveries.",
+  ],
+  BuyerGroup: [
+    "Grupos de compradores del cliente.",
+    "Se les asignan solicitudes de compra para repartir el trabajo.",
+    "The client's buyer groups.",
+    "Purchase requests are assigned to them to share the work.",
+  ],
+  BuyerGroupMember: [
+    "Pertenencia de usuarios a grupos de compradores.",
+    "Decide quién ve y puede generar RFP de las solicitudes asignadas a un grupo.",
+    "Users' membership in buyer groups.",
+    "Decides who sees and can generate an RFP from the requests assigned to a group.",
+  ],
+  RequestImportTemplate: [
+    "Plantillas de importación de solicitudes (cómo leer el Excel: columnas y tipos de documento).",
+    "Permiten cargar solicitudes de compra desde otro sistema.",
+    "Request import templates (how to read the Excel: columns and document types).",
+    "They allow loading purchase requests from another system.",
+  ],
+  PurchaseRequest: [
+    "Solicitudes de compra (PR) importadas: tipo y número de documento, creador, fecha, commodity y asignación.",
+    "Son el origen desde el que un comprador genera una RFP.",
+    "Imported purchase requests (PR): document type and number, creator, date, commodity and assignment.",
+    "They are the source from which a buyer generates an RFP.",
+  ],
+  PurchaseRequestLine: [
+    "Posiciones de cada solicitud de compra: artículo, cantidad, unidad y precio histórico.",
+    "Se convierten en líneas de la RFP.",
+    "Positions of each purchase request: item, quantity, unit and historical price.",
+    "They become the RFP's lines.",
+  ],
+  UserPreference: [
+    "Preferencias de interfaz guardadas por usuario (columnas, agrupaciones y filtros visibles de las listas).",
+    "Hacen que cada persona vea las listas como las dejó.",
+    "Interface preferences saved per user (columns, grouping and visible filters of the lists).",
+    "They make each person see the lists the way they left them.",
+  ],
+  LoginEvent: [
+    "Registro de accesos: cada inicio de sesión, correcto o fallido. Solo lectura.",
+    "Sirve para seguridad y auditoría (quién entró, cuándo y con qué resultado).",
+    "Access log: every sign-in, successful or failed. Read-only.",
+    "Used for security and audit (who signed in, when and with what result).",
+  ],
+  SupplierUser: [
+    "Cuentas de las personas de proveedor (correo único y contraseña).",
+    "Entran al portal de proveedores; una misma cuenta sirve para todos los clientes que la inviten.",
+    "Accounts of supplier people (unique email and password).",
+    "They sign in to the supplier portal; one account serves every client that invites them.",
+  ],
+  SupplierUserLink: [
+    "Vínculo entre una persona de proveedor y un proveedor del maestro de un cliente: estado (pendiente, enviada, aceptada), administrador y bloqueo.",
+    "Define qué contactos puede invitar un cliente y con qué proveedor trabaja cada persona.",
+    "Link between a supplier person and a supplier of a client's master: status (pending, sent, accepted), administrator and block.",
+    "Defines which contacts a client can invite and which supplier each person works for.",
+  ],
+  RequestRfpMapping: [
+    "Configuración por cliente de cómo se rellena una RFP a partir de una solicitud.",
+    "Evita reescribir los datos al generar una RFP desde una solicitud.",
+    "Per-client setup of how an RFP is filled from a request.",
+    "Avoids retyping data when generating an RFP from a request.",
+  ],
+  SystemTableLog: [
+    "Registro de cada cambio hecho desde estas pantallas de tablas del sistema. Solo lectura.",
+    "Deja constancia de qué se editó o borró a mano.",
+    "Log of every change made from these system table screens. Read-only.",
+    "Leaves a record of what was edited or deleted by hand.",
+  ],
+  Note: [
+    "Notas del tablero de Inicio: texto, importancia, alcance (propia, dirigida, para todos) y fechas de vigencia.",
+    "Sirven para dejar avisos y recordatorios, con @menciones y #etiquetas.",
+    "Home board notes: text, importance, scope (own, targeted, for everyone) and validity dates.",
+    "Used for notices and reminders, with @mentions and #tags.",
+  ],
+  NoteTarget: [
+    "Destinatarios de las notas dirigidas.",
+    "Decide quién ve cada nota dirigida.",
+    "Recipients of targeted notes.",
+    "Decides who sees each targeted note.",
+  ],
+  NoteRead: [
+    "Quién marcó una nota como leída.",
+    "Permite mostrar al autor cuántos la han leído y ocultarla a quien ya la leyó.",
+    "Who marked a note as read.",
+    "Lets the author see how many read it and hides it from those who did.",
+  ],
+  AssistantLog: [
+    "Uso del asistente de IA (y de los resúmenes de proveedores): pregunta, herramientas, tokens y errores.",
+    "Permite controlar el consumo de la clave de IA del cliente.",
+    "Use of the AI assistant (and supplier summaries): question, tools, tokens and errors.",
+    "Lets you control the consumption of the client's AI key.",
+  ],
+  AssistantProposal: [
+    "Borradores de RFP propuestos por el asistente, pendientes de que el usuario los cree. Caducan a las 24 h.",
+    "Evitan crear RFPs sin que el usuario lo confirme.",
+    "RFP drafts proposed by the assistant, waiting for the user to create them. They expire after 24 h.",
+    "They prevent RFPs from being created without the user's confirmation.",
+  ],
+  CustomField: [
+    "Definición de los campos personalizados de un cliente: ámbito, tipo, etiquetas, obligatoriedad, condiciones y lookup.",
+    "Amplían RFPs, líneas, usuarios, solicitudes y proveedores sin cambiar el esquema.",
+    "Definition of a client's custom fields: scope, type, labels, mandatory flag, conditions and lookup.",
+    "They extend RFPs, lines, users, requests and suppliers without changing the schema.",
+  ],
+  CustomFieldValue: [
+    "Valores guardados de los campos personalizados, por cliente, tipo de elemento y campo. Tiene una partición física por cliente.",
+    "Es donde vive el dato que se escribe en cada campo personalizado.",
+    "Stored values of custom fields, by client, entity type and field. It has a physical partition per client.",
+    "It is where the data typed into each custom field lives.",
+  ],
+  Lookup: [
+    "Listas de valores (lookups) del cliente.",
+    "Alimentan los campos personalizados de tipo desplegable o árbol.",
+    "The client's value lists (lookups).",
+    "They feed custom fields of dropdown or tree type.",
+  ],
+  LookupValue: [
+    "Valores de cada lookup: código, descripciones, jerarquía y grupos de visualización.",
+    "Son las opciones que se ofrecen en el campo personalizado.",
+    "Values of each lookup: code, descriptions, hierarchy and view groups.",
+    "They are the options offered in the custom field.",
+  ],
+  ViewGroup: [
+    "Grupos de visualización del cliente.",
+    "Se asignan a usuarios y a datos (proveedores, plantillas, commodities…) para que cada usuario vea solo lo de sus grupos.",
+    "The client's view groups.",
+    "They are assigned to users and to data (suppliers, templates, commodities…) so each user only sees what belongs to their groups.",
+  ],
+  SupplierDocumentType: [
+    "Tipos de documento de proveedor configurados por el cliente (con o sin fechas) y sus grupos de visualización.",
+    "Clasifican la documentación que se sube a cada proveedor y la que exigen las plantillas.",
+    "Supplier document types set up by the client (with or without dates) and their view groups.",
+    "They classify the documentation uploaded for each supplier and the one templates require.",
+  ],
+  SupplierDocument: [
+    "Documentos subidos a un proveedor: tipo, fechas de vigencia, nota y el archivo.",
+    "Permiten saber si un proveedor tiene su documentación vigente antes de invitarlo.",
+    "Documents uploaded for a supplier: type, validity dates, note and the file.",
+    "They show whether a supplier has valid documentation before inviting it.",
+  ],
+  SupplierRating: [
+    "Puntuación (estrellas y comentario) que cada comprador da a un proveedor.",
+    "Se promedia en la pantalla Proveedores y alimenta los reportes.",
+    "Rating (stars and comment) each buyer gives a supplier.",
+    "It is averaged on the Suppliers screen and feeds the reports.",
+  ],
+  SupplierEvent: [
+    "Registro de cambios de un proveedor (ediciones, bloqueos, documentos eliminados…). Solo lectura.",
+    "Alimenta el historial de la ficha del proveedor.",
+    "Log of changes to a supplier (edits, blocks, deleted documents…). Read-only.",
+    "Feeds the history on the supplier's page.",
+  ],
+  RfpMember: [
+    "Equipo de una RFP: personas con permiso para verla o editarla.",
+    "Decide quién puede abrir y modificar cada RFP además de su creador y los administradores.",
+    "An RFP's team: people allowed to view or edit it.",
+    "Decides who can open and change each RFP besides its creator and the administrators.",
+  ],
+  RfpEvent: [
+    "Registro de cambios de una RFP (equipo, ediciones, reaperturas, invitaciones…). Solo lectura.",
+    "Alimenta el histórico de la RFP.",
+    "Log of changes to an RFP (team, edits, reopenings, invitations…). Read-only.",
+    "Feeds the RFP's history.",
+  ],
+};
+
+export function systemTableDoc(table: string, language: string): { what: string; use: string } | null {
+  const doc = DOCS[table];
+  if (!doc) return null;
+  return language === "en" ? { what: doc[2], use: doc[3] } : { what: doc[0], use: doc[1] };
+}

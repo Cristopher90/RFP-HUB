@@ -1364,6 +1364,8 @@ export const en: Dictionary = {
     openRow: "Open record",
   },
   systemTablePage: {
+    whatIsTitle: "What is it?",
+    whatForTitle: "What is it used for?",
     backToList: "← System tables",
     rowSingular: "row in total",
     rowPlural: "rows in total",

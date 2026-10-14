@@ -51,24 +51,33 @@ export const SYSTEM_TABLES = [
   { key: "assistant-proposal", label: "AssistantProposal", model: "assistantProposal" },
   { key: "custom-field", label: "CustomField", model: "customField" },
   { key: "custom-field-value", label: "CustomFieldValue", model: "customFieldValue" },
+  { key: "lookup", label: "Lookup", model: "lookup" },
+  { key: "lookup-value", label: "LookupValue", model: "lookupValue" },
+  { key: "view-group", label: "ViewGroup", model: "viewGroup" },
+  { key: "supplier-document-type", label: "SupplierDocumentType", model: "supplierDocumentType" },
+  { key: "supplier-document", label: "SupplierDocument", model: "supplierDocument" },
+  { key: "supplier-rating", label: "SupplierRating", model: "supplierRating" },
+  { key: "supplier-event", label: "SupplierEvent", model: "supplierEvent" },
+  { key: "rfp-member", label: "RfpMember", model: "rfpMember" },
+  { key: "rfp-event", label: "RfpEvent", model: "rfpEvent" },
 ] as const;
 
 // Audit-style tables: viewable here but never editable or deletable, so the
 // trail of what happened can't be rewritten from this screen.
-export const IMMUTABLE_TABLES: readonly string[] = ["EmailLog", "LoginEvent", "SystemTableLog"];
+export const IMMUTABLE_TABLES: readonly string[] = ["EmailLog", "LoginEvent", "SystemTableLog", "RfpEvent", "SupplierEvent"];
 
 // Columns that are shown but never editable (credential hashes).
 export const READONLY_COLUMNS: readonly string[] = ["passwordHash"];
 
 // Logical grouping for the table list; a table missing here lands in "other".
 export const SYSTEM_TABLE_GROUPS: { key: string; tables: string[] }[] = [
-  { key: "tenancy", tables: ["Client", "User", "UserApprovalGroup", "UserPreference", "BuyerGroup", "BuyerGroupMember", "Note", "NoteTarget", "NoteRead"] },
-  { key: "masterData", tables: ["Commodity", "Region", "Origin", "ApprovalGroup", "SupplierDirectory", "ItemCatalogList", "ItemCatalogEntry", "CustomField", "CustomFieldValue"] },
-  { key: "suppliers", tables: ["Supplier", "SupplierUser", "SupplierUserLink"] },
+  { key: "tenancy", tables: ["Client", "User", "UserApprovalGroup", "UserPreference", "BuyerGroup", "BuyerGroupMember", "ViewGroup", "Note", "NoteTarget", "NoteRead"] },
+  { key: "masterData", tables: ["Commodity", "Region", "Origin", "ApprovalGroup", "SupplierDirectory", "ItemCatalogList", "ItemCatalogEntry", "CustomField", "CustomFieldValue", "Lookup", "LookupValue", "SupplierDocumentType"] },
+  { key: "suppliers", tables: ["Supplier", "SupplierUser", "SupplierUserLink", "SupplierDocument", "SupplierRating"] },
   { key: "templates", tables: ["RfpTemplate", "TemplateItem", "TemplateQuestion", "ApprovalWorkflow", "ApprovalLevel"] },
-  { key: "rfps", tables: ["Rfp", "RfpItem", "RfpQuestion", "RfpApproval", "RfpApprovalDecision", "Invitation", "Response", "Answer", "ItemPrice"] },
+  { key: "rfps", tables: ["Rfp", "RfpItem", "RfpQuestion", "RfpApproval", "RfpApprovalDecision", "Invitation", "Response", "Answer", "ItemPrice", "RfpMember"] },
   { key: "requests", tables: ["RequestImportTemplate", "RequestRfpMapping", "PurchaseRequest", "PurchaseRequestLine"] },
-  { key: "audit", tables: ["EmailTemplate", "EmailLog", "LoginEvent", "SystemTableLog", "AssistantLog", "AssistantProposal"] },
+  { key: "audit", tables: ["EmailTemplate", "EmailLog", "LoginEvent", "SystemTableLog", "RfpEvent", "SupplierEvent", "AssistantLog", "AssistantProposal"] },
 ];
 
 export function groupOfTable(label: string): string {

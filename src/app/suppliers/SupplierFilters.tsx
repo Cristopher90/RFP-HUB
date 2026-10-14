@@ -106,8 +106,9 @@ export function matchesFilters(
   return true;
 }
 
+// Every control is the same height (matching the tree pickers) and fills its grid cell.
 const selectClass =
-  "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+  "h-[38px] w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 
 // Filter bar above the suppliers list. The search box is always there; every
 // other filter (including commodity, region, creation date, creator and the
@@ -183,10 +184,11 @@ export function SupplierFilters({
   const setCustom = (key: string, v: string) => setValues({ ...values, custom: { ...values.custom, [key]: v } });
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="mt-6 space-y-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <input
         type="search"
-        className={`${selectClass} w-64`}
+        className={selectClass}
         placeholder={t("suppliersScreen.searchPlaceholder")}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -222,7 +224,7 @@ export function SupplierFilters({
         </select>
       )}
       {isShown("commodity") && (
-        <div className="w-56">
+        <div>
           <TreePickerField
             nodes={extras.commodities.map((c) => ({ id: c.id, parentId: c.parentId, label: c.description, code: c.code }))}
             valueId={extras.commodities.find((c) => c.description === values.commodity)?.id ?? null}
@@ -233,7 +235,7 @@ export function SupplierFilters({
         </div>
       )}
       {isShown("region") && (
-        <div className="w-56">
+        <div>
           <TreePickerField
             nodes={extras.regions.map((r) => ({ id: r.id, parentId: r.parentId, label: r.description, code: r.code }))}
             valueId={extras.regions.find((r) => r.description === values.region)?.id ?? null}
@@ -244,8 +246,8 @@ export function SupplierFilters({
         </div>
       )}
       {isShown("createdDate") && (
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span>{t("suppliersScreen.filterCreatedDate")}</span>
+        <div className="flex items-center gap-2 text-sm text-slate-500 sm:col-span-2">
+          <span className="shrink-0">{t("suppliersScreen.filterCreatedDate")}</span>
           <input
             type="date"
             aria-label={t("filters.from")}
@@ -278,25 +280,30 @@ export function SupplierFilters({
         if (!isShown(key)) return null;
         return <CustomFilter key={key} field={f} value={values.custom[f.key] ?? ""} onChange={(v) => setCustom(f.key, v)} />;
       })}
-      <FilterPicker filters={available} visible={visible} onToggle={toggleFilter} />
-      {hasActiveFilters(values) && (
-        <button
-          type="button"
-          onClick={() => setValues(EMPTY_FILTERS)}
-          className="text-sm font-medium text-slate-500 hover:text-slate-700"
-        >
-          {t("filters.clear")}
-        </button>
-      )}
+    </div>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <FilterPicker filters={available} visible={visible} onToggle={toggleFilter} />
+        {hasActiveFilters(values) && (
+          <button
+            type="button"
+            onClick={() => setValues(EMPTY_FILTERS)}
+            className="text-sm font-medium text-slate-500 hover:text-slate-700"
+          >
+            {t("filters.clear")}
+          </button>
+        )}
+      </div>
       <select
         value={sort}
         onChange={(e) => setSort(e.target.value as "name" | "rating")}
-        className={`${selectClass} ml-auto`}
+        className={`${selectClass} !w-52`}
         aria-label={t("suppliersScreen.sortLabel")}
       >
         <option value="name">{t("suppliersScreen.sortName")}</option>
         <option value="rating">{t("suppliersScreen.sortRating")}</option>
       </select>
+    </div>
     </div>
   );
 }
@@ -314,7 +321,7 @@ function CustomFilter({
   const label = labelFor(field.labels, language, field.key);
   if (field.type === "TREE") {
     return (
-      <div className="w-56">
+      <div>
         <TreePickerField
           nodes={treeNodes(field.options, language, value)}
           valueId={value || null}
@@ -375,7 +382,7 @@ function TextFilter({ label, value, onApply }: { label: string; value: string; o
     <input
       type="search"
       aria-label={label}
-      className={`${selectClass} w-48`}
+      className={selectClass}
       placeholder={label}
       value={text}
       onChange={(e) => setText(e.target.value)}

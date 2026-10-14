@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { findSystemTable, formatCellValue } from "@/lib/systemTables";
 import { getTableMeta } from "@/lib/systemTablesMeta";
 import { getDictionary } from "@/i18n/getDictionary";
+import { systemTableDoc } from "@/lib/systemTableDocs";
 import { SystemTableGrid, type GridRow } from "./SystemTableGrid";
 
 const PAGE_SIZES = [50, 100] as const; // plus "all" (no limit)
@@ -92,6 +93,7 @@ export default async function SystemTablePage({
   }));
 
   const d = dictionary.systemTablePage;
+  const doc = systemTableDoc(table.label, scope.user.language);
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
       <Link href="/admin/system-tables" className="text-sm text-slate-500 hover:text-slate-700">
@@ -115,6 +117,18 @@ export default async function SystemTablePage({
           {dictionary.systemTableEditor.viewLog}
         </Link>
       </div>
+      {doc && (
+        <div className="mt-4 grid gap-3 rounded-xl border border-violet-100 bg-violet-50/50 p-4 text-sm text-slate-700 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{d.whatIsTitle}</p>
+            <p className="mt-1">{doc.what}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">{d.whatForTitle}</p>
+            <p className="mt-1">{doc.use}</p>
+          </div>
+        </div>
+      )}
       {filter && (
         <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs text-violet-800">
           {dictionary.systemTableEditor.filteredBy} <code>{filter.column} = {filter.value}</code>
