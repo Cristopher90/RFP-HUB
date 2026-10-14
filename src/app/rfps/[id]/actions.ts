@@ -60,8 +60,10 @@ export async function inviteSupplier(
 
   const rfp = await prisma.rfp.findUniqueOrThrow({
     where: { id: rfpId },
-    select: { clientId: true },
+    select: { clientId: true, status: true },
   });
+  // Suppliers are chosen while the RFP is a draft; a published one goes back to draft to change them.
+  if (rfp.status !== "DRAFT") return { error: dictionary.rfpIdActions.invitesOnlyInDraft };
   // ... and only if it holds the documentation the RFP's templates require.
   if (input.supplierDirectoryId) {
     const docError = await documentationError(

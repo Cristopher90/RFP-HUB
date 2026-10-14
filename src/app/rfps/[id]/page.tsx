@@ -675,14 +675,17 @@ export default async function RfpDetailPage({
         className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="-mx-6 -mt-4">
-          {canEdit && (
-            <div className="px-6">
-              <InviteSupplierForm
-                rfpId={rfp.id}
-                supplierDirectory={supplierDirectory}
-              />
-            </div>
-          )}
+          {canEdit &&
+            (rfp.status === "DRAFT" ? (
+              <div className="px-6">
+                <InviteSupplierForm
+                  rfpId={rfp.id}
+                  supplierDirectory={supplierDirectory}
+                />
+              </div>
+            ) : (
+              <p className="px-6 text-xs text-slate-400">{dictionary.rfpDetail.invitesOnlyInDraft}</p>
+            ))}
           {rfp.invitations.length === 0 ? (
             <p className="px-6 pt-4 text-sm text-slate-500">
               {dictionary.rfpDetail.noSuppliersInvited}

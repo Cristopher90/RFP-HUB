@@ -1108,6 +1108,7 @@ export const en: Dictionary = {
     noActiveSuppliers: "There are no active suppliers under Settings → Master data → Suppliers.",
   },
   rfpDetail: {
+    invitesOnlyInDraft: "Suppliers can only be invited while the RFP is a draft. Use \"Edit\" to change them.",
     editPublished: "Edit",
     editPublishedConfirm: "To edit it, the RFP goes back to draft and the responses suppliers already sent ({count}) are deleted. You will have to publish it again and suppliers must respond again. Continue?",
     backToAll: "← All RFPs",
@@ -1581,6 +1582,7 @@ export const en: Dictionary = {
     requestAlreadyHasRfp: "That request already has an RFP.",
   },
   rfpIdActions: {
+    invitesOnlyInDraft: "Suppliers can only be invited while the RFP is a draft.",
     cannotReturnToDraft: "Only a published, pending-approval or closed RFP can be returned to draft.",
     nameAndEmailRequired: "Name and email are required.",
     onlyDraftCanBeDeleted: "Only draft RFPs can be deleted.",

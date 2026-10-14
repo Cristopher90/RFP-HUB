@@ -1109,6 +1109,7 @@ export const es = {
     noActiveSuppliers: "No hay proveedores activos en Configuración → Datos maestros → Proveedores.",
   },
   rfpDetail: {
+    invitesOnlyInDraft: "Solo se pueden invitar proveedores mientras la RFP está en borrador. Para cambiarlos usa \"Editar\".",
     editPublished: "Editar",
     editPublishedConfirm: "Para editar, la RFP vuelve a borrador y se eliminan las respuestas que los proveedores ya enviaron ({count}). Tendrás que publicarla de nuevo y los proveedores deberán responder otra vez. ¿Continuar?",
     backToAll: "← Todas las RFPs",
@@ -1585,6 +1586,7 @@ export const es = {
     requestAlreadyHasRfp: "Esa solicitud ya tiene una RFP.",
   },
   rfpIdActions: {
+    invitesOnlyInDraft: "Solo se pueden invitar proveedores mientras la RFP está en borrador.",
     cannotReturnToDraft: "Solo se puede devolver a borrador una RFP publicada, en espera de aprobación o cerrada.",
     nameAndEmailRequired: "Nombre y correo son obligatorios.",
     onlyDraftCanBeDeleted: "Solo se pueden eliminar RFPs en borrador.",
