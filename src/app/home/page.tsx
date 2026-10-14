@@ -8,6 +8,8 @@ import { PendingApprovalsBox } from "../PendingApprovalsBox";
 import { WeekCalendar } from "./WeekCalendar";
 import { StatusSummary } from "./StatusSummary";
 import { NotesBoard, type NoteView } from "./NotesBoard";
+import { usesBento } from "@/lib/themes";
+import { BentoGrid, Metric, Tile, TileTitle } from "@/components/bento/Bento";
 
 const WINDOW_DAYS = 70;
 
@@ -50,7 +52,7 @@ export default async function HomePage() {
           { startDate: null, publishedAt: { gte: from, lte: to } },
         ],
       },
-      select: { id: true, number: true, title: true, deadlineAt: true, startDate: true, publishedAt: true },
+      select: { id: true, number: true, title: true, status: true, deadlineAt: true, startDate: true, publishedAt: true },
     }),
     prisma.note.findMany({
       where: visibleNotesWhere(user, now),
@@ -98,6 +100,82 @@ export default async function HomePage() {
       n.clientId === null ? d.globalNews : n.clientId !== user.clientId ? (n.client?.description ?? null) : null,
     state: n.startsAt && n.startsAt > now ? "scheduled" : n.endsAt && n.endsAt < now ? "expired" : "active",
   }));
+
+  if (usesBento(user)) {
+    // Bento layout: the same data as below, arranged as a mosaic of tiles.
+    const b = dictionary.bento;
+    const count = (status: string) => statusGroups.find((g) => g.status === status)?._count._all ?? 0;
+    const weekEnd = now.getTime() + 7 * 86_400_000;
+    const closingThisWeek = windowRfps.filter(
+      (r) => r.status === "OPEN" && r.deadlineAt.getTime() >= now.getTime() && r.deadlineAt.getTime() <= weekEnd,
+    ).length;
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-8">
+        <BentoGrid>
+          <Tile span={4} className="flex flex-col justify-center">
+            <h1 className="text-3xl font-medium tracking-tight">{b.greeting.replace("{name}", user.name)}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {pendingApprovals.length > 0
+                ? b.approvalsWaiting.replace("{count}", String(pendingApprovals.length))
+                : b.approvalsNone}
+            </p>
+          </Tile>
+          <Tile tone="peach" span={2}>
+            <Metric label={b.pendingMine} value={pendingApprovals.length} />
+          </Tile>
+          <Tile tone="dark" span={2}>
+            <Metric label={b.open} value={count("OPEN")} size="lg" />
+          </Tile>
+          <Tile tone="lime" span={2}>
+            <Metric label={b.closingThisWeek} value={closingThisWeek} size="lg" />
+          </Tile>
+          <Tile tone="lilac" span={2}>
+            <Metric
+              label={b.toApprove}
+              value={count("PENDING_PUBLISH_APPROVAL")}
+              size="lg"
+              sub={`${count("DRAFT")} ${b.drafts.toLowerCase()}`}
+            />
+          </Tile>
+          {pendingApprovals.length > 0 && (
+            <div className="md:col-span-6">
+              <PendingApprovalsBox
+                items={pendingApprovals.map((p) => ({
+                  rfpId: p.rfpId,
+                  rfpNumber: p.rfpNumber,
+                  rfpTitle: p.rfpTitle,
+                  stage: p.stage,
+                  approvalId: p.approvalId,
+                  createdAt: p.createdAt.toISOString(),
+                }))}
+              />
+            </div>
+          )}
+          <Tile span={6} className="bg-amber-50">
+            <TileTitle>{d.notesTitle}</TileTitle>
+            <NotesBoard
+              notes={notes}
+              rights={noteRights(user)}
+              users={users.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName ?? "", email: u.email }))}
+              clients={clients.map((c) => ({ id: c.id, label: c.description }))}
+            />
+          </Tile>
+          <Tile span={4}>
+            <TileTitle>{d.weekTitle}</TileTitle>
+            <WeekCalendar events={events} />
+          </Tile>
+          <Tile span={2}>
+            <TileTitle>{d.statusTitle}</TileTitle>
+            {statusGroups.length === 0 ? (
+              <p className="text-sm text-slate-400">{d.noRfps}</p>
+            ) : (
+              <StatusSummary counts={statusGroups.map((g) => ({ status: g.status, count: g._count._all }))} />
+            )}
+          </Tile>
+        </BentoGrid>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">

@@ -18,6 +18,8 @@ import type { RfpStatus } from "@/generated/prisma/enums";
 import { loadCustomFields, rfpIdsMatchingCustom } from "@/lib/customFields";
 import { applyViewGroupsToFields, normalizeValue } from "@/lib/customFieldsShared";
 import { filterTreeByGroups } from "@/lib/viewGroups";
+import { usesBento } from "@/lib/themes";
+import { BentoGrid, Metric, Tile } from "@/components/bento/Bento";
 
 export default async function Home({
   searchParams,
@@ -238,6 +240,51 @@ export default async function Home({
       startsAt: (rfp.startDate ?? rfp.publishedAt)?.toISOString() ?? null,
     }));
 
+  // Bento: summary tiles of the RFPs in this view (same filters as the list).
+  const bentoTiles = (() => {
+    if (!usesBento(user)) return null;
+    const b = dictionary.bento;
+    const weekEnd = new Date().getTime() + 7 * 86_400_000;
+    const nowMs = new Date().getTime();
+    const open = rfps.filter((r) => r.status === "OPEN").length;
+    const toApprove = rfps.filter((r) => r.status === "PENDING_PUBLISH_APPROVAL").length;
+    const drafts = rfps.filter((r) => r.status === "DRAFT").length;
+    const closing = rfps.filter(
+      (r) => r.status === "OPEN" && r.deadlineAt.getTime() >= nowMs && r.deadlineAt.getTime() <= weekEnd,
+    ).length;
+    const published = rfps.filter((r) => r.status !== "DRAFT" && r.status !== "PENDING_PUBLISH_APPROVAL");
+    const invited = published.reduce((n, r) => n + r.invitations.length, 0);
+    const responded = published.reduce((n, r) => n + r.invitations.filter((i) => i.response).length, 0);
+    return (
+      <BentoGrid className="mb-6">
+        <Tile tone="dark">
+          <Metric
+            label={b.open}
+            value={open}
+            size="lg"
+            sub={`${rfps.length} ${b.total} ${b.inThisView}`}
+          />
+        </Tile>
+        <Tile tone="lime">
+          <Metric
+            label={b.closingThisWeek}
+            value={closing}
+            size="lg"
+            sub={`${toApprove} ${b.toApprove.toLowerCase()} · ${drafts} ${b.drafts.toLowerCase()}`}
+          />
+        </Tile>
+        <Tile tone="lilac">
+          <Metric
+            label={b.responseRate}
+            value={invited > 0 ? `${Math.round((responded / invited) * 100)}%` : "—"}
+            size="lg"
+            sub={b.responsesOfInvited.replace("{responded}", String(responded)).replace("{invited}", String(invited))}
+          />
+        </Tile>
+      </BentoGrid>
+    );
+  })();
+
   function tabHref(target: "mine" | "all") {
     const params = new URLSearchParams();
     if (commodityFilter) params.set("commodity", commodityFilter);
@@ -291,6 +338,8 @@ export default async function Home({
           }))}
         />
       )}
+
+      {bentoTiles}
 
       {!isApprover && (
         <div className="mb-4 border-b border-slate-200">

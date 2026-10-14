@@ -33,3 +33,8 @@ export type UiStyle = (typeof UI_STYLES)[number];
 export function isUiStyle(value: string): value is UiStyle {
   return (UI_STYLES as readonly string[]).includes(value);
 }
+
+// True when this user sees the bento layouts (Super Administrador who chose it).
+export function usesBento(user: { role: string; uiStyle: string }): boolean {
+  return user.role === "ADMIN" && user.uiStyle === "bento";
+}

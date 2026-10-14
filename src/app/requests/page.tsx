@@ -14,6 +14,8 @@ import { BUYER_ROLES, type HeaderMapping, type ImportMode, type LinesMapping } f
 import { RequestFilters } from "./RequestFilters";
 import { RequestsTable, type RequestRow } from "./RequestsTable";
 import { ImportRequestsDialog } from "./ImportRequestsDialog";
+import { usesBento } from "@/lib/themes";
+import { BentoGrid, Metric, Tile } from "@/components/bento/Bento";
 
 const PAGE_SIZE = 25;
 
@@ -168,6 +170,17 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
           dictionary.customFields.no,
         );
 
+  // Bento: counts per status of the requests this user can see.
+  const bentoCounts = usesBento(user)
+    ? await Promise.all(
+        (["NEW", "PROCESSED", "IN_NEGOTIATION", "NEGOTIATED"] as const).map((st) =>
+          prisma.purchaseRequest.count({
+            where: { ...visibleScope, ...(statusWhere(st) as Prisma.PurchaseRequestWhereInput) },
+          }),
+        ),
+      )
+    : null;
+
   const dateTime = { locale, timeZone: user.timezone };
   const rows: RequestRow[] = requests.map((r) => {
     const rowStatus = deriveRequestStatus(r);
@@ -228,6 +241,25 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
       {header}
+      {bentoCounts && (
+        <BentoGrid className="mt-6">
+          <Tile tone="dark">
+            <Metric
+              label={dictionary.bento.requestsNew}
+              value={bentoCounts[0]}
+              size="lg"
+              sub={`${bentoCounts.reduce((a, b) => a + b, 0)} ${dictionary.bento.requestsTotal.toLowerCase()}`}
+            />
+          </Tile>
+          <Tile tone="lime">
+            <Metric label={dictionary.bento.requestsOpen} value={bentoCounts[1] + bentoCounts[2]} size="lg" />
+          </Tile>
+          <Tile tone="lilac">
+            <Metric label={dictionary.bento.requestsDone} value={bentoCounts[3]} size="lg" />
+          </Tile>
+        </BentoGrid>
+      )}
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <ImportRequestsDialog
           canImport={canImport}
