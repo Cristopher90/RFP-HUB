@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLOR_MODES, THEMES } from "@/lib/themes";
+import { COLOR_MODES, THEMES, UI_STYLES } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -18,7 +18,9 @@ export function ProfileForm({
   initial,
   timezones,
   currencies,
+  canChooseUiStyle = false,
 }: {
+  canChooseUiStyle?: boolean;
   initial: ProfileFormInput;
   timezones: string[];
   currencies: string[];
@@ -46,6 +48,9 @@ export function ProfileForm({
     setSaved(false);
     if (patch.theme !== undefined || patch.colorMode !== undefined) {
       previewAppearance(next.theme, next.colorMode);
+    }
+    if (patch.uiStyle !== undefined) {
+      document.documentElement.setAttribute("data-ui", patch.uiStyle);
     }
   }
 
@@ -106,6 +111,33 @@ export function ProfileForm({
               ))}
             </div>
           </div>
+          {canChooseUiStyle && (
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.uiStyle")}</p>
+              <div className="flex flex-wrap gap-3">
+                {UI_STYLES.map((style) => (
+                  <label
+                    key={style}
+                    className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${
+                      (form.uiStyle ?? "classic") === style
+                        ? "border-violet-500 ring-1 ring-violet-500"
+                        : "border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="uiStyle"
+                      className="sr-only"
+                      checked={(form.uiStyle ?? "classic") === style}
+                      onChange={() => update({ uiStyle: style })}
+                    />
+                    {t(`profile.uiStyle_${style}`)}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1.5 text-xs text-slate-500">{t("profile.uiStyleHint")}</p>
+            </div>
+          )}
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.colorMode")}</p>
             <div className="flex flex-wrap gap-3">

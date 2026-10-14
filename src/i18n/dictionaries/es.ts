@@ -65,6 +65,10 @@ export const es = {
     mode_light: "Claro",
     mode_dark: "Oscuro",
     mode_system: "Según el sistema",
+    uiStyle: "Estilo de interfaz",
+    uiStyle_classic: "Clásico",
+    uiStyle_bento: "Bento (nuevo)",
+    uiStyleHint: "Solo cambia el aspecto, no el funcionamiento. Por ahora está disponible solo para el Super Administrador.",
   },
   roles: {
     APPROVER: "Aprobador",

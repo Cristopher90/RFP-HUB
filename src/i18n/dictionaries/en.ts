@@ -64,6 +64,10 @@ export const en: Dictionary = {
     mode_light: "Light",
     mode_dark: "Dark",
     mode_system: "Follow system",
+    uiStyle: "Interface style",
+    uiStyle_classic: "Classic",
+    uiStyle_bento: "Bento (new)",
+    uiStyleHint: "Only changes the look, not how things work. For now it's available to the Super Administrator only.",
   },
   roles: {
     APPROVER: "Approver",

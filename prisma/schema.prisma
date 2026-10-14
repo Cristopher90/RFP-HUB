@@ -164,6 +164,7 @@ model User {
   language           String    @default("es") // idioma de la interfaz ("es" o "en")
   theme              String    @default("violet") // color principal de la interfaz
   colorMode          String    @default("light") // "light", "dark" o "system"
+  uiStyle            String    @default("classic") // estilo visual de la interfaz ("classic" o "bento"); solo lo puede elegir el Super Administrador
 
   // Permisos del módulo de Solicitudes (los administradores tienen todo implícito)
   canImportRequests     Boolean @default(false) // puede importar solicitudes

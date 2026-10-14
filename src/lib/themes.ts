@@ -23,3 +23,13 @@ export function isTheme(value: string): value is ThemeName {
 export function isColorMode(value: string): value is ColorMode {
   return (COLOR_MODES as readonly string[]).includes(value);
 }
+
+// Visual style of the whole interface. "bento" (tiles on a warm canvas, ink and
+// lime accents) is only offered to the Super Administrador for now; it changes
+// looks only, never behaviour.
+export const UI_STYLES = ["classic", "bento"] as const;
+export type UiStyle = (typeof UI_STYLES)[number];
+
+export function isUiStyle(value: string): value is UiStyle {
+  return (UI_STYLES as readonly string[]).includes(value);
+}

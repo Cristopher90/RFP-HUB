@@ -59,6 +59,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-theme={preferences.theme}
       data-mode={preferences.colorMode === "dark" ? "dark" : "light"}
       data-color-mode={preferences.colorMode}
+      data-ui={preferences.uiStyle}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
