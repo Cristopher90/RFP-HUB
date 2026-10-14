@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
+import { AppLogo } from "@/components/AppLogo";
 import { getCurrentUser } from "@/lib/auth";
 import { acceptedLinks, getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { formatDateTime } from "@/lib/format";
@@ -79,23 +80,35 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(80%_60%_at_50%_-10%,color-mix(in_oklab,var(--color-violet-600)_12%,transparent),transparent)]"
         />
         <header className="sticky top-0 z-10 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link href={user ? "/home" : "/"} className="flex items-center gap-2.5">
-              {brandImage ? (
-                // The client's own image replaces the emoji badge.
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={brandImage} alt="" className="h-8 w-8 rounded-lg bg-white object-contain shadow-sm" />
-              ) : (
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 text-sm shadow-sm shadow-violet-600/30">
-                  {brandIcon}
-                </span>
+          <div className="mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-6 py-3">
+            {/* Left: the client (icon + name), apart from the app's own logo. */}
+            <div className="flex min-w-0 items-center">
+              {client && (
+                <Link href={user ? "/home" : "/"} className="flex min-w-0 items-center gap-2.5">
+                  {brandImage ? (
+                    // The client's own image replaces the emoji badge.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={brandImage} alt="" className="h-8 w-8 shrink-0 rounded-lg bg-white object-contain shadow-sm" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-indigo-500 text-sm shadow-sm shadow-violet-600/30">
+                      {brandIcon}
+                    </span>
+                  )}
+                  {brandName && (
+                    <span className="hidden truncate text-lg font-semibold tracking-tight text-slate-900 sm:inline">
+                      {brandName}
+                    </span>
+                  )}
+                </Link>
               )}
-              <span className="text-lg font-semibold tracking-tight text-slate-900">
-                {brandName && <span>{brandName} </span>}
-                <span className="text-violet-600">RFP.HUB</span>
-              </span>
+            </div>
+            {/* Center: RFP HUB logo. */}
+            <Link href={user ? "/home" : "/"} aria-label="RFP HUB" className="flex items-center">
+              <AppLogo height={36} />
             </Link>
-            <HeaderNav />
+            <div className="flex justify-end">
+              <HeaderNav />
+            </div>
           </div>
         </header>
         <div className="flex flex-1">
