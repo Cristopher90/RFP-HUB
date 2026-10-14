@@ -23,6 +23,7 @@ export type RfpRow = {
   itemCount: number;
   invitationCount: number;
   respondedCount: number;
+  createdAt: string;
   startsAt: string | null;
   deadlineAt: string;
   clientLabel: string | null;
@@ -37,16 +38,17 @@ type ColumnKey =
   | "articulos"
   | "proveedores"
   | "respuestas"
+  | "creacion"
   | "inicio"
   | "cierre";
 
 type SortKey = ColumnKey | "rfp";
 type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
 
-type GroupBy = "none" | "estado" | "commodity" | "region" | "creador" | "inicio" | "cierre";
+type GroupBy = "none" | "estado" | "commodity" | "region" | "creador" | "creacion" | "inicio" | "cierre";
 type DatePart = "day" | "month" | "year";
 
-const GROUP_OPTIONS: GroupBy[] = ["estado", "commodity", "region", "creador", "inicio", "cierre"];
+const GROUP_OPTIONS: GroupBy[] = ["estado", "commodity", "region", "creador", "creacion", "inicio", "cierre"];
 const GROUPING_STORAGE_KEY = "rfp-list-grouping";
 
 function allColumnDefs(dictionary: Dictionary): ColumnDef<ColumnKey>[] {
@@ -59,6 +61,7 @@ function allColumnDefs(dictionary: Dictionary): ColumnDef<ColumnKey>[] {
     { key: "articulos", label: dictionary.rfpTable.articulos, defaultWidth: 100, minWidth: 80 },
     { key: "proveedores", label: dictionary.rfpTable.proveedores, defaultWidth: 120, minWidth: 90 },
     { key: "respuestas", label: dictionary.rfpTable.respuestas, defaultWidth: 120, minWidth: 90 },
+    { key: "creacion", label: dictionary.rfpTable.creacion, defaultWidth: 130, minWidth: 100 },
     { key: "inicio", label: dictionary.rfpTable.inicio, defaultWidth: 130, minWidth: 100 },
     { key: "cierre", label: dictionary.rfpTable.cierre, defaultWidth: 130, minWidth: 100 },
   ];
@@ -150,6 +153,8 @@ export function RfpTable({
           return rfp.invitationCount;
         case "respuestas":
           return rfp.respondedCount;
+        case "creacion":
+          return new Date(rfp.createdAt).getTime();
         case "inicio":
           return rfp.startsAt ? new Date(rfp.startsAt).getTime() : null;
         case "cierre":
@@ -170,7 +175,7 @@ export function RfpTable({
     return sort?.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : "";
   }
 
-  const isDateGroup = groupBy === "inicio" || groupBy === "cierre";
+  const isDateGroup = groupBy === "creacion" || groupBy === "inicio" || groupBy === "cierre";
 
   const groups = useMemo<Group[] | null>(() => {
     if (groupBy === "none") return null;
@@ -223,6 +228,8 @@ export function RfpTable({
           return rfp.creatorName && rfp.creatorName !== "—"
             ? { key: rfp.creatorName, label: rfp.creatorName }
             : { key: "", label: dictionary.rfpTable.noValue };
+        case "creacion":
+          return dateGroup(rfp.createdAt);
         case "inicio":
           return dateGroup(rfp.startsAt);
         default:
@@ -242,7 +249,7 @@ export function RfpTable({
       group.proveedores += rfp.invitationCount;
       group.respuestas += rfp.respondedCount;
     }
-    const dateSorted = groupBy === "inicio" || groupBy === "cierre";
+    const dateSorted = groupBy === "creacion" || groupBy === "inicio" || groupBy === "cierre";
     return [...byKey.values()].sort((a, b) => {
       if (a.key === "" || b.key === "") return a.key === "" ? 1 : -1; // "sin valor" last
       return dateSorted ? a.key.localeCompare(b.key) : a.label.localeCompare(b.label, locale);
@@ -283,6 +290,8 @@ export function RfpTable({
         return rfp.invitationCount;
       case "respuestas":
         return `${rfp.respondedCount} / ${rfp.invitationCount}`;
+      case "creacion":
+        return formatDate(rfp.createdAt);
       case "inicio":
         return rfp.startsAt ? formatDate(rfp.startsAt) : "—";
       case "cierre":

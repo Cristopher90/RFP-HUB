@@ -57,6 +57,8 @@ export default async function Home({
     typeof sp[key] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp[key] as string)
       ? (sp[key] as string)
       : "";
+  const createdFrom = dateParam("createdFrom");
+  const createdTo = dateParam("createdTo");
   const startFrom = dateParam("startFrom");
   const startTo = dateParam("startTo");
   const closeFrom = dateParam("closeFrom");
@@ -101,6 +103,7 @@ export default async function Home({
   }
   const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
   const advancedWhere = [
+    ...(createdFrom || createdTo ? [{ createdAt: dayRange(createdFrom, createdTo) }] : []),
     // An RFP with no explicit start date starts the day it was published.
     ...(startFrom || startTo
       ? [
@@ -218,6 +221,7 @@ export default async function Home({
     itemCount: rfp.items.length,
     invitationCount: rfp.invitations.length,
     respondedCount: rfp.invitations.filter((inv) => inv.response).length,
+    createdAt: rfp.createdAt.toISOString(),
     startsAt: (rfp.startDate ?? rfp.publishedAt)?.toISOString() ?? null,
     deadlineAt: rfp.deadlineAt.toISOString(),
     clientLabel: showClientColumn
@@ -247,6 +251,8 @@ export default async function Home({
       params.set("creator", creatorFilter);
     if (target === "all" && clientFilter) params.set("client", clientFilter);
     if (supplierFilter) params.set("supplier", supplierFilter);
+    if (createdFrom) params.set("createdFrom", createdFrom);
+    if (createdTo) params.set("createdTo", createdTo);
     if (startFrom) params.set("startFrom", startFrom);
     if (startTo) params.set("startTo", startTo);
     if (closeFrom) params.set("closeFrom", closeFrom);

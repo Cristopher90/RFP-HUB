@@ -11,6 +11,8 @@ export const RFP_FILTER_PARAMS = [
   "creator",
   "client",
   "supplier",
+  "createdFrom",
+  "createdTo",
   "startFrom",
   "startTo",
   "closeFrom",

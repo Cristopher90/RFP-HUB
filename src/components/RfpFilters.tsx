@@ -36,6 +36,7 @@ const FILTER_PARAMS: Record<string, string[]> = {
   status: ["status"],
   client: ["client"],
   creator: ["creator"],
+  createdDate: ["createdFrom", "createdTo"],
   startDate: ["startFrom", "startTo"],
   closeDate: ["closeFrom", "closeTo"],
   supplier: ["supplier"],
@@ -81,6 +82,7 @@ export function RfpFilters({
     { key: "status", label: dictionary.rfpTable.estado },
     ...(clients ? [{ key: "client", label: dictionary.rfpTable.cliente }] : []),
     ...(creators ? [{ key: "creator", label: t("filters.creator") }] : []),
+    { key: "createdDate", label: t("filters.createdDate") },
     { key: "startDate", label: t("filters.startDate") },
     { key: "closeDate", label: t("filters.closeDate") },
     { key: "supplier", label: t("filters.invitedSupplier") },
@@ -249,6 +251,7 @@ export function RfpFilters({
           ))}
         </select>
       )}
+      {isShown("createdDate") && dateRange(t("filters.createdDate"), "createdFrom", "createdTo")}
       {isShown("startDate") && dateRange(t("filters.startDate"), "startFrom", "startTo")}
       {isShown("closeDate") && dateRange(t("filters.closeDate"), "closeFrom", "closeTo")}
       {isShown("supplier") && (
