@@ -326,6 +326,7 @@ model SupplierDirectory {
   blocked          Boolean                 @default(false) // bloqueado: no se puede invitar a RFP (igual que sin contactos)
   blockedAt        DateTime?
   initialBlock     Boolean                 @default(false) // bloqueado al crearlo un usuario sin permiso de bloqueo; se apaga al desbloquearlo
+  createdByUserId  String? // quién lo creó desde la pantalla Proveedores (null si viene del maestro o es anterior)
   commodity        String? // descripción del commodity (árbol de datos maestros)
   region           String? // descripción de la región
   viewGroupIds     String[]                @default([]) // grupos de visualización que lo ven; vacío = todos

@@ -317,6 +317,7 @@ export async function createSupplier(
       clientId,
       commodity: extras.commodity,
       region: extras.region,
+      createdByUserId: user.id,
       initialBlock: !canBlock,
       code,
       taxId,

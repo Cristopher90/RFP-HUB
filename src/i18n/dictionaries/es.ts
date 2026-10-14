@@ -2401,6 +2401,13 @@ export const es = {
     },
   },
   suppliersScreen: {
+    filterStatus: "Estado",
+    filterDocStatus: "Documentación (estado)",
+    filterDocType: "Tipo de documento",
+    filterCreatedDate: "Fecha de creación",
+    filterCreator: "Creador",
+    filterAnyCreator: "Todos los creadores",
+    sortLabel: "Ordenar",
     filterInitialBlock: "Bloqueo inicial",
     initialBlock: "Bloqueo inicial",
     initialBlockNote: "Bloqueo inicial: este proveedor lo creó un usuario sin permiso para desbloquear. Alguien con ese permiso debe revisarlo y desbloquearlo.",

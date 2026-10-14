@@ -62,7 +62,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
     );
   }
 
-  const [rows, ratings, groups, allDocTypes, docIndex, ai, allCommodities, allRegions, rawCustomFields, clientRow] = await Promise.all([
+  const [rows, ratings, groups, allDocTypes, docIndex, ai, allCommodities, allRegions, rawCustomFields, clientRow, allCustomRows] = await Promise.all([
     prisma.supplierDirectory.findMany({
       where: { clientId, ...viewGroupWhere(user) },
       include: {
@@ -82,7 +82,21 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
     prisma.region.findMany({ where: { clientId }, orderBy: { description: "asc" } }),
     loadCustomFields(clientId, "SUPPLIER"),
     prisma.client.findUnique({ where: { id: clientId }, select: { currency: true } }),
+    prisma.customFieldValue.findMany({
+      where: { clientId, entityType: "SUPPLIER", value: { not: null } },
+      select: { entityId: true, fieldKey: true, value: true },
+    }),
   ]);
+  // Custom values per supplier (for the list filters) and the people who created suppliers.
+  const customBySupplier = new Map<string, Record<string, string>>();
+  for (const r of allCustomRows) {
+    if (r.value === null) continue;
+    customBySupplier.set(r.entityId, { ...(customBySupplier.get(r.entityId) ?? {}), [r.fieldKey]: r.value });
+  }
+  const creatorIds = [...new Set(rows.map((s) => s.createdByUserId).filter((id): id is string => Boolean(id)))];
+  const creatorUsers = creatorIds.length
+    ? await prisma.user.findMany({ where: { id: { in: creatorIds } }, select: { id: true, name: true, lastName: true } })
+    : [];
   const commodities = filterTreeByGroups(allCommodities, user);
   const regions = filterTreeByGroups(allRegions, user);
   // Supplier custom fields as this user may see them (view groups).
@@ -111,6 +125,11 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
       taxId: s.taxId,
       blocked: s.blocked,
       initialBlock: s.blocked && s.initialBlock,
+      commodity: s.commodity ?? "",
+      region: s.region ?? "",
+      createdAt: s.createdAt.toISOString(),
+      creatorId: s.createdByUserId ?? "",
+      custom: customBySupplier.get(s.id) ?? {},
       inactive: s.status === "INACTIVE",
       contactCount: s.userLinks.filter((l) => l.status === "ACCEPTED").length,
       ratingAvg: rating?.avg ?? null,
@@ -181,7 +200,11 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
       u ? `${u.name} ${u.lastName ?? ""}`.trim() : undefined;
     // Milestones derived from other tables plus the changes recorded as they happened.
     const historyItems: { date: Date; label: string; detail?: string }[] = [
-      { date: selected.createdAt, label: sh.creation },
+      {
+        date: selected.createdAt,
+        label: sh.creation,
+        detail: fullName(creatorUsers.find((u) => u.id === selected.createdByUserId)),
+      },
     ];
     for (const doc of rawDocs) {
       const type = typeById.get(doc.typeId);
@@ -350,6 +373,8 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
         regions={regions.map((r) => ({ id: r.id, parentId: r.parentId, code: r.code, description: r.description }))}
         customFields={customFields}
         currency={currency}
+        creators={creatorUsers.map((u) => ({ id: u.id, name: `${u.name} ${u.lastName ?? ""}`.trim() }))}
+        timeZone={user.timezone}
         canCreate={canCreateSuppliers(user)}
         canEdit={canEditSuppliers(user)}
         canAddContacts={canAddSupplierContacts(user)}

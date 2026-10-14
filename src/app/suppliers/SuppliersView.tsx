@@ -12,6 +12,7 @@ import { TreePickerField } from "@/components/TreePickerField";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { emptyContext, type CustomFieldDef } from "@/lib/customFieldsShared";
+import { EMPTY_FILTERS, SupplierFilters, matchesFilters, type SupplierFilterValues } from "./SupplierFilters";
 import {
   addSupplierContact,
   createSupplier,
@@ -32,6 +33,11 @@ export type SupplierListItem = {
   taxId: string;
   blocked: boolean;
   initialBlock: boolean; // blocked since creation by a user who could not unblock
+  commodity: string;
+  region: string;
+  createdAt: string; // ISO
+  creatorId: string; // "" when unknown
+  custom: Record<string, string>; // the supplier custom field values
   inactive: boolean;
   contactCount: number;
   ratingAvg: number | null;
@@ -106,7 +112,6 @@ export type SupplierDetail = {
   }[];
 };
 
-type Filter = "all" | "active" | "blocked" | "initialBlock" | "rated";
 type Sort = "name" | "rating";
 
 // Order of the status groups in "my processes".
@@ -136,9 +141,13 @@ export function SuppliersView({
   regions,
   customFields,
   currency,
+  creators,
+  timeZone,
   isReviewer,
   language,
 }: {
+  creators: { id: string; name: string }[];
+  timeZone: string;
   commodities: SupplierExtras["commodities"];
   regions: SupplierExtras["regions"];
   customFields: CustomFieldDef[];
@@ -166,34 +175,21 @@ export function SuppliersView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filters, setFilters] = useState<SupplierFilterValues>(EMPTY_FILTERS);
   const [sort, setSort] = useState<Sort>("name");
   const [creating, setCreating] = useState(false);
-  const [docFilter, setDocFilter] = useState<"" | "expired" | "active">("");
-  const [docType, setDocType] = useState("");
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const rows = list.filter((s) => {
-      if (q && !s.searchText.includes(q)) return false;
-      if (filter === "active") return !s.blocked && !s.inactive;
-      if (filter === "blocked") return s.blocked;
-      if (filter === "initialBlock") return s.initialBlock;
-      if (filter === "rated" && s.ratingCount === 0) return false;
-      if (docFilter || docType) {
-        const wanted = docFilter === "expired" ? "expired" : docFilter === "active" ? "active" : null;
-        const hit = s.docs.some((d) => (!docType || d.typeId === docType) && (!wanted || d.status === wanted));
-        if (!hit) return false;
-      }
-      return true;
-    });
+    const ctx = { commodities, regions, customFields, timeZone };
+    const rows = list.filter((s) => (!q || s.searchText.includes(q)) && matchesFilters(s, filters, ctx));
     if (sort === "rating") {
       return [...rows].sort(
         (a, b) => (b.ratingAvg ?? -1) - (a.ratingAvg ?? -1) || b.ratingCount - a.ratingCount,
       );
     }
     return rows;
-  }, [list, query, filter, sort, docFilter, docType]);
+  }, [list, query, filters, sort, commodities, regions, customFields, timeZone]);
 
   function hrefFor(id: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -201,23 +197,20 @@ export function SuppliersView({
     return `${pathname}?${params.toString()}`;
   }
 
-  const chip = (value: Filter, label: string) => (
-    <button
-      key={value}
-      type="button"
-      onClick={() => setFilter(value)}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        filter === value
-          ? "bg-violet-600 text-white"
-          : "border border-slate-300 text-slate-600 hover:bg-slate-50"
-      }`}
-    >
-      {label}
-    </button>
-  );
-
   return (
-    <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[22rem_1fr]">
+    <>
+    <SupplierFilters
+      query={query}
+      setQuery={setQuery}
+      values={filters}
+      setValues={setFilters}
+      sort={sort}
+      setSort={setSort}
+      docTypes={docTypes}
+      extras={extras}
+      creators={creators}
+    />
+    <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[22rem_1fr]">
       <aside className="rounded-xl border border-slate-200 bg-white shadow-sm lg:max-h-[calc(100vh-14rem)] lg:overflow-hidden">
         <div className="space-y-3 border-b border-slate-200 p-4">
           {canCreate && (
@@ -228,53 +221,6 @@ export function SuppliersView({
             >
               + {t("suppliersScreen.newSupplier")}
             </button>
-          )}
-          <input
-            type="search"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-            placeholder={t("suppliersScreen.searchPlaceholder")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <div className="flex flex-wrap gap-2">
-            {chip("all", t("suppliersScreen.filterAll"))}
-            {chip("active", t("suppliersScreen.filterActive"))}
-            {chip("blocked", t("suppliersScreen.filterBlocked"))}
-            {chip("initialBlock", t("suppliersScreen.filterInitialBlock"))}
-            {chip("rated", t("suppliersScreen.filterRated"))}
-          </div>
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as Sort)}
-            className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600"
-          >
-            <option value="name">{t("suppliersScreen.sortName")}</option>
-            <option value="rating">{t("suppliersScreen.sortRating")}</option>
-          </select>
-          {docTypes.length > 0 && (
-            <div className="flex gap-2">
-              <select
-                value={docFilter}
-                onChange={(e) => setDocFilter(e.target.value as "" | "expired" | "active")}
-                className="w-1/2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600"
-              >
-                <option value="">{t("supplierDocs.filterDocsAny")}</option>
-                <option value="expired">{t("supplierDocs.filterExpired")}</option>
-                <option value="active">{t("supplierDocs.filterActiveDocs")}</option>
-              </select>
-              <select
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="w-1/2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600"
-              >
-                <option value="">{t("supplierDocs.filterAnyType")}</option>
-                {docTypes.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
           )}
         </div>
         <ul className="divide-y divide-slate-100 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto">
@@ -363,6 +309,7 @@ export function SuppliersView({
         )}
       </section>
     </div>
+    </>
   );
 }
 

@@ -2397,6 +2397,13 @@ export const en: Dictionary = {
     },
   },
   suppliersScreen: {
+    filterStatus: "Status",
+    filterDocStatus: "Documents (status)",
+    filterDocType: "Document type",
+    filterCreatedDate: "Creation date",
+    filterCreator: "Creator",
+    filterAnyCreator: "All creators",
+    sortLabel: "Sort",
     filterInitialBlock: "Initial block",
     initialBlock: "Initial block",
     initialBlockNote: "Initial block: this supplier was created by a user without permission to unblock. Someone with that permission must review and unblock it.",
