@@ -40,9 +40,10 @@ const FILTER_PARAMS: Record<string, string[]> = {
   startDate: ["startFrom", "startTo"],
   closeDate: ["closeFrom", "closeTo"],
   supplier: ["supplier"],
+  tag: ["tag"],
 };
 const VISIBLE_FILTERS_PREF_KEY = "rfp-list-visible-filters";
-const DEFAULT_VISIBLE = ["commodity", "region", "status", "client"];
+const DEFAULT_VISIBLE = ["commodity", "region", "status", "client", "tag"];
 
 export function RfpFilters({
   commodities,
@@ -50,6 +51,7 @@ export function RfpFilters({
   creators,
   clients,
   customFields = [],
+  tags = [],
 }: {
   commodities: CategoryOption[];
   regions: CategoryOption[];
@@ -57,6 +59,8 @@ export function RfpFilters({
   clients?: { id: string; description: string }[];
   // The client's custom header fields flagged as list filters ("Filtros de cliente").
   customFields?: CustomFieldDef[];
+  // #tags used on the RFPs of the list (from the internal notes).
+  tags?: string[];
 }) {
   const { t, dictionary, language } = usePreferences();
   const router = useRouter();
@@ -86,6 +90,7 @@ export function RfpFilters({
     { key: "startDate", label: t("filters.startDate") },
     { key: "closeDate", label: t("filters.closeDate") },
     { key: "supplier", label: t("filters.invitedSupplier") },
+    ...(tags.length > 0 || searchParams.get("tag") ? [{ key: "tag", label: t("filters.tag") }] : []),
     ...customFields.map((f) => ({
       key: `cf_${f.key}`,
       label: labelFor(f.labels, language, f.key),
@@ -254,6 +259,20 @@ export function RfpFilters({
       {isShown("createdDate") && dateRange(t("filters.createdDate"), "createdFrom", "createdTo")}
       {isShown("startDate") && dateRange(t("filters.startDate"), "startFrom", "startTo")}
       {isShown("closeDate") && dateRange(t("filters.closeDate"), "closeFrom", "closeTo")}
+      {isShown("tag") && (
+        <select
+          className={selectClass()}
+          value={searchParams.get("tag") ?? ""}
+          onChange={(e) => setParam("tag", e.target.value)}
+        >
+          <option value="">{t("filters.allTags")}</option>
+          {[...new Set([...tags, ...(searchParams.get("tag") ? [searchParams.get("tag") as string] : [])])].map((tag) => (
+            <option key={tag} value={tag}>
+              #{tag}
+            </option>
+          ))}
+        </select>
+      )}
       {isShown("supplier") && (
         <input
           type="search"

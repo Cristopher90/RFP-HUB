@@ -1,3 +1,4 @@
+import { loadRfpTags } from "@/lib/rfpTags";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
@@ -161,6 +162,7 @@ export default async function EditRfpPage({
   const initial: RfpInitialData = {
     title: rfp.title,
     description: rfp.description,
+    internalNotes: rfp.internalNotes ?? "",
     buyerName: rfp.buyerName,
     deadlineAt: toDatetimeLocalInput(rfp.deadlineAt),
     commodity: rfp.commodity ?? "",
@@ -194,6 +196,7 @@ export default async function EditRfpPage({
         <RfpForm
           mode="edit"
           rfpId={rfp.id}
+          existingTags={await loadRfpTags(rfpWhere)}
           initial={initial}
           currentUserRole={user.role}
           currentUserName={user.name}

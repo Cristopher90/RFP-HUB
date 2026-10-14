@@ -123,6 +123,8 @@ export const en: Dictionary = {
     PRICE: "Price only",
   },
   filters: {
+    tag: "Tag",
+    allTags: "All tags",
     allCommodities: "All commodities",
     allRegions: "All regions",
     allStatuses: "All statuses",
@@ -181,6 +183,10 @@ export const en: Dictionary = {
     createFirst: "Create the first RFP",
   },
   rfpForm: {
+    internalNotesLabel: "Internal notes",
+    internalNotesPlaceholder: "Notes for the buying team only (suppliers never see them)…",
+    internalNotesHint: "Use #tag to tag the RFP: you can then filter the list by that tag.",
+    existingTags: "Tags in use:",
     detailsTitle: "RFP details",
     titleLabel: "Title",
     titlePlaceholder: "E.g. Laptop purchase for the sales team",
@@ -683,7 +689,8 @@ export const en: Dictionary = {
     globalNews: "News",
   },
   homeNotes: {
-    mentionHint: "Type @ and an id to mention an RFP (RFP-123), a document or a supplier: it becomes a link in the note.",
+    mentionHint: "Type @ and an id to mention an RFP (RFP-123), a document or a supplier: it becomes a link in the note. Use #tag to tag the note and filter by it later.",
+    tagFilterTitle: "Filter by this tag",
     mentionSearching: "Searching…",
     mentionNone: "No results.",
     mentionKind_RFP: "RFP",

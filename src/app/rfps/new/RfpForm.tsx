@@ -23,6 +23,7 @@ import {
   type TemplatePriceCondition,
 } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
+import { extractTags } from "@/lib/tags";
 import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
@@ -215,6 +216,7 @@ const ALL_REQUIRES_ANSWER: QuestionResponder[] = ["SUPPLIER", "BUYER"];
 export type RfpInitialData = {
   title: string;
   description: string;
+  internalNotes?: string;
   buyerName: string;
   deadlineAt: string;
   commodity: string;
@@ -252,6 +254,7 @@ export function RfpForm({
   purchaseRequestId,
   seedTemplates = false,
   supplierValidDocs = {},
+  existingTags = [],
   customFields = [],
   clientCurrency = "USD",
 }: {
@@ -297,6 +300,7 @@ export function RfpForm({
   // Pre-filled header (e.g. from the user's custom fields) that should also
   // pull in the matching templates' content, like a request-generated RFP.
   seedTemplates?: boolean;
+  existingTags?: string[]; // #tags already used on the client's RFPs (offered as quick picks)
   // Document types each directory supplier has valid today (id → type ids).
   supplierValidDocs?: Record<string, string[]>;
   customFields?: CustomFieldDef[];
@@ -315,6 +319,7 @@ export function RfpForm({
   const lineFields = customFields.filter((f) => f.scope === "RFP_LINE");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [internalNotes, setInternalNotes] = useState(initial?.internalNotes ?? "");
   const [buyerName, setBuyerName] = useState(
     initial?.buyerName ?? currentUserName,
   );
@@ -1088,6 +1093,7 @@ export function RfpForm({
       const payload = {
         title,
         description,
+        internalNotes,
         buyerName,
         deadlineAt,
         commodity,
@@ -1240,6 +1246,58 @@ export function RfpForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-internal-notes`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("rfpForm.internalNotesLabel")}
+            </label>
+            <textarea
+              id={`${idBase}-internal-notes`}
+              className={inputClass()}
+              rows={2}
+              maxLength={2000}
+              placeholder={t("rfpForm.internalNotesPlaceholder")}
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">{t("rfpForm.internalNotesHint")}</p>
+            {(() => {
+              const used = extractTags(internalNotes);
+              const suggestions = existingTags.filter((tag) => !used.includes(tag)).slice(0, 12);
+              return (
+                <>
+                  {used.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {used.map((tag) => (
+                        <span key={tag} className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {suggestions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+                      <span>{t("rfpForm.existingTags")}</span>
+                      {suggestions.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() =>
+                            setInternalNotes((cur) => `${cur}${cur && !/\s$/.test(cur) ? " " : ""}#${tag} `)
+                          }
+                          className="rounded-full border border-slate-300 px-2 py-0.5 text-slate-600 hover:bg-slate-50"
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
           <div>
             <label

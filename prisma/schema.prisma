@@ -558,17 +558,19 @@ model TemplateQuestion {
 }
 
 model Rfp {
-  id          String    @id @default(cuid())
-  clientId    String
-  client      Client    @relation(fields: [clientId], references: [id])
-  number      Int       @unique // ID visible: "RFP-{number}"; asignado en código vía nextRfpNumber() en lugar de autoincrement()
-  title       String
-  description String
-  buyerName   String
-  status      RfpStatus @default(OPEN)
-  deadlineAt  DateTime
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  clientId      String
+  client        Client    @relation(fields: [clientId], references: [id])
+  number        Int       @unique // ID visible: "RFP-{number}"; asignado en código vía nextRfpNumber() en lugar de autoincrement()
+  title         String
+  description   String
+  internalNotes String? // notas internas del comprador (nunca visibles para proveedores); las #etiquetas se copian a tags
+  tags          String[]  @default([]) // etiquetas (#etiqueta) de las notas internas, en minúsculas; sirven de filtro en la lista
+  buyerName     String
+  status        RfpStatus @default(OPEN)
+  deadlineAt    DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   commodity      String?
   region         String?

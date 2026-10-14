@@ -6,6 +6,7 @@ import { usePreferences } from "@/i18n/PreferencesProvider";
 import { UserMultiPicker, type PickableUser } from "@/components/UserMultiPicker";
 import { utcToZonedTime } from "@/lib/timezone";
 import { mentionKey, splitMentions, type Mention } from "@/lib/mentionsShared";
+import { extractTags, splitTags } from "@/lib/tags";
 import { MentionTextarea } from "./MentionTextarea";
 import { deleteNote, saveNote, setNoteRead } from "./actions";
 
@@ -52,11 +53,38 @@ function ImportanceDots({ weight, title }: { weight: number; title: string }) {
 }
 
 // Note text with its @mentions turned into links (only the ones this viewer can open).
-function NoteBody({ body, mentions }: { body: string; mentions: Record<string, Mention> }) {
+function NoteBody({
+  body,
+  mentions,
+  onTag,
+}: {
+  body: string;
+  mentions: Record<string, Mention>;
+  onTag: (tag: string) => void;
+}) {
   return (
     <>
       {splitMentions(body).map((seg, i) => {
-        if (seg.type === "text") return <span key={i}>{seg.text}</span>;
+        if (seg.type === "text") {
+          return (
+            <span key={i}>
+              {splitTags(seg.text).map((part, j) =>
+                part.type === "text" ? (
+                  <span key={j}>{part.text}</span>
+                ) : (
+                  <button
+                    key={j}
+                    type="button"
+                    onClick={() => onTag(part.tag)}
+                    className="rounded bg-white/60 px-1 font-semibold hover:bg-white"
+                  >
+                    {part.raw}
+                  </button>
+                ),
+              )}
+            </span>
+          );
+        }
         const target = mentions[mentionKey(seg.kind, seg.id)];
         if (!target) return <span key={i}>{seg.raw}</span>;
         return (
@@ -104,6 +132,7 @@ export function NotesBoard({
 }) {
   const { t, formatDate, timeZone } = usePreferences();
   const [filter, setFilter] = useState<Filter>("all");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [viewing, setViewing] = useState<NoteView | null>(null);
@@ -121,7 +150,17 @@ export function NotesBoard({
     everyone: (n) => n.scope === "ALL" && n.state === "active" && !n.read,
     read: (n) => !n.isMine && n.read && n.state === "active",
   };
-  const ordered = notes.filter(categories[filter]).sort((a, b) => b.weight - a.weight);
+  const inCategory = notes.filter(categories[filter]);
+  // #tags used in the notes of this category, with how many notes carry each.
+  const tagCounts = new Map<string, number>();
+  for (const n of inCategory) {
+    for (const tag of extractTags(n.body)) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+  if (tagFilter && !tagCounts.has(tagFilter)) tagCounts.set(tagFilter, 0);
+  const tagList = [...tagCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const ordered = inCategory
+    .filter((n) => !tagFilter || extractTags(n.body).includes(tagFilter))
+    .sort((a, b) => b.weight - a.weight);
   const pageCount = Math.max(1, Math.ceil(ordered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
   const shown = ordered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
@@ -169,6 +208,10 @@ export function NotesBoard({
 
   const count = (f: Filter) => notes.filter(categories[f]).length;
   const scopeLabel = (s: NoteView["scope"]) => t(`homeNotes.scope_${s}`);
+  const pickTag = (tag: string) => {
+    setTagFilter((cur) => (cur === tag ? null : tag));
+    setPage(0);
+  };
   const filterButton = (f: Filter, label: string) => (
     <button
       key={f}
@@ -194,6 +237,22 @@ export function NotesBoard({
           {filterButton("toMe", t("homeNotes.filterToMe"))}
           {filterButton("everyone", t("homeNotes.filterEveryone"))}
           {filterButton("read", t("homeNotes.filterRead"))}
+          {tagList.length > 0 && <span className="mx-1 self-stretch border-l border-slate-300" aria-hidden />}
+          {tagList.map(([tag, n]) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => pickTag(tag)}
+              title={t("homeNotes.tagFilterTitle")}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                tagFilter === tag
+                  ? "bg-violet-600 text-white shadow-sm"
+                  : "bg-white text-violet-700 ring-1 ring-violet-300 hover:bg-violet-50"
+              }`}
+            >
+              #{tag} <span className="opacity-70">({n})</span>
+            </button>
+          ))}
         </div>
         {canWrite && (
           <button
@@ -236,7 +295,7 @@ export function NotesBoard({
               <p
                 className={`flex-1 whitespace-pre-wrap break-words text-sm leading-snug ${isLong(n.body) ? "line-clamp-4" : ""}`}
               >
-                <NoteBody body={n.body} mentions={mentions} />
+                <NoteBody body={n.body} mentions={mentions} onTag={pickTag} />
               </p>
               {isLong(n.body) && (
                 <button type="button" onClick={() => setViewing(n)} className="mt-1 self-start text-xs font-semibold underline">
@@ -337,7 +396,14 @@ export function NotesBoard({
               <span>{scopeLabel(viewing.scope)}</span>
             </div>
             <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed">
-              <NoteBody body={viewing.body} mentions={mentions} />
+              <NoteBody
+                body={viewing.body}
+                mentions={mentions}
+                onTag={(tag) => {
+                  setViewing(null);
+                  pickTag(tag);
+                }}
+              />
             </p>
             <div className="mt-4 space-y-0.5 text-xs opacity-80">
               <p>

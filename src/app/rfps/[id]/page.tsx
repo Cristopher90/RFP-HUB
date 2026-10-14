@@ -1,3 +1,4 @@
+import { splitTags } from "@/lib/tags";
 import { unmetRequirements } from "@/lib/supplierDocs";
 import { rfpDocumentRequirements, validDocTypesBySupplier } from "@/lib/supplierDocsServer";
 import { Fragment } from "react";
@@ -263,6 +264,29 @@ export default async function RfpDetailPage({
         <p className="mb-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
           {rfp.description}
         </p>
+      )}
+
+      {rfp.internalNotes && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/60 p-4 text-sm text-slate-700">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+            {dictionary.rfpForm.internalNotesLabel}
+          </p>
+          <p className="whitespace-pre-wrap break-words">
+            {splitTags(rfp.internalNotes).map((seg, i) =>
+              seg.type === "text" ? (
+                <span key={i}>{seg.text}</span>
+              ) : (
+                <Link
+                  key={i}
+                  href={`/?tab=all&tag=${encodeURIComponent(seg.tag)}`}
+                  className="rounded bg-violet-100 px-1 font-medium text-violet-700 hover:bg-violet-200"
+                >
+                  {seg.raw}
+                </Link>
+              ),
+            )}
+          </p>
+        </div>
       )}
 
       {appliedTemplates.length > 0 && (

@@ -1,3 +1,4 @@
+import { loadRfpTags } from "@/lib/rfpTags";
 import Link from "next/link";
 import packageJson from "../../package.json";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +53,7 @@ export default async function Home({
   const regionFilter = typeof sp.region === "string" ? sp.region : "";
   const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
   const clientFilter = typeof sp.client === "string" ? sp.client : "";
+  const tagFilter = typeof sp.tag === "string" ? sp.tag.trim().toLowerCase().slice(0, 40) : "";
   const supplierFilter = typeof sp.supplier === "string" ? sp.supplier.trim() : "";
   const dateParam = (key: string) =>
     typeof sp[key] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp[key] as string)
@@ -103,6 +105,7 @@ export default async function Home({
   }
   const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
   const advancedWhere = [
+    ...(tagFilter ? [{ tags: { has: tagFilter } }] : []),
     ...(createdFrom || createdTo ? [{ createdAt: dayRange(createdFrom, createdTo) }] : []),
     // An RFP with no explicit start date starts the day it was published.
     ...(startFrom || startTo
@@ -251,6 +254,7 @@ export default async function Home({
       params.set("creator", creatorFilter);
     if (target === "all" && clientFilter) params.set("client", clientFilter);
     if (supplierFilter) params.set("supplier", supplierFilter);
+    if (tagFilter) params.set("tag", tagFilter);
     if (createdFrom) params.set("createdFrom", createdFrom);
     if (createdTo) params.set("createdTo", createdTo);
     if (startFrom) params.set("startFrom", startFrom);
@@ -329,6 +333,7 @@ export default async function Home({
 
       <div className="mb-6">
         <RfpFilters
+          tags={await loadRfpTags(scope.where)}
           commodities={commodities}
           regions={regions}
           creators={

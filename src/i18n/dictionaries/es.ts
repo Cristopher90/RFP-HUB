@@ -124,6 +124,8 @@ export const es = {
     PRICE: "Solo precio",
   },
   filters: {
+    tag: "Etiqueta",
+    allTags: "Todas las etiquetas",
     allCommodities: "Todos los commodities",
     allRegions: "Todas las regiones",
     allStatuses: "Todos los estados",
@@ -182,6 +184,10 @@ export const es = {
     createFirst: "Crear la primera RFP",
   },
   rfpForm: {
+    internalNotesLabel: "Notas internas",
+    internalNotesPlaceholder: "Notas solo para el equipo comprador (los proveedores no las ven)…",
+    internalNotesHint: "Usa #etiqueta para etiquetar la RFP: luego podrás filtrar la lista por esa etiqueta.",
+    existingTags: "Etiquetas en uso:",
     detailsTitle: "Detalles de la RFP",
     titleLabel: "Título",
     titlePlaceholder: "Ej. Compra de laptops para el área de ventas",
@@ -684,7 +690,8 @@ export const es = {
     globalNews: "Novedad",
   },
   homeNotes: {
-    mentionHint: "Escribe @ y un id para mencionar una RFP (RFP-123), un documento o un proveedor: quedará como enlace en la nota.",
+    mentionHint: "Escribe @ y un id para mencionar una RFP (RFP-123), un documento o un proveedor: quedará como enlace en la nota. Usa #etiqueta para etiquetar la nota y filtrarla después.",
+    tagFilterTitle: "Filtrar por esta etiqueta",
     mentionSearching: "Buscando…",
     mentionNone: "Sin resultados.",
     mentionKind_RFP: "RFP",

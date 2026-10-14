@@ -18,6 +18,7 @@ import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
+import { extractTags } from "@/lib/tags";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
@@ -104,6 +105,7 @@ export type NewSupplierInput = {
 export type CreateRfpInput = {
   title: string;
   description: string;
+  internalNotes?: string; // buyer-only notes; their #tags become filters
   buyerName: string;
   deadlineAt: string;
   commodity: string;
@@ -534,6 +536,7 @@ export async function createRfp(
   const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
+  const internalNotes = (input.internalNotes ?? "").trim().slice(0, 2000);
   const startDateValue = input.startDate
     ? zonedTimeToUtc(input.startDate, user.timezone)
     : null;
@@ -562,6 +565,8 @@ export async function createRfp(
       number: await nextRfpNumber(),
       title,
       description: input.description.trim(),
+      internalNotes: internalNotes || null,
+      tags: extractTags(internalNotes),
       buyerName,
       deadlineAt: zonedTimeToUtc(input.deadlineAt, user.timezone),
       status,

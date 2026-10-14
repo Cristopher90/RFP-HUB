@@ -11,6 +11,7 @@ import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { parseTemplateCondition } from "@/lib/templateConditions";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
+import { loadRfpTags } from "@/lib/rfpTags";
 import { validDocTypesBySupplier } from "@/lib/supplierDocsServer";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, applyViewGroupsToFields, coerceValue } from "@/lib/customFieldsShared";
@@ -294,6 +295,7 @@ export default async function NewRfpPage({
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
           supplierValidDocs={supplierValidDocs}
+          existingTags={await loadRfpTags(scope.where)}
           initial={initial}
           purchaseRequestId={purchaseRequestId}
           seedTemplates={hasPrefill && !purchaseRequestId}
