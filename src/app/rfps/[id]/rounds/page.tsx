@@ -1,3 +1,4 @@
+import { rfpAccess } from "@/lib/rfpAccess";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -24,11 +25,13 @@ export default async function RfpRoundsPage({
       id: true,
       seriesRootId: true,
       clientId: true,
+      createdByUserId: true,
       client: { select: { currency: true } },
     },
   });
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
+  if (!(await rfpAccess(scope.user, rfp))) notFound();
   // Derived from the RFP's owning client, not the viewer's personal
   // preference — see rfps/[id]/page.tsx for why.
   const currencyOptions = { locale, currency: rfp.client.currency };

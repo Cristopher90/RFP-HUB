@@ -1,3 +1,4 @@
+import { participantWhere } from "@/lib/rfpAccess";
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Prisma } from "@/generated/prisma/client";
@@ -179,7 +180,7 @@ async function visibleRfpWhere(ctx: ToolContext): Promise<Prisma.RfpWhereInput> 
     const decided = await findDecidedRfpIdsForUser(user.id);
     return { ...base, id: { in: [...new Set([...pending.map((p) => p.rfpId), ...decided])] } };
   }
-  return { ...base, createdByUserId: user.id };
+  return { ...base, ...participantWhere(user.id) };
 }
 
 const personName = (u: { name: string; lastName: string | null } | null | undefined) => (u ? `${u.name} ${u.lastName ?? ""}`.trim() : null);

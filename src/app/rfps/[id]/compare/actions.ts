@@ -1,5 +1,6 @@
 "use server";
 
+import { editDenied } from "@/lib/rfpAccess";
 import { readCustomValues } from "@/lib/customFields";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,8 @@ export async function scoreAnswer(
   answerId: string,
   score: number | null,
 ) {
+  const user = await requireUser();
+  if (await editDenied(user, rfpId, "")) return;
   const clamped =
     score === null ? null : Math.min(10, Math.max(0, Math.round(score)));
   await prisma.answer.update({
@@ -44,6 +47,8 @@ export async function awardInvitation(
 ) {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
   const rfp = await prisma.rfp.findUnique({
     where: { id: rfpId },
     include: { items: true },
@@ -183,6 +188,8 @@ export async function rejectAward(rfpId: string, reason: string) {
 }
 
 export async function revokeAward(rfpId: string) {
+  const user = await requireUser();
+  if (await editDenied(user, rfpId, "")) return;
   await prisma.rfp.update({
     where: { id: rfpId },
     data: { awardedInvitationId: null, awardedAt: null },
@@ -208,6 +215,8 @@ export async function confirmAddToCatalog(
   catalogName: string,
 ) {
   const user = await requireUser();
+  const denied = await editDenied(user, rfpId, getDictionary(user.language).rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
   const result = await addAwardedItemsToCatalog(rfpId, invitationId, catalogName, user.language);
   if ("error" in result) return result;
   revalidatePath("/rfps/new");

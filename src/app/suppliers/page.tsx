@@ -1,3 +1,4 @@
+import { participantWhere } from "@/lib/rfpAccess";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
@@ -128,7 +129,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
           clientId,
           status: { not: "DELETED" },
           // "My processes": the ones I created; administrators see the client's all.
-          ...(reviewer ? {} : { createdByUserId: user.id }),
+          ...(reviewer ? {} : participantWhere(user.id)),
           invitations: { some: { supplier: { supplierDirectoryId: selected.id } } },
         },
         include: {

@@ -1,3 +1,4 @@
+import { participantWhere } from "@/lib/rfpAccess";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
@@ -111,7 +112,7 @@ export async function loadReportData(options: {
     const decided = await findDecidedRfpIdsForUser(user.id);
     visibility = { id: { in: [...new Set([...pending.map((p) => p.rfpId), ...decided])] } };
   } else if (!seesAll) {
-    visibility = { createdByUserId: user.id };
+    visibility = participantWhere(user.id);
   }
 
   const [directory, ratingSummaries] = await Promise.all([

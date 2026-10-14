@@ -205,6 +205,7 @@ model User {
   createdRfps       Rfp[]
   approvalDecisions RfpApprovalDecision[]
   supplierDocuments SupplierDocument[]
+  rfpMemberships    RfpMember[]
 }
 
 // Un usuario puede pertenecer a varios grupos de aprobación a la vez, cada
@@ -619,6 +620,7 @@ model Rfp {
   invitations     Invitation[]
   approvals       RfpApproval[]
   purchaseRequest PurchaseRequest?
+  members         RfpMember[]
 }
 
 // Snapshot en vivo de un nivel de aprobación para una RFP concreta: se crea
@@ -1254,4 +1256,25 @@ model SupplierDocument {
   uploadedAt          DateTime             @default(now())
 
   @@index([supplierDirectoryId])
+}
+
+enum RfpMemberPermission {
+  VIEW // puede ver la RFP
+  EDIT // puede ver y editar (publicar, invitar, cerrar, adjudicar...)
+}
+
+// Equipo de una RFP: personas de la misma empresa a las que su creador (o un
+// administrador) dio acceso, solo para ver o también para editar.
+model RfpMember {
+  id            String              @id @default(cuid())
+  rfpId         String
+  rfp           Rfp                 @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission    RfpMemberPermission @default(VIEW)
+  addedByUserId String?
+  createdAt     DateTime            @default(now())
+
+  @@unique([rfpId, userId])
+  @@index([userId])
 }

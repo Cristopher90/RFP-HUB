@@ -26,6 +26,7 @@ import {
 import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { extractTags } from "@/lib/tags";
+import { editDenied } from "@/lib/rfpAccess";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { notifyCreatorOfStatusChange, sendPendingInvitations } from "@/lib/notifications";
@@ -47,6 +48,8 @@ export async function inviteSupplier(
 ) {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
   const name = input.name.trim();
   const email = input.email.trim();
   const company = input.company.trim();
@@ -94,6 +97,8 @@ export async function inviteSupplier(
 }
 
 export async function closeRfp(rfpId: string) {
+  const user = await requireUser();
+  if (await editDenied(user, rfpId, "")) return;
   await prisma.rfp.update({
     where: { id: rfpId },
     data: { status: "CLOSED", closedAt: new Date() },
@@ -104,6 +109,8 @@ export async function closeRfp(rfpId: string) {
 }
 
 export async function reopenRfp(rfpId: string) {
+  const user = await requireUser();
+  if (await editDenied(user, rfpId, "")) return;
   const rfp = await prisma.rfp.findUniqueOrThrow({
     where: { id: rfpId },
     select: { startDate: true },
@@ -122,7 +129,8 @@ export async function setBuyerAnswer(
   questionId: string,
   formData: FormData,
 ) {
-  await requireUser();
+  const user = await requireUser();
+  if (await editDenied(user, rfpId, "")) return;
 
   const question = await prisma.rfpQuestion.findUnique({
     where: { id: questionId },
@@ -162,6 +170,8 @@ export async function setBuyerAnswer(
 export async function deleteRfpDraft(rfpId: string) {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
   const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
   if (!rfp || rfp.status !== "DRAFT") {
     return { error: dictionary.rfpIdActions.onlyDraftCanBeDeleted };
@@ -177,6 +187,8 @@ export async function deleteRfpDraft(rfpId: string) {
 export async function publishRfp(rfpId: string) {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
   const rfp = await prisma.rfp.findUnique({
     where: { id: rfpId },
     include: {
@@ -288,6 +300,8 @@ export async function updateRfp(
 ): Promise<{ error: string } | never> {
   const user = await requireUser();
   const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
 
   const existing = await prisma.rfp.findUnique({
     where: { id: rfpId },
@@ -542,4 +556,45 @@ export async function sendApprovalReminder(rfpId: string, approvalId: string) {
   if (!result.ok) return { error: result.error };
   revalidatePath(`/rfps/${rfpId}`);
   return { error: null };
+}
+
+// "Editar" on a published RFP: sends it back to draft so it can be edited again.
+// The suppliers' responses are deleted (their invitations stay and get notified
+// again on the next publication), the approval flow restarts and any award is
+// cleared. A start date already in the past is cleared so it is filled with the
+// new publication date.
+export async function returnRfpToDraft(rfpId: string): Promise<{ error: string } | { success: true }> {
+  const user = await requireUser();
+  const dictionary = getDictionary(user.language);
+  const denied = await editDenied(user, rfpId, dictionary.rfpTeam.noEditPermission);
+  if (denied) return { error: denied };
+  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId }, select: { status: true, startDate: true } });
+  if (!rfp) return { error: dictionary.rfpIdActions.rfpNotFound };
+  if (!["PENDING_PUBLISH_APPROVAL", "AWAITING_START", "OPEN", "CLOSED"].includes(rfp.status)) {
+    return { error: dictionary.rfpIdActions.cannotReturnToDraft };
+  }
+  await prisma.$transaction([
+    prisma.response.deleteMany({ where: { invitation: { rfpId } } }),
+    prisma.invitation.updateMany({
+      where: { rfpId },
+      data: { status: "INVITED", viewedAt: null, notifiedAt: null },
+    }),
+    prisma.rfpApproval.deleteMany({ where: { rfpId } }),
+    prisma.rfp.update({
+      where: { id: rfpId },
+      data: {
+        status: "DRAFT",
+        publishedAt: null,
+        closedAt: null,
+        awardedInvitationId: null,
+        awardedAt: null,
+        awardCriteria: null,
+        pendingAwardInvitationId: null,
+        ...(rfp.startDate && rfp.startDate.getTime() <= Date.now() ? { startDate: null } : {}),
+      },
+    }),
+  ]);
+  revalidatePath(`/rfps/${rfpId}`);
+  revalidatePath("/");
+  return { success: true };
 }

@@ -22,6 +22,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { InviteSupplierForm } from "./InviteSupplierForm";
+import { TeamSection } from "./TeamSection";
+import { EditPublishedButton } from "./EditPublishedButton";
+import { BUYER_ROLES } from "@/lib/requestFields";
+import { canManageTeam, rfpAccess } from "@/lib/rfpAccess";
 import { BuyerQuestionForm } from "./BuyerQuestionForm";
 import { DraftActions } from "./DraftActions";
 import { CopyRfpButton } from "./CopyRfpButton";
@@ -62,6 +66,30 @@ export default async function RfpDetailPage({
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId) notFound();
   const user = scope.user;
+  // Only the creator, the RFP's team, involved approvers and administrators may open it.
+  const access = await rfpAccess(user, rfp);
+  if (!access) notFound();
+  const canEdit = access === "edit";
+  const manageTeam = canManageTeam(user, rfp);
+  const [teamMembers, ownerUser, teamCandidates] = await Promise.all([
+    prisma.rfpMember.findMany({
+      where: { rfpId: rfp.id },
+      include: { user: { select: { name: true, lastName: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    rfp.createdByUserId
+      ? prisma.user.findUnique({ where: { id: rfp.createdByUserId }, select: { name: true, lastName: true, email: true } })
+      : null,
+    manageTeam
+      ? prisma.user.findMany({
+          where: { clientId: rfp.clientId, role: { in: [...BUYER_ROLES] }, id: { not: rfp.createdByUserId ?? "" } },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, lastName: true, email: true },
+        })
+      : [],
+  ]);
+  const memberIds = new Set(teamMembers.map((m) => m.userId));
+  const personName = (u: { name: string; lastName: string | null }) => `${u.name} ${u.lastName ?? ""}`.trim();
   rfp.status = await syncAwaitingStart(rfp);
   const locale = localeForLanguage(user.language);
   const dictionary = getDictionary(user.language);
@@ -227,10 +255,14 @@ export default async function RfpDetailPage({
             {dictionary.rfpDetail.exportToExcel}
           </a>
           <CopyRfpButton rfpId={rfp.id} />
-          {rfp.status === "DRAFT" && <DraftActions rfpId={rfp.id} />}
-          {(rfp.status === "OPEN" ||
-            rfp.status === "AWAITING_START" ||
-            rfp.status === "CLOSED") && (
+          {canEdit && rfp.status === "DRAFT" && <DraftActions rfpId={rfp.id} />}
+          {canEdit && rfp.status !== "DRAFT" && rfp.status !== "DELETED" && (
+            <EditPublishedButton rfpId={rfp.id} responseCount={rfp.invitations.filter((i) => i.response).length} />
+          )}
+          {canEdit &&
+            (rfp.status === "OPEN" ||
+              rfp.status === "AWAITING_START" ||
+              rfp.status === "CLOSED") && (
             <form
               action={async () => {
                 "use server";
@@ -288,6 +320,28 @@ export default async function RfpDetailPage({
           </p>
         </div>
       )}
+
+      <CollapsibleSection
+        title={dictionary.rfpTeam.title}
+        subtitle={dictionary.rfpTeam.subtitle}
+        storageKey="rfp-detail-team"
+        className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <TeamSection
+          rfpId={rfp.id}
+          owner={ownerUser ? { name: personName(ownerUser), email: ownerUser.email } : null}
+          members={teamMembers.map((m) => ({
+            id: m.id,
+            name: personName(m.user),
+            email: m.user.email,
+            permission: m.permission,
+          }))}
+          candidates={teamCandidates
+            .filter((u) => !memberIds.has(u.id))
+            .map((u) => ({ id: u.id, name: personName(u), email: u.email }))}
+          canManage={manageTeam}
+        />
+      </CollapsibleSection>
 
       {appliedTemplates.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
@@ -479,7 +533,7 @@ export default async function RfpDetailPage({
             {visibleBuyerQuestions.map((q) => (
               <li key={q.id} className="px-6 py-3">
                 <p className="mb-2 text-slate-700">{q.text}</p>
-                <BuyerQuestionForm rfpId={rfp.id} question={q} />
+                {canEdit && <BuyerQuestionForm rfpId={rfp.id} question={q} />}
               </li>
             ))}
           </ul>
@@ -578,12 +632,14 @@ export default async function RfpDetailPage({
         className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="-mx-6 -mt-4">
-          <div className="px-6">
-            <InviteSupplierForm
-              rfpId={rfp.id}
-              supplierDirectory={supplierDirectory}
-            />
-          </div>
+          {canEdit && (
+            <div className="px-6">
+              <InviteSupplierForm
+                rfpId={rfp.id}
+                supplierDirectory={supplierDirectory}
+              />
+            </div>
+          )}
           {rfp.invitations.length === 0 ? (
             <p className="px-6 pt-4 text-sm text-slate-500">
               {dictionary.rfpDetail.noSuppliersInvited}

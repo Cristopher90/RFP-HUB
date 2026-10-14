@@ -1,3 +1,4 @@
+import { rfpAccess } from "@/lib/rfpAccess";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +30,9 @@ export async function GET(
   });
 
   if (!rfp || (!scope.isSuperAdmin && rfp.clientId !== scope.user.clientId)) {
+    return NextResponse.json({ error: "RFP no encontrada" }, { status: 404 });
+  }
+  if (!(await rfpAccess(scope.user, rfp))) {
     return NextResponse.json({ error: "RFP no encontrada" }, { status: 404 });
   }
 

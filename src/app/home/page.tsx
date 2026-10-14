@@ -1,3 +1,4 @@
+import { participantWhere } from "@/lib/rfpAccess";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -29,7 +30,7 @@ export default async function HomePage() {
     const decided = await findDecidedRfpIdsForUser(user.id);
     ownWhere = { id: { in: [...new Set([...pending.map((p) => p.rfpId), ...decided])] } };
   } else {
-    ownWhere = { createdByUserId: user.id };
+    ownWhere = { AND: [participantWhere(user.id)] };
   }
   await sweepAwaitingStart(scope.where);
 

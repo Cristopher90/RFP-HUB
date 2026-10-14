@@ -1,3 +1,4 @@
+import { participantWhere } from "@/lib/rfpAccess";
 import { loadRfpTags } from "@/lib/rfpTags";
 import Link from "next/link";
 import packageJson from "../../package.json";
@@ -170,7 +171,7 @@ export default async function Home({
     ...(isApprover
       ? { id: { in: assignedRfpIds } }
       : tab === "mine"
-        ? { createdByUserId: user.id }
+        ? participantWhere(user.id)
         : scope.where),
     ...(advancedWhere.length > 0 ? { AND: advancedWhere } : {}),
     ...(commodityFilter ? { commodity: commodityFilter } : {}),

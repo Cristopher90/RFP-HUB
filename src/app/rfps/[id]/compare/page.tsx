@@ -1,3 +1,4 @@
+import { rfpAccess } from "@/lib/rfpAccess";
 import { readCustomValues } from "@/lib/customFields";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -40,6 +41,9 @@ export default async function ComparePage({
 
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
+  const access = await rfpAccess(user, rfp);
+  if (!access) notFound();
+  const canEdit = access === "edit";
 
   const locale = localeForLanguage(user.language);
   // Derived from the RFP's owning client, not the viewer's personal
@@ -409,6 +413,7 @@ export default async function ComparePage({
             </CollapsibleSection>
           )}
 
+          {(canEdit || canDecideAward) && (
           <div className="mt-10">
             <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">
               {dictionary.comparePage.awardTitle}
@@ -447,6 +452,7 @@ export default async function ComparePage({
               currency={rfp.client.currency}
             />
           </div>
+          )}
         </>
       )}
     </div>

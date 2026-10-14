@@ -1,3 +1,4 @@
+import { rfpAccess } from "@/lib/rfpAccess";
 import { loadRfpTags } from "@/lib/rfpTags";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -36,6 +37,7 @@ export default async function EditRfpPage({
   });
   if (!rfp) notFound();
   if (!scope.isSuperAdmin && rfp.clientId !== user.clientId) notFound();
+  if ((await rfpAccess(user, rfp)) !== "edit") notFound();
   if (rfp.status !== "DRAFT") redirect(`/rfps/${rfp.id}`);
   const dictionary = getDictionary(user.language);
 
