@@ -81,6 +81,7 @@ export type SaveTemplateInput = {
   matchPriceMax: string;
   matchCustom?: { fieldKey: string; value: string }[];
   viewGroupIds?: string[]; // grupos de visualización que ven la plantilla (vacío = todos)
+  documentRequirements?: { typeIds: string[]; condition: TemplateCondition | null }[];
   active: boolean;
   hideResponsesUntilClosed: boolean;
   minSuppliers: string;
@@ -228,11 +229,23 @@ export async function saveTemplate(
     }
   }
 
+  // Supplier-documentation requirements: only this client's own document types.
+  const knownTypes = new Set(
+    (await prisma.supplierDocumentType.findMany({ where: { clientId }, select: { id: true } })).map((t) => t.id),
+  );
+  const documentRequirements = (input.documentRequirements ?? [])
+    .map((r) => ({
+      typeIds: [...new Set((r.typeIds ?? []).filter((id) => knownTypes.has(id)))],
+      condition: cleanCondition(r.condition),
+    }))
+    .filter((r) => r.typeIds.length > 0);
+
   const data = {
     name,
     description: input.description.trim() || null,
     matchCustom: matchCustom.length > 0 ? matchCustom : Prisma.DbNull,
     viewGroupIds: await validViewGroupIds(clientId, input.viewGroupIds),
+    documentRequirements: documentRequirements.length > 0 ? documentRequirements : Prisma.DbNull,
     matchCommodity: input.matchCommodity.trim() || null,
     matchCommodityIncludeDescendants: input.matchCommodity.trim()
       ? input.matchCommodityIncludeDescendants

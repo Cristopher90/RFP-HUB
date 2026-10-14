@@ -79,6 +79,12 @@ export default async function AdminPage() {
             {dictionary.lookups.title}
           </Link>
           <Link
+            href="/admin/master-data/document-types"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.supplierDocs.typesTitle}
+          </Link>
+          <Link
             href="/admin/master-data/view-groups"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >

@@ -10,6 +10,7 @@ import { parseTemplateCondition } from "@/lib/templateConditions";
 import { applyViewGroupsToFields } from "@/lib/customFieldsShared";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
+import { validDocTypesBySupplier } from "@/lib/supplierDocsServer";
 import type {
   NewItemInput,
   NewQuestionInput,
@@ -72,6 +73,9 @@ export default async function EditRfpPage({
   const commodities = filterTreeByGroups(allCommodities, user);
   const regions = filterTreeByGroups(allRegions, user);
   const ratingSummaries = await loadRatingSummaries(rfp.clientId);
+  const supplierValidDocs = Object.fromEntries(
+    [...(await validDocTypesBySupplier(rfp.clientId)).entries()].map(([id, set]) => [id, [...set]]),
+  );
 
   const [customFields, customClient, headerValues, lineValues] = await Promise.all([
     loadCustomFields(rfp.clientId),
@@ -208,6 +212,7 @@ export default async function EditRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
+          supplierValidDocs={supplierValidDocs}
           customFields={applyViewGroupsToFields(
             customFields.filter((f) => f.scope === "RFP_HEAD" || f.scope === "RFP_LINE"),
             user,
@@ -225,6 +230,7 @@ export default async function EditRfpPage({
             matchPriceMin: t.matchPriceMin,
             matchPriceMax: t.matchPriceMax,
             matchCustom: t.matchCustom,
+            documentRequirements: t.documentRequirements,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

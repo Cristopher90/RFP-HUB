@@ -11,6 +11,7 @@ import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { parseTemplateCondition } from "@/lib/templateConditions";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
+import { validDocTypesBySupplier } from "@/lib/supplierDocsServer";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, applyViewGroupsToFields, coerceValue } from "@/lib/customFieldsShared";
 
@@ -110,6 +111,11 @@ export default async function NewRfpPage({
   }
 
   const ratingSummaries = user.clientId ? await loadRatingSummaries(user.clientId) : new Map();
+  const supplierValidDocs = Object.fromEntries(
+    user.clientId
+      ? [...(await validDocTypesBySupplier(user.clientId)).entries()].map(([id, set]) => [id, [...set]])
+      : [],
+  );
 
   // View groups: a user with groups only sees the commodities / regions that
   // share one (administrators and users without groups see everything).
@@ -287,6 +293,7 @@ export default async function NewRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
+          supplierValidDocs={supplierValidDocs}
           initial={initial}
           purchaseRequestId={purchaseRequestId}
           seedTemplates={hasPrefill && !purchaseRequestId}
@@ -304,6 +311,7 @@ export default async function NewRfpPage({
             matchPriceMin: t.matchPriceMin,
             matchPriceMax: t.matchPriceMax,
             matchCustom: t.matchCustom,
+            documentRequirements: t.documentRequirements,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

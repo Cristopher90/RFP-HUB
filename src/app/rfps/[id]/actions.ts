@@ -7,6 +7,8 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireUser } from "@/lib/auth";
+import { applicableRequirements } from "@/lib/supplierDocs";
+import { documentationError, rfpDocumentRequirements } from "@/lib/supplierDocsServer";
 import { validateAndShapeRfp, type CreateRfpInput } from "../new/actions";
 import {
   pickApprovalWorkflow,
@@ -55,6 +57,16 @@ export async function inviteSupplier(
     where: { id: rfpId },
     select: { clientId: true },
   });
+  // ... and only if it holds the documentation the RFP's templates require.
+  if (input.supplierDirectoryId) {
+    const docError = await documentationError(
+      rfp.clientId,
+      [input.supplierDirectoryId],
+      await rfpDocumentRequirements(rfpId),
+      user.language,
+    );
+    if (docError) return { error: docError };
+  }
   // A directory supplier can only be invited through an accepted contact.
   const unaccepted = await findUnacceptedContacts([
     { email, supplierDirectoryId: input.supplierDirectoryId },
@@ -220,6 +232,18 @@ export async function publishRfp(rfpId: string) {
         .replace("{count}", String(rfp._count.invitations)),
     };
   }
+
+  const docError = await documentationError(
+    rfp.clientId,
+    rfp.invitations.map((i) => i.supplier.supplierDirectoryId).filter((id): id is string => Boolean(id)),
+    applicableRequirements(matchingTemplates, {
+      commodity: rfp.commodity,
+      region: rfp.region,
+      custom: storedCustom,
+    }),
+    user.language,
+  );
+  if (docError) return { error: docError };
 
   const workflow = pickApprovalWorkflow(matchingTemplates);
   const levels = levelsForStage(workflow, "PUBLISH");

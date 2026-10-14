@@ -17,6 +17,7 @@ export type SupplierDirectoryEntry = {
   phone: string;
   contacts?: SupplierContact[];
   blocked?: boolean;
+  docIssue?: boolean; // lacks the valid documentation the RFP's templates require
   rating?: { avg: number; count: number } | null;
 };
 
@@ -89,7 +90,7 @@ export function SupplierSearchPicker({
   // A supplier can only be invited once at least one contact user has been
   // created for it (Proveedores → Usuarios de proveedor).
   function hasContactUser(dir: SupplierDirectoryEntry) {
-    return (dir.contacts?.length ?? 0) > 0;
+    return (dir.contacts?.length ?? 0) > 0 && !dir.docIssue;
   }
 
   function pickDir(dir: SupplierDirectoryEntry) {
@@ -249,7 +250,9 @@ export function SupplierSearchPicker({
                                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                                   {s.blocked
                                     ? t("suppliersScreen.blocked")
-                                    : t("supplierSearchPicker.noContactUser")}
+                                    : s.docIssue
+                                      ? t("supplierDocs.pickerMissing")
+                                      : t("supplierSearchPicker.noContactUser")}
                                 </span>
                               )}
                             </td>

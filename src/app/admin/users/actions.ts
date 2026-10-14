@@ -42,6 +42,7 @@ export type UserFormInput = {
   canUseAssistant: boolean;
   canRateSuppliers: boolean;
   canBlockSuppliers: boolean;
+  canManageSupplierDocs: boolean;
   viewGroupIds: string[]; // grupos de visualización (no aplican a administradores)
   approvalGroups: { approvalGroupId: string; limit: string }[];
   buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
@@ -212,6 +213,7 @@ export async function createUser(
       canUseAssistant: input.canUseAssistant,
       canRateSuppliers: input.canRateSuppliers,
       canBlockSuppliers: input.canBlockSuppliers,
+      canManageSupplierDocs: input.canManageSupplierDocs,
       viewGroupIds: viewGroupIds2,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,
@@ -300,6 +302,7 @@ export async function updateUser(
       canUseAssistant: input.canUseAssistant,
       canRateSuppliers: input.canRateSuppliers,
       canBlockSuppliers: input.canBlockSuppliers,
+      canManageSupplierDocs: input.canManageSupplierDocs,
       viewGroupIds: viewGroupIds2,
       seeUnassignedRequests: input.seeUnassignedRequests,
       seeMyRequests: input.seeMyRequests,

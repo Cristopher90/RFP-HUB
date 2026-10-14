@@ -6,8 +6,17 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { formatRfpNumber } from "@/lib/format";
-import { removeMyRating, rateSupplier, setContactBlocked, setSupplierBlocked } from "./actions";
+import {
+  createSupplier,
+  deleteSupplierDocument,
+  removeMyRating,
+  rateSupplier,
+  setContactBlocked,
+  setSupplierBlocked,
+  uploadSupplierDocument,
+} from "./actions";
 
 export type SupplierListItem = {
   id: string;
@@ -19,8 +28,25 @@ export type SupplierListItem = {
   contactCount: number;
   ratingAvg: number | null;
   ratingCount: number;
+  docs: { typeId: string; status: "active" | "expired" | "upcoming" }[];
   searchText: string;
 };
+
+export type SupplierDocView = {
+  id: string;
+  typeName: string;
+  hasDates: boolean;
+  status: "active" | "expired" | "upcoming";
+  from: string;
+  to: string;
+  note: string;
+  fileName: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: string;
+};
+
+export type DocTypeOption = { id: string; name: string; hasDates: boolean };
 
 export type SupplierDetail = {
   id: string;
@@ -44,6 +70,7 @@ export type SupplierDetail = {
     isAdmin: boolean;
     blocked: boolean;
   }[];
+  documents: SupplierDocView[];
   processes: {
     rfpId: string;
     number: number;
@@ -71,23 +98,37 @@ export function SuppliersView({
   selectedId,
   canRate,
   canBlock,
+  canManageDocs,
+  docTypes,
+  canCreate,
+  clientId,
+  viewGroups,
   isReviewer,
   language,
 }: {
+  canCreate: boolean;
+  clientId: string;
+  viewGroups: ViewGroupOption[];
   list: SupplierListItem[];
   detail: SupplierDetail | null;
   selectedId: string | null;
   canRate: boolean;
   canBlock: boolean;
+  canManageDocs: boolean;
+  docTypes: DocTypeOption[];
   isReviewer: boolean;
   language: string;
 }) {
   const { t } = usePreferences();
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("name");
+  const [creating, setCreating] = useState(false);
+  const [docFilter, setDocFilter] = useState<"" | "expired" | "active">("");
+  const [docType, setDocType] = useState("");
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -95,7 +136,12 @@ export function SuppliersView({
       if (q && !s.searchText.includes(q)) return false;
       if (filter === "active") return !s.blocked && !s.inactive;
       if (filter === "blocked") return s.blocked;
-      if (filter === "rated") return s.ratingCount > 0;
+      if (filter === "rated" && s.ratingCount === 0) return false;
+      if (docFilter || docType) {
+        const wanted = docFilter === "expired" ? "expired" : docFilter === "active" ? "active" : null;
+        const hit = s.docs.some((d) => (!docType || d.typeId === docType) && (!wanted || d.status === wanted));
+        if (!hit) return false;
+      }
       return true;
     });
     if (sort === "rating") {
@@ -104,7 +150,7 @@ export function SuppliersView({
       );
     }
     return rows;
-  }, [list, query, filter, sort]);
+  }, [list, query, filter, sort, docFilter, docType]);
 
   function hrefFor(id: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -131,6 +177,15 @@ export function SuppliersView({
     <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[22rem_1fr]">
       <aside className="rounded-xl border border-slate-200 bg-white shadow-sm lg:max-h-[calc(100vh-14rem)] lg:overflow-hidden">
         <div className="space-y-3 border-b border-slate-200 p-4">
+          {canCreate && (
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="w-full rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              + {t("suppliersScreen.newSupplier")}
+            </button>
+          )}
           <input
             type="search"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
@@ -152,6 +207,31 @@ export function SuppliersView({
             <option value="name">{t("suppliersScreen.sortName")}</option>
             <option value="rating">{t("suppliersScreen.sortRating")}</option>
           </select>
+          {docTypes.length > 0 && (
+            <div className="flex gap-2">
+              <select
+                value={docFilter}
+                onChange={(e) => setDocFilter(e.target.value as "" | "expired" | "active")}
+                className="w-1/2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600"
+              >
+                <option value="">{t("supplierDocs.filterDocsAny")}</option>
+                <option value="expired">{t("supplierDocs.filterExpired")}</option>
+                <option value="active">{t("supplierDocs.filterActiveDocs")}</option>
+              </select>
+              <select
+                value={docType}
+                onChange={(e) => setDocType(e.target.value)}
+                className="w-1/2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-600"
+              >
+                <option value="">{t("supplierDocs.filterAnyType")}</option>
+                {docTypes.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <ul className="divide-y divide-slate-100 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto">
           {visible.length === 0 && (
@@ -197,12 +277,25 @@ export function SuppliersView({
       </aside>
 
       <section>
-        {detail ? (
+        {creating ? (
+          <CreateSupplierForm
+            clientId={clientId}
+            viewGroups={viewGroups}
+            canBlock={canBlock}
+            onCancel={() => setCreating(false)}
+            onCreated={(id) => {
+              setCreating(false);
+              router.push(hrefFor(id));
+            }}
+          />
+        ) : detail ? (
           <SupplierPanel
             key={detail.id}
             detail={detail}
             canRate={canRate}
             canBlock={canBlock}
+            canManageDocs={canManageDocs}
+            docTypes={docTypes}
             isReviewer={isReviewer}
             language={language}
           />
@@ -220,12 +313,16 @@ function SupplierPanel({
   detail,
   canRate,
   canBlock,
+  canManageDocs,
+  docTypes,
   isReviewer,
   language,
 }: {
   detail: SupplierDetail;
   canRate: boolean;
   canBlock: boolean;
+  canManageDocs: boolean;
+  docTypes: DocTypeOption[];
   isReviewer: boolean;
   language: string;
 }) {
@@ -236,15 +333,21 @@ function SupplierPanel({
   const [pending, startTransition] = useTransition();
   const [stars, setStars] = useState(detail.myRating?.stars ?? 0);
   const [comment, setComment] = useState(detail.myRating?.comment ?? "");
+  const [docTypeId, setDocTypeId] = useState("");
+  const selectedDocType = docTypes.find((d) => d.id === docTypeId);
 
-  function run(action: () => Promise<{ error: string } | { success: true }>, okMessage?: string) {
+  function run(
+    action: () => Promise<{ error: string } | { success: true }>,
+    onOk?: string | (() => void),
+  ) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       const result = await action();
       if ("error" in result) setError(result.error);
       else {
-        if (okMessage) setNotice(okMessage);
+        if (typeof onOk === "string") setNotice(onOk);
+        else onOk?.();
         router.refresh();
       }
     });
@@ -342,6 +445,31 @@ function SupplierPanel({
             {t("suppliersScreen.supplierBlockedNote")}
           </p>
         )}
+      </div>
+
+      <div className={card}>
+        <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.dataTitle")}</h3>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+          {(
+            [
+              ["suppliersScreen.code", detail.code],
+              ["suppliersScreen.taxId", detail.taxId],
+              ["suppliersScreen.contactName", detail.contactName],
+              ["suppliersScreen.email", detail.email],
+              ["suppliersScreen.phone", detail.phone],
+              [
+                "suppliersScreen.status",
+                detail.inactive ? t("suppliersScreen.statusInactive") : t("suppliersScreen.statusActive"),
+              ],
+              ["suppliersScreen.groups", detail.groups.join(", ")],
+            ] as const
+          ).map(([labelKey, value]) => (
+            <div key={labelKey}>
+              <dt className="text-xs text-slate-400">{t(labelKey)}</dt>
+              <dd className="font-medium text-slate-700">{value || "—"}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <div className={card}>
@@ -474,6 +602,148 @@ function SupplierPanel({
       )}
 
       <div className={card}>
+        <h3 className="text-base font-semibold text-slate-900">{t("supplierDocs.docsTitle")}</h3>
+        {detail.documents.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">{t("supplierDocs.docsEmpty")}</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-100">
+            {detail.documents.map((doc) => (
+              <li key={doc.id} className="flex flex-wrap items-center gap-3 py-3">
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-slate-800">{doc.typeName}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                        !doc.hasDates
+                          ? "bg-slate-100 text-slate-600"
+                          : doc.status === "active"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : doc.status === "expired"
+                              ? "bg-red-100 text-red-600"
+                              : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {!doc.hasDates
+                        ? t("supplierDocs.statusNoDates")
+                        : doc.status === "active"
+                          ? t("supplierDocs.statusActive")
+                          : doc.status === "expired"
+                            ? t("supplierDocs.statusExpired")
+                            : t("supplierDocs.statusUpcoming")}
+                    </span>
+                  </span>
+                  <span className="block text-xs text-slate-500">
+                    {doc.fileName} · {(doc.size / 1024).toFixed(0)} KB
+                    {doc.hasDates &&
+                      ` · ${t("supplierDocs.validRange")
+                        .replace("{from}", doc.from || t("supplierDocs.openEnded"))
+                        .replace("{to}", doc.to || t("supplierDocs.openEnded"))}`}
+                  </span>
+                  {doc.note && <span className="mt-0.5 block whitespace-pre-line text-sm text-slate-600">{doc.note}</span>}
+                  <span className="block text-[11px] text-slate-400">
+                    {t("supplierDocs.uploadedBy").replace("{name}", doc.uploadedBy || "—").replace("{date}", doc.uploadedAt)}
+                  </span>
+                </span>
+                <a
+                  href={`/suppliers/documents/${doc.id}`}
+                  className="text-sm font-medium text-violet-600 hover:text-violet-700"
+                >
+                  {t("supplierDocs.download")}
+                </a>
+                {canManageDocs && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      if (!confirm(t("supplierDocs.confirmDelete").replace("{name}", doc.fileName))) return;
+                      run(() => deleteSupplierDocument(doc.id));
+                    }}
+                    className="text-sm text-slate-400 hover:text-red-600"
+                  >
+                    {t("supplierDocs.delete")}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {canManageDocs &&
+          (docTypes.length === 0 ? (
+            <p className="mt-4 text-xs text-slate-400">{t("supplierDocs.docsNoTypes")}</p>
+          ) : (
+            <form
+              className="mt-5 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const fd = new FormData(form);
+                run(
+                  () => uploadSupplierDocument(detail.id, fd),
+                  () => {
+                    form.reset();
+                    setDocTypeId("");
+                  },
+                );
+              }}
+            >
+              <div className="sm:col-span-2 text-sm font-medium text-slate-700">{t("supplierDocs.upload")}</div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.uploadType")}</label>
+                <select
+                  name="typeId"
+                  required
+                  value={docTypeId}
+                  onChange={(e) => setDocTypeId(e.target.value)}
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="">{t("supplierDocs.pickType")}</option>
+                  {docTypes.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.uploadFile")}</label>
+                <input name="file" type="file" required className="block w-full text-sm text-slate-600" />
+              </div>
+              {selectedDocType?.hasDates && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.startDate")}</label>
+                    <input name="startDate" type="date" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.endDate")}</label>
+                    <input name="endDate" type="date" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+                  </div>
+                </>
+              )}
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.note")}</label>
+                <textarea
+                  name="note"
+                  rows={2}
+                  maxLength={1000}
+                  placeholder={t("supplierDocs.notePlaceholder")}
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+                >
+                  {pending ? t("supplierDocs.uploading") : t("supplierDocs.uploadBtn")}
+                </button>
+              </div>
+            </form>
+          ))}
+      </div>
+
+      <div className={card}>
         <h3 className="text-base font-semibold text-slate-900">
           {isReviewer ? t("suppliersScreen.processesAdminTitle") : t("suppliersScreen.processesTitle")}
         </h3>
@@ -518,5 +788,117 @@ function SupplierPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function CreateSupplierForm({
+  clientId,
+  viewGroups,
+  canBlock,
+  onCancel,
+  onCreated,
+}: {
+  clientId: string;
+  viewGroups: ViewGroupOption[];
+  canBlock: boolean;
+  onCancel: () => void;
+  onCreated: (id: string) => void;
+}) {
+  const { t } = usePreferences();
+  const [form, setForm] = useState({
+    code: "",
+    taxId: "",
+    companyName: "",
+    contactFirstName: "",
+    contactLastName: "",
+    email: "",
+    phone: "",
+    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
+  });
+  const [groups, setGroups] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const field = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+  const label = "mb-1 block text-xs font-medium text-slate-500";
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await createSupplier({ ...form, viewGroupIds: groups }, clientId);
+      if ("error" in result) setError(result.error);
+      else onCreated(result.id);
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold text-slate-900">{t("suppliersScreen.createTitle")}</h2>
+      {!canBlock && (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {t("suppliersScreen.createWillBeBlocked")}
+        </p>
+      )}
+      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className={label}>{t("suppliersScreen.createCode")} *</label>
+          <input className={field} required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createTaxId")} *</label>
+          <input className={field} required value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={label}>{t("suppliersScreen.createCompany")} *</label>
+          <input className={field} required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createFirstName")}</label>
+          <input className={field} value={form.contactFirstName} onChange={(e) => setForm({ ...form, contactFirstName: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createLastName")}</label>
+          <input className={field} value={form.contactLastName} onChange={(e) => setForm({ ...form, contactLastName: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createEmail")}</label>
+          <input type="email" className={field} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createPhone")}</label>
+          <input className={field} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>{t("suppliersScreen.createStatus")}</label>
+          <select
+            className={field}
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "INACTIVE" })}
+          >
+            <option value="ACTIVE">{t("suppliersScreen.createActive")}</option>
+            <option value="INACTIVE">{t("suppliersScreen.createInactive")}</option>
+          </select>
+        </div>
+        {viewGroups.length > 0 && (
+          <div>
+            <label className={label}>{t("suppliersScreen.createGroups")}</label>
+            <ViewGroupPicker groups={viewGroups} value={groups} onChange={setGroups} />
+          </div>
+        )}
+      </div>
+      <div className="mt-5 flex justify-end gap-3">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          {t("suppliersScreen.createCancel")}
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+        >
+          {t("suppliersScreen.createSubmit")}
+        </button>
+      </div>
+    </form>
   );
 }

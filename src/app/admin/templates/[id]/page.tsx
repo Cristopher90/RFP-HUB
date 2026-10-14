@@ -8,6 +8,7 @@ import { loadCustomFields } from "@/lib/customFields";
 import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { parseMatchCustom } from "@/lib/templateMatch";
 import { parseTemplateCondition } from "@/lib/templateConditions";
+import { parseDocRequirements } from "@/lib/supplierDocs";
 import { deleteTemplate } from "../actions";
 
 export default async function EditTemplatePage({
@@ -48,6 +49,10 @@ export default async function EditTemplatePage({
 
   const viewGroups = await loadViewGroups(template.clientId);
   const customHeaderFields = await loadCustomFields(template.clientId, "RFP_HEAD");
+  const documentTypes = await prisma.supplierDocumentType.findMany({
+    where: { clientId: template.clientId, active: true },
+    orderBy: { name: "asc" },
+  });
 
   const questionClientKeyById = new Map(
     template.questions.map((q) => [q.id, makeClientKey()]),
@@ -65,6 +70,7 @@ export default async function EditTemplatePage({
     matchPriceMax: template.matchPriceMax,
     matchCustom: parseMatchCustom(template.matchCustom),
     viewGroupIds: template.viewGroupIds,
+    documentRequirements: parseDocRequirements(template.documentRequirements),
     active: template.active,
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     minSuppliers: template.minSuppliers,
@@ -148,6 +154,7 @@ export default async function EditTemplatePage({
           customFilterFields={customFilterFields}
           viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
           customHeaderFields={customHeaderFields}
+          documentTypes={documentTypes.map((d) => ({ id: d.id, name: d.name }))}
         />
       </div>
     </div>

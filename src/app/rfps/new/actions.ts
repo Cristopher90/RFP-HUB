@@ -12,6 +12,8 @@ import {
 import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { viewGroupWhere } from "@/lib/viewGroups";
 import { parseTemplateCondition, templateConditionHolds } from "@/lib/templateConditions";
+import { applicableRequirements } from "@/lib/supplierDocs";
+import { documentationError } from "@/lib/supplierDocsServer";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -435,6 +437,18 @@ export async function validateAndShapeRfp(
     const { rawCustomValues: _raw, ...rest } = i;
     return { ...rest, customValues: customResult.lines[idx] };
   });
+
+  // Suppliers must hold the valid documentation the applied templates demand
+  // (drafts are exempt, like the other publishing rules).
+  if (!input.saveAsDraft) {
+    const docError = await documentationError(
+      clientId,
+      suppliers.map((s) => s.supplierDirectoryId).filter((id): id is string => Boolean(id)),
+      applicableRequirements(matchingTemplates, conditionHeader),
+      user.language,
+    );
+    if (docError) return { error: docError };
+  }
 
   // Directory suppliers can only be invited through an accepted portal contact.
   if (!input.saveAsDraft) {

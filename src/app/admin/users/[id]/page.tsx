@@ -81,6 +81,7 @@ export default async function EditUserPage({
             canUseAssistant: user.canUseAssistant,
             canRateSuppliers: user.canRateSuppliers,
             canBlockSuppliers: user.canBlockSuppliers,
+            canManageSupplierDocs: user.canManageSupplierDocs,
             viewGroupIds: user.viewGroupIds,
             seeUnassignedRequests: user.seeUnassignedRequests,
             seeMyRequests: user.seeMyRequests,

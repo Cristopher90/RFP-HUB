@@ -5,9 +5,11 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { formatDateTime } from "@/lib/format";
 import { AdminClientSwitcher } from "@/components/AdminClientSwitcher";
-import { viewGroupWhere } from "@/lib/viewGroups";
+import { canSeeByGroups, viewGroupWhere } from "@/lib/viewGroups";
+import { docStatus, todayUtc } from "@/lib/supplierDocs";
+import { formatDate } from "@/lib/format";
 import { loadRatingSummaries } from "@/lib/suppliers";
-import { canBlockSuppliers, canRateSuppliers, canReviewRatings } from "@/lib/supplierAccess";
+import { canBlockSuppliers, canManageSupplierDocs, canRateSuppliers, canReviewRatings } from "@/lib/supplierAccess";
 import { SuppliersView, type SupplierDetail, type SupplierListItem } from "./SuppliersView";
 
 export default async function SuppliersPage({ searchParams }: PageProps<"/suppliers">) {
@@ -48,7 +50,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
     );
   }
 
-  const [rows, ratings, groups] = await Promise.all([
+  const [rows, ratings, groups, allDocTypes, docIndex] = await Promise.all([
     prisma.supplierDirectory.findMany({
       where: { clientId, ...viewGroupWhere(user) },
       include: {
@@ -58,7 +60,24 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
     }),
     loadRatingSummaries(clientId),
     prisma.viewGroup.findMany({ where: { clientId } }),
+    prisma.supplierDocumentType.findMany({ where: { clientId }, orderBy: { name: "asc" } }),
+    prisma.supplierDocument.findMany({
+      where: { clientId },
+      select: { supplierDirectoryId: true, typeId: true, startDate: true, endDate: true },
+    }),
   ]);
+  // Document types this user may see (view groups) and each supplier's documents by status.
+  const visibleTypes = allDocTypes.filter((t) => canSeeByGroups(user, t.viewGroupIds));
+  const typeById = new Map(visibleTypes.map((t) => [t.id, t]));
+  const today = todayUtc();
+  const docsBySupplier = new Map<string, { typeId: string; status: "active" | "expired" | "upcoming" }[]>();
+  for (const dd of docIndex) {
+    const type = typeById.get(dd.typeId);
+    if (!type) continue;
+    const list = docsBySupplier.get(dd.supplierDirectoryId) ?? [];
+    list.push({ typeId: dd.typeId, status: docStatus(dd, type.hasDates, today) });
+    docsBySupplier.set(dd.supplierDirectoryId, list);
+  }
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
 
   const list: SupplierListItem[] = rows.map((s) => {
@@ -73,6 +92,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
       contactCount: s.userLinks.filter((l) => l.status === "ACCEPTED").length,
       ratingAvg: rating?.avg ?? null,
       ratingCount: rating?.count ?? 0,
+      docs: docsBySupplier.get(s.id) ?? [],
       searchText: `${s.code} ${s.taxId} ${s.companyName} ${s.contactFirstName} ${s.contactLastName} ${s.email}`.toLowerCase(),
     };
   });
@@ -82,7 +102,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
   const selected = rows.find((s) => s.id === selectedId);
   if (selected) {
     const reviewer = canReviewRatings(user);
-    const [links, allRatings, rfps] = await Promise.all([
+    const [links, allRatings, rfps, rawDocs] = await Promise.all([
       prisma.supplierUserLink.findMany({
         where: { supplierDirectoryId: selected.id },
         include: { supplierUser: true },
@@ -108,6 +128,22 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
           },
         },
         orderBy: { createdAt: "desc" },
+      }),
+      // Never select the file bytes here: they are only served by the download route.
+      prisma.supplierDocument.findMany({
+        where: { supplierDirectoryId: selected.id },
+        select: {
+          id: true,
+          typeId: true,
+          startDate: true,
+          endDate: true,
+          note: true,
+          fileName: true,
+          size: true,
+          uploadedAt: true,
+          uploadedBy: { select: { name: true, lastName: true } },
+        },
+        orderBy: { uploadedAt: "desc" },
       }),
     ]);
     const mine = allRatings.find((r) => r.userId === user.id);
@@ -143,6 +179,25 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
         isAdmin: l.isAdmin,
         blocked: l.blocked,
       })),
+      documents: rawDocs
+        .filter((doc) => typeById.has(doc.typeId))
+        .map((doc) => {
+          const type = typeById.get(doc.typeId)!;
+          const range = { locale, timeZone: "UTC" };
+          return {
+            id: doc.id,
+            typeName: type.name,
+            hasDates: type.hasDates,
+            status: docStatus(doc, type.hasDates, today),
+            from: doc.startDate ? formatDate(doc.startDate, range) : "",
+            to: doc.endDate ? formatDate(doc.endDate, range) : "",
+            note: doc.note ?? "",
+            fileName: doc.fileName,
+            size: doc.size,
+            uploadedBy: doc.uploadedBy ? `${doc.uploadedBy.name} ${doc.uploadedBy.lastName ?? ""}`.trim() : "",
+            uploadedAt: formatDateTime(doc.uploadedAt, { locale, timeZone: user.timezone }),
+          };
+        }),
       processes: rfps.map((r) => ({
         rfpId: r.id,
         number: r.number,
@@ -163,6 +218,13 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
         selectedId={selected?.id ?? null}
         canRate={canRateSuppliers(user)}
         canBlock={canBlockSuppliers(user)}
+        canManageDocs={canManageSupplierDocs(user)}
+        canCreate={true}
+        clientId={clientId}
+        viewGroups={groups.map((g) => ({ id: g.id, name: g.name }))}
+        docTypes={visibleTypes
+          .filter((t) => t.active)
+          .map((t) => ({ id: t.id, name: t.name, hasDates: t.hasDates }))}
         isReviewer={canReviewRatings(user)}
         language={user.language}
       />

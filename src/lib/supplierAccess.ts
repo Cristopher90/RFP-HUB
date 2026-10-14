@@ -1,6 +1,11 @@
 // Who may rate / block suppliers. Super Administrador and Administrador de
 // cliente can always; everyone else needs the per-user permission.
-type SupplierPermUser = { role: string; canRateSuppliers: boolean; canBlockSuppliers: boolean };
+type SupplierPermUser = {
+  role: string;
+  canRateSuppliers: boolean;
+  canBlockSuppliers: boolean;
+  canManageSupplierDocs?: boolean;
+};
 
 export function canRateSuppliers(user: SupplierPermUser): boolean {
   return user.role === "ADMIN" || user.role === "CLIENT_ADMIN" || user.canRateSuppliers;
@@ -8,6 +13,10 @@ export function canRateSuppliers(user: SupplierPermUser): boolean {
 
 export function canBlockSuppliers(user: SupplierPermUser): boolean {
   return user.role === "ADMIN" || user.role === "CLIENT_ADMIN" || user.canBlockSuppliers;
+}
+
+export function canManageSupplierDocs(user: SupplierPermUser): boolean {
+  return user.role === "ADMIN" || user.role === "CLIENT_ADMIN" || Boolean(user.canManageSupplierDocs);
 }
 
 // Administrators review every buyer's comment; others only see their own.

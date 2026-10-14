@@ -11,6 +11,7 @@ import { TemplatePicker } from "@/components/TemplatePicker";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { templateConditionHolds, type TemplateCondition } from "@/lib/templateConditions";
+import { applicableRequirements, unmetRequirements } from "@/lib/supplierDocs";
 import { headerStdSnapshot, lineStdSnapshot, type CustomFieldDef } from "@/lib/customFieldsShared";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
@@ -51,6 +52,7 @@ export type TemplateData = {
   matchPriceMin: number | null;
   matchPriceMax: number | null;
   matchCustom?: unknown;
+  documentRequirements?: unknown;
   items: {
     id: string;
     section: string | null;
@@ -248,6 +250,7 @@ export function RfpForm({
   initial,
   purchaseRequestId,
   seedTemplates = false,
+  supplierValidDocs = {},
   customFields = [],
   clientCurrency = "USD",
 }: {
@@ -293,6 +296,8 @@ export function RfpForm({
   // Pre-filled header (e.g. from the user's custom fields) that should also
   // pull in the matching templates' content, like a request-generated RFP.
   seedTemplates?: boolean;
+  // Document types each directory supplier has valid today (id → type ids).
+  supplierValidDocs?: Record<string, string[]>;
   customFields?: CustomFieldDef[];
   clientCurrency?: string;
 }) {
@@ -1156,6 +1161,20 @@ export function RfpForm({
   const templateResolved =
     conditionalMatchCount === 0 ? hasTemplate : Boolean(selectedTemplateId);
   const readyForContent = mode === "edit" || (headerComplete && templateResolved);
+
+  // Documentation the applied templates demand from invited suppliers (some
+  // only when the header meets a condition): suppliers lacking a valid
+  // document can't be picked.
+  const docRequirements = applicableRequirements(
+    resolveAppliedTemplates([...matchingNow.always, ...matchingNow.conditional], selectedTemplateId),
+    { commodity, region, custom: headCustom },
+  );
+  const pickerSuppliers = supplierDirectory.map((s) => ({
+    ...s,
+    docIssue:
+      docRequirements.length > 0 &&
+      unmetRequirements(docRequirements, new Set(supplierValidDocs[s.id] ?? [])).length > 0,
+  }));
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
@@ -2552,7 +2571,7 @@ export function RfpForm({
               >
                 <div className="sm:col-span-8">
                   <SupplierSearchPicker
-                    suppliers={supplierDirectory}
+                    suppliers={pickerSuppliers}
                     selectedLabel={
                       selectedDir
                         ? `${selectedDir.companyName} — ${s.name} (${s.email})`

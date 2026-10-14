@@ -7,7 +7,7 @@ export async function loadViewGroups(clientId: string) {
 
 // Removes a deleted group's id from every list that references it.
 export async function stripViewGroupId(clientId: string, groupId: string) {
-  const tables = ["User", "SupplierDirectory", "Commodity", "Region", "RfpTemplate", "CustomField"];
+  const tables = ["User", "SupplierDirectory", "Commodity", "Region", "RfpTemplate", "CustomField", "SupplierDocumentType"];
   for (const table of tables) {
     await prisma.$executeRawUnsafe(
       `UPDATE "${table}" SET "viewGroupIds" = array_remove("viewGroupIds", $1) WHERE "clientId" = $2 AND $1 = ANY("viewGroupIds")`,

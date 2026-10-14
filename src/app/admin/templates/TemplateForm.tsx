@@ -168,7 +168,9 @@ export function TemplateForm({
   customFilterFields = [],
   viewGroups = [],
   customHeaderFields = [],
+  documentTypes = [],
 }: {
+  documentTypes?: { id: string; name: string }[];
   viewGroups?: ViewGroupOption[];
   // The client's custom RFP header fields, usable in content conditions.
   customHeaderFields?: CustomFieldDef[];
@@ -199,6 +201,7 @@ export function TemplateForm({
     matchPriceMax: number | null;
     matchCustom?: { fieldKey: string; value: string }[];
     viewGroupIds?: string[];
+    documentRequirements?: { typeIds: string[]; condition: TemplateCondition | null }[];
     active: boolean;
     hideResponsesUntilClosed: boolean;
     minSuppliers: number | null;
@@ -212,6 +215,9 @@ export function TemplateForm({
     initial?.matchCustom ?? [],
   );
   const [viewGroupIds, setViewGroupIds] = useState<string[]>(initial?.viewGroupIds ?? []);
+  const [docRequirements, setDocRequirements] = useState<{ typeIds: string[]; condition: TemplateCondition | null }[]>(
+    initial?.documentRequirements ?? [],
+  );
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [matchCommodity, setMatchCommodity] = useState(
@@ -584,6 +590,7 @@ export function TemplateForm({
       matchPriceMax,
       matchCustom,
       viewGroupIds,
+      documentRequirements: docRequirements,
       active,
       hideResponsesUntilClosed,
       minSuppliers,
@@ -861,6 +868,67 @@ export function TemplateForm({
                 }
               >
                 + {t("customFields.templateFiltersAdd")}
+              </button>
+            </div>
+          )}
+          {documentTypes.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("supplierDocs.requirementsTitle")}
+              </label>
+              <p className="mb-2 text-xs text-slate-500">{t("supplierDocs.requirementsHint")}</p>
+              <div className="space-y-2">
+                {docRequirements.length === 0 && (
+                  <p className="text-xs text-slate-400">{t("supplierDocs.requirementNone")}</p>
+                )}
+                {docRequirements.map((req, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <div className="w-64">
+                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
+                        {t("supplierDocs.requirementTypes")}
+                      </span>
+                      <ViewGroupPicker
+                        compact
+                        groups={documentTypes}
+                        value={req.typeIds}
+                        onChange={(next) =>
+                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, typeIds: next } : r)))
+                        }
+                        emptyLabel={t("supplierDocs.pickType")}
+                        unitLabel={t("supplierDocs.docsTitle").toLowerCase()}
+                      />
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
+                        {t("supplierDocs.requirementCondition")}
+                      </span>
+                      <HeaderConditionEditor
+                        value={req.condition}
+                        customFields={customHeaderFields}
+                        onChange={(condition) =>
+                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, condition } : r)))
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="ml-auto text-xs text-slate-400 hover:text-red-600"
+                      onClick={() => setDocRequirements((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+                onClick={() => setDocRequirements((prev) => [...prev, { typeIds: [], condition: null }])}
+              >
+                + {t("supplierDocs.addRequirement")}
               </button>
             </div>
           )}

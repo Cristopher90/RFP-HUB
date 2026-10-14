@@ -142,6 +142,8 @@ model Client {
   viewGroups             ViewGroup[]
   supplierRatings        SupplierRating[]
   lookups                Lookup[]
+  supplierDocumentTypes  SupplierDocumentType[]
+  supplierDocuments      SupplierDocument[]
 }
 
 model User {
@@ -183,13 +185,14 @@ model User {
   noteReads   NoteRead[]
 
   // Puede usar el Asistente de IA (además, el cliente debe tenerlo activado)
-  canUseAssistant   Boolean          @default(false)
+  canUseAssistant       Boolean          @default(false)
   // Proveedores: puntuar, y bloquear/desbloquear proveedores y contactos.
-  canRateSuppliers  Boolean          @default(false)
-  canBlockSuppliers Boolean          @default(false)
+  canRateSuppliers      Boolean          @default(false)
+  canBlockSuppliers     Boolean          @default(false)
+  canManageSupplierDocs Boolean          @default(false) // subir y borrar documentación de proveedores
   // Grupos de visualización del usuario (ids de ViewGroup). Vacío = ve todo lo de su cliente.
-  viewGroupIds      String[]         @default([])
-  supplierRatings   SupplierRating[]
+  viewGroupIds          String[]         @default([])
+  supplierRatings       SupplierRating[]
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -198,6 +201,7 @@ model User {
 
   createdRfps       Rfp[]
   approvalDecisions RfpApprovalDecision[]
+  supplierDocuments SupplierDocument[]
 }
 
 // Un usuario puede pertenecer a varios grupos de aprobación a la vez, cada
@@ -320,6 +324,7 @@ model SupplierDirectory {
   userLinks SupplierUserLink[]
   suppliers Supplier[]
   ratings   SupplierRating[]
+  documents SupplierDocument[]
 
   @@unique([clientId, code])
 }
@@ -425,6 +430,7 @@ model RfpTemplate {
   name                             String
   description                      String?
   viewGroupIds                     String[]                @default([]) // grupos de visualización que ven la plantilla; vacío = todos
+  documentRequirements             Json? // [{ "typeIds": ["..."], "condition": { "field": "...", "value": "..." } | null }]: el proveedor invitado debe tener vigente alguno de esos tipos de documento
   matchCommodity                   String?
   matchCommodityIncludeDescendants Boolean                 @default(false) // si matchCommodity también aplica a los niveles debajo de él en el árbol
   matchRegion                      String?
@@ -1194,4 +1200,45 @@ model LookupValue {
   order         Int           @default(0)
 
   @@unique([lookupId, code])
+}
+
+// Tipo de documento de proveedor (ej. "Certificado fiscal", "Seguro"), definido
+// por cada cliente en Configuración. Con fechas, cada documento tiene inicio y
+// fin de vigencia; con grupos de visualización, solo los ven esos grupos.
+model SupplierDocumentType {
+  id           String             @id @default(cuid())
+  clientId     String
+  client       Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name         String
+  hasDates     Boolean            @default(false)
+  viewGroupIds String[]           @default([])
+  active       Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  documents    SupplierDocument[]
+
+  @@unique([clientId, name])
+}
+
+// Un documento subido a la ficha de un proveedor. El archivo vive en la propia
+// base (se descarga por una ruta que comprueba permisos).
+model SupplierDocument {
+  id                  String               @id @default(cuid())
+  clientId            String
+  client              Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  supplierDirectoryId String
+  supplierDirectory   SupplierDirectory    @relation(fields: [supplierDirectoryId], references: [id], onDelete: Cascade)
+  typeId              String
+  type                SupplierDocumentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  startDate           DateTime? // solo tipos con fechas (guardada a medianoche UTC)
+  endDate             DateTime?
+  note                String?
+  fileName            String
+  mimeType            String
+  size                Int
+  fileData            Bytes
+  uploadedByUserId    String?
+  uploadedBy          User?                @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  uploadedAt          DateTime             @default(now())
+
+  @@index([supplierDirectoryId])
 }

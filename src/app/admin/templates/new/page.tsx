@@ -31,6 +31,9 @@ export default async function NewTemplatePage({
     : [];
 
   const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
+  const documentTypes = effectiveClientId
+    ? await prisma.supplierDocumentType.findMany({ where: { clientId: effectiveClientId, active: true }, orderBy: { name: "asc" } })
+    : [];
   const customHeaderFields = effectiveClientId ? await loadCustomFields(effectiveClientId, "RFP_HEAD") : [];
 
   return (
@@ -55,6 +58,7 @@ export default async function NewTemplatePage({
             customFilterFields={customFilterFields}
             viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
             customHeaderFields={customHeaderFields}
+            documentTypes={documentTypes.map((d) => ({ id: d.id, name: d.name }))}
           />
         </div>
       ) : (
