@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
-import { canBlockSuppliers, canManageSupplierDocs, canRateSuppliers } from "@/lib/supplierAccess";
+import {
+  canAddSupplierContacts,
+  canBlockSuppliers,
+  canCreateSuppliers,
+  canEditSuppliers,
+  canManageSupplierDocs,
+  canRateSuppliers,
+} from "@/lib/supplierAccess";
+import { addContact } from "@/lib/supplierContacts";
+import { clientAi, researchSupplier, ResearchError } from "@/lib/supplierResearch";
 import { canSeeByGroups } from "@/lib/viewGroups";
 import { validViewGroupIds } from "@/lib/viewGroupsServer";
 
@@ -194,7 +203,7 @@ export async function createSupplier(
   const scope = await requireClientScope();
   const { user } = scope;
   const d = getDictionary(user.language).suppliersScreen;
-  if (user.role === "APPROVER") return { error: d.noPermissionCreate };
+  if (user.role === "APPROVER" || !canCreateSuppliers(user)) return { error: d.noPermissionCreate };
   const clientId = scope.isSuperAdmin ? targetClientId : user.clientId;
   if (!clientId) return { error: d.createNoClient };
 
@@ -235,4 +244,148 @@ export async function createSupplier(
   });
   revalidatePath("/suppliers");
   return { success: true, id: created.id, blocked: !canBlock };
+}
+
+// Edits the data of an existing supplier (not the block flag: that has its own
+// permission). A tax ID or code already used by another supplier is refused.
+export async function updateSupplier(
+  directoryId: string,
+  input: NewSupplierInput,
+): Promise<Result> {
+  const { user, d, supplier } = await loadSupplier(directoryId);
+  if (!canEditSuppliers(user)) return { error: d.noPermissionEdit };
+  if (!supplier) return { error: d.notFound };
+
+  const code = (input.code ?? "").trim().slice(0, 50);
+  const taxId = (input.taxId ?? "").trim().slice(0, 50);
+  const companyName = (input.companyName ?? "").trim().slice(0, 200);
+  if (!code || !companyName) return { error: d.createCodeCompanyRequired };
+  if (!taxId) return { error: d.createTaxIdRequired };
+
+  if (code.toLowerCase() !== supplier.code.toLowerCase()) {
+    const sameCode = await prisma.supplierDirectory.findFirst({
+      where: { clientId: supplier.clientId, code: { equals: code, mode: "insensitive" }, NOT: { id: supplier.id } },
+    });
+    if (sameCode) return { error: d.createCodeExists.replace("{code}", code) };
+  }
+  if (taxId.toLowerCase() !== supplier.taxId.toLowerCase()) {
+    const sameTaxId = await prisma.supplierDirectory.findFirst({
+      where: { clientId: supplier.clientId, taxId: { equals: taxId, mode: "insensitive" }, NOT: { id: supplier.id } },
+      select: { companyName: true },
+    });
+    if (sameTaxId) {
+      return { error: d.createTaxIdExists.replace("{taxId}", taxId).replace("{company}", sameTaxId.companyName) };
+    }
+  }
+
+  await prisma.supplierDirectory.update({
+    where: { id: supplier.id },
+    data: {
+      code,
+      taxId,
+      companyName,
+      contactFirstName: (input.contactFirstName ?? "").trim().slice(0, 100),
+      contactLastName: (input.contactLastName ?? "").trim().slice(0, 100),
+      email: (input.email ?? "").trim().slice(0, 200),
+      phone: (input.phone ?? "").trim().slice(0, 50),
+      status: input.status === "INACTIVE" ? "INACTIVE" : "ACTIVE",
+      viewGroupIds: await validViewGroupIds(supplier.clientId, input.viewGroupIds),
+    },
+  });
+  revalidatePath("/suppliers");
+  return { success: true };
+}
+
+// Adds a person as a contact of the supplier. Same rules as the master-data
+// screen: they get an invitation email, or wait for the supplier's own
+// administrator to approve them.
+export async function addSupplierContact(
+  directoryId: string,
+  input: { name: string; lastName: string; email: string; isAdmin: boolean },
+): Promise<{ error: string } | { success: true; pendingApproval: boolean }> {
+  const { user, d, supplier } = await loadSupplier(directoryId);
+  if (!canAddSupplierContacts(user)) return { error: d.noPermissionAddContact };
+  if (!supplier) return { error: d.notFound };
+
+  const name = (input.name ?? "").trim().slice(0, 100);
+  const email = (input.email ?? "").trim().toLowerCase().slice(0, 200);
+  if (!name) return { error: d.contactNameRequired };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: d.contactEmailInvalid };
+
+  const result = await addContact({
+    supplierDirectoryId: supplier.id,
+    name,
+    lastName: (input.lastName ?? "").trim().slice(0, 100),
+    email,
+    isAdmin: Boolean(input.isAdmin),
+    byAdmin: false,
+    language: user.language,
+    duplicateError: d.contactExists.replace("{email}", email),
+  });
+  if ("error" in result) return result;
+  revalidatePath("/suppliers");
+  return { success: true, pendingApproval: result.status === "PENDING_APPROVAL" };
+}
+
+// Asks the client's AI (web search) about the supplier and stores the summary
+// on it, so the question is only paid for once. `onlyIfMissing` makes repeated
+// calls (e.g. the page re-mounting right after creation) free.
+export async function generateSupplierSummary(
+  directoryId: string,
+  options: { onlyIfMissing?: boolean } = {},
+): Promise<Result> {
+  const { user, d, supplier } = await loadSupplier(directoryId);
+  if (!canCreateSuppliers(user) && !canEditSuppliers(user)) return { error: d.noPermissionEdit };
+  if (!supplier) return { error: d.notFound };
+  if (options.onlyIfMissing && supplier.aiSummary) return { success: true };
+
+  const ai = await clientAi(supplier.clientId);
+  if (!ai) return { error: d.aiNotConfigured };
+
+  const log = (inputTokens: number, outputTokens: number, status: "OK" | "ERROR", error?: string) =>
+    prisma.assistantLog
+      .create({
+        data: {
+          clientId: supplier.clientId,
+          userId: user.id,
+          question: `Supplier summary: ${supplier.companyName}`.slice(0, 500),
+          tools: ["supplier_summary"],
+          inputTokens,
+          outputTokens,
+          status,
+          error: error?.slice(0, 300) ?? null,
+        },
+      })
+      .catch(() => null);
+
+  try {
+    const research = await researchSupplier({
+      ai,
+      companyName: supplier.companyName,
+      taxId: supplier.taxId,
+      language: user.language,
+    });
+    await prisma.supplierDirectory.update({
+      where: { id: supplier.id },
+      data: {
+        aiSummary: research.text.slice(0, 4000),
+        aiSummaryAt: new Date(),
+        aiSummaryModel: research.model,
+        aiSummaryKey: `${supplier.companyName}|${supplier.taxId}`,
+        aiSummarySources: research.sources,
+      },
+    });
+    await log(research.inputTokens, research.outputTokens, "OK");
+    revalidatePath("/suppliers");
+    return { success: true };
+  } catch (error) {
+    console.error("[supplier:summary]", error);
+    await log(0, 0, "ERROR", error instanceof Error ? error.message : "error");
+    if (error instanceof ResearchError) {
+      if (error.kind === "auth") return { error: d.aiAuthError };
+      if (error.kind === "rate") return { error: d.aiRateError };
+      if (error.kind === "empty") return { error: d.aiEmptyError };
+    }
+    return { error: d.aiFailed };
+  }
 }

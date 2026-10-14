@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
@@ -9,12 +9,15 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { formatRfpNumber } from "@/lib/format";
 import {
+  addSupplierContact,
   createSupplier,
   deleteSupplierDocument,
+  generateSupplierSummary,
   removeMyRating,
   rateSupplier,
   setContactBlocked,
   setSupplierBlocked,
+  updateSupplier,
   uploadSupplierDocument,
 } from "./actions";
 
@@ -56,6 +59,17 @@ export type SupplierDetail = {
   phone: string;
   email: string;
   contactName: string;
+  contactFirstName: string;
+  contactLastName: string;
+  groupIds: string[];
+  status: "ACTIVE" | "INACTIVE";
+  ai: {
+    summary: string;
+    at: string;
+    model: string;
+    stale: boolean;
+    sources: { title: string; url: string }[];
+  } | null;
   blocked: boolean;
   inactive: boolean;
   groups: string[];
@@ -101,12 +115,20 @@ export function SuppliersView({
   canManageDocs,
   docTypes,
   canCreate,
+  canEdit,
+  canAddContacts,
+  aiAvailable,
+  autoSummary,
   clientId,
   viewGroups,
   isReviewer,
   language,
 }: {
   canCreate: boolean;
+  canEdit: boolean;
+  canAddContacts: boolean;
+  aiAvailable: boolean;
+  autoSummary: boolean;
   clientId: string;
   viewGroups: ViewGroupOption[];
   list: SupplierListItem[];
@@ -285,7 +307,8 @@ export function SuppliersView({
             onCancel={() => setCreating(false)}
             onCreated={(id) => {
               setCreating(false);
-              router.push(hrefFor(id));
+              // With AI set up, the new supplier's page asks for its summary right away.
+              router.push(aiAvailable ? `${hrefFor(id)}&summary=1` : hrefFor(id));
             }}
           />
         ) : detail ? (
@@ -295,6 +318,12 @@ export function SuppliersView({
             canRate={canRate}
             canBlock={canBlock}
             canManageDocs={canManageDocs}
+            canEdit={canEdit}
+            canAddContacts={canAddContacts}
+            canGenerate={aiAvailable && (canEdit || canCreate)}
+            aiAvailable={aiAvailable}
+            autoSummary={autoSummary}
+            viewGroups={viewGroups}
             docTypes={docTypes}
             isReviewer={isReviewer}
             language={language}
@@ -314,6 +343,12 @@ function SupplierPanel({
   canRate,
   canBlock,
   canManageDocs,
+  canEdit,
+  canAddContacts,
+  canGenerate,
+  aiAvailable,
+  autoSummary,
+  viewGroups,
   docTypes,
   isReviewer,
   language,
@@ -322,6 +357,12 @@ function SupplierPanel({
   canRate: boolean;
   canBlock: boolean;
   canManageDocs: boolean;
+  canEdit: boolean;
+  canAddContacts: boolean;
+  canGenerate: boolean;
+  aiAvailable: boolean;
+  autoSummary: boolean;
+  viewGroups: ViewGroupOption[];
   docTypes: DocTypeOption[];
   isReviewer: boolean;
   language: string;
@@ -335,6 +376,33 @@ function SupplierPanel({
   const [comment, setComment] = useState(detail.myRating?.comment ?? "");
   const [docTypeId, setDocTypeId] = useState("");
   const selectedDocType = docTypes.find((d) => d.id === docTypeId);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
+  const [aiBusy, setAiBusy] = useState(autoSummary && aiAvailable && !detail.ai);
+  const autoStarted = useRef(false);
+  const searchParams = useSearchParams();
+
+  async function loadSummary(onlyIfMissing: boolean) {
+    setError(null);
+    setAiBusy(true);
+    const result = await generateSupplierSummary(detail.id, { onlyIfMissing });
+    setAiBusy(false);
+    if ("error" in result) setError(result.error);
+    router.refresh();
+  }
+
+  // Right after creating a supplier the page asks for its summary once.
+  useEffect(() => {
+    if (!autoSummary || !aiAvailable || detail.ai || autoStarted.current) return;
+    autoStarted.current = true;
+    void loadSummary(true).finally(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("summary");
+      router.replace(`/suppliers?${params.toString()}`);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function run(
     action: () => Promise<{ error: string } | { success: true }>,
@@ -392,6 +460,10 @@ function SupplierPanel({
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
+      {flash && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{flash}</div>
+      )}
+
       <div className={card}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -447,33 +519,138 @@ function SupplierPanel({
         )}
       </div>
 
-      <div className={card}>
-        <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.dataTitle")}</h3>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
-          {(
-            [
-              ["suppliersScreen.code", detail.code],
-              ["suppliersScreen.taxId", detail.taxId],
-              ["suppliersScreen.contactName", detail.contactName],
-              ["suppliersScreen.email", detail.email],
-              ["suppliersScreen.phone", detail.phone],
+      {editing ? (
+        <EditSupplierForm
+          detail={detail}
+          viewGroups={viewGroups}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            setFlash(t("suppliersScreen.editSaved"));
+            router.refresh();
+          }}
+        />
+      ) : (
+        <div className={card}>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.dataTitle")}</h3>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFlash(null);
+                  setEditing(true);
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                {t("suppliersScreen.editButton")}
+              </button>
+            )}
+          </div>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-3">
+            {(
               [
-                "suppliersScreen.status",
-                detail.inactive ? t("suppliersScreen.statusInactive") : t("suppliersScreen.statusActive"),
-              ],
-              ["suppliersScreen.groups", detail.groups.join(", ")],
-            ] as const
-          ).map(([labelKey, value]) => (
-            <div key={labelKey}>
-              <dt className="text-xs text-slate-400">{t(labelKey)}</dt>
-              <dd className="font-medium text-slate-700">{value || "—"}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+                ["suppliersScreen.code", detail.code],
+                ["suppliersScreen.taxId", detail.taxId],
+                ["suppliersScreen.contactName", detail.contactName],
+                ["suppliersScreen.email", detail.email],
+                ["suppliersScreen.phone", detail.phone],
+                [
+                  "suppliersScreen.status",
+                  detail.inactive ? t("suppliersScreen.statusInactive") : t("suppliersScreen.statusActive"),
+                ],
+                ["suppliersScreen.groups", detail.groups.join(", ")],
+              ] as const
+            ).map(([labelKey, value]) => (
+              <div key={labelKey}>
+                <dt className="text-xs text-slate-400">{t(labelKey)}</dt>
+                <dd className="font-medium text-slate-700">{value || "—"}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
+      {(detail.ai || aiBusy || canGenerate) && (
+        <div className={card}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.aiTitle")}</h3>
+            {canGenerate && !aiBusy && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (detail.ai && !confirm(t("suppliersScreen.aiRefreshConfirm"))) return;
+                  void loadSummary(false);
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                {detail.ai ? t("suppliersScreen.aiRefresh") : t("suppliersScreen.aiGenerate")}
+              </button>
+            )}
+          </div>
+          {aiBusy ? (
+            <p className="mt-3 animate-pulse text-sm text-slate-500">{t("suppliersScreen.aiGenerating")}</p>
+          ) : detail.ai ? (
+            <>
+              {detail.ai.stale && (
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {t("suppliersScreen.aiStale")}
+                </p>
+              )}
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-700">{detail.ai.summary}</p>
+              {detail.ai.sources.length > 0 && (
+                <div className="mt-3 text-xs text-slate-500">
+                  <span className="font-medium">{t("suppliersScreen.aiSources")}: </span>
+                  {detail.ai.sources.map((src, i) => (
+                    <span key={src.url}>
+                      {i > 0 && " · "}
+                      <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-violet-700 hover:underline">
+                        {src.title.slice(0, 60)}
+                      </a>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="mt-3 text-xs text-slate-400">
+                {t("suppliersScreen.aiDisclaimer")}{" "}
+                {t("suppliersScreen.aiGeneratedOn").replace("{date}", detail.ai.at).replace("{model}", detail.ai.model)}
+              </p>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">{t("suppliersScreen.aiEmpty")}</p>
+          )}
+        </div>
+      )}
 
       <div className={card}>
-        <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.contactsTitle")}</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.contactsTitle")}</h3>
+          {canAddContacts && !addingContact && (
+            <button
+              type="button"
+              onClick={() => {
+                setFlash(null);
+                setAddingContact(true);
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              + {t("suppliersScreen.addContactButton")}
+            </button>
+          )}
+        </div>
+        {addingContact && (
+          <AddContactForm
+            directoryId={detail.id}
+            onCancel={() => setAddingContact(false)}
+            onAdded={(pendingApproval) => {
+              setAddingContact(false);
+              setFlash(
+                pendingApproval ? t("suppliersScreen.contactAddedPending") : t("suppliersScreen.contactAddedSent"),
+              );
+              router.refresh();
+            }}
+          />
+        )}
         {detail.contacts.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">{t("suppliersScreen.noContacts")}</p>
         ) : (
@@ -791,6 +968,89 @@ function SupplierPanel({
   );
 }
 
+type SupplierFormState = {
+  code: string;
+  taxId: string;
+  companyName: string;
+  contactFirstName: string;
+  contactLastName: string;
+  email: string;
+  phone: string;
+  status: "ACTIVE" | "INACTIVE";
+};
+
+const FIELD_CLASS =
+  "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
+const LABEL_CLASS = "mb-1 block text-xs font-medium text-slate-500";
+
+// The supplier data fields, shared by the create and edit forms.
+function SupplierFields({
+  form,
+  setForm,
+  groups,
+  setGroups,
+  viewGroups,
+}: {
+  form: SupplierFormState;
+  setForm: (f: SupplierFormState) => void;
+  groups: string[];
+  setGroups: (g: string[]) => void;
+  viewGroups: ViewGroupOption[];
+}) {
+  const { t } = usePreferences();
+  const field = FIELD_CLASS;
+  const label = LABEL_CLASS;
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+        <label className={label}>{t("suppliersScreen.createCode")} *</label>
+        <input className={field} required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createTaxId")} *</label>
+        <input className={field} required value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
+      </div>
+      <div className="sm:col-span-2">
+        <label className={label}>{t("suppliersScreen.createCompany")} *</label>
+        <input className={field} required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createFirstName")}</label>
+        <input className={field} value={form.contactFirstName} onChange={(e) => setForm({ ...form, contactFirstName: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createLastName")}</label>
+        <input className={field} value={form.contactLastName} onChange={(e) => setForm({ ...form, contactLastName: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createEmail")}</label>
+        <input type="email" className={field} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createPhone")}</label>
+        <input className={field} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+      </div>
+      <div>
+        <label className={label}>{t("suppliersScreen.createStatus")}</label>
+        <select
+          className={field}
+          value={form.status}
+          onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "INACTIVE" })}
+        >
+          <option value="ACTIVE">{t("suppliersScreen.createActive")}</option>
+          <option value="INACTIVE">{t("suppliersScreen.createInactive")}</option>
+        </select>
+      </div>
+      {viewGroups.length > 0 && (
+        <div>
+          <label className={label}>{t("suppliersScreen.createGroups")}</label>
+          <ViewGroupPicker groups={viewGroups} value={groups} onChange={setGroups} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreateSupplierForm({
   clientId,
   viewGroups,
@@ -805,7 +1065,7 @@ function CreateSupplierForm({
   onCreated: (id: string) => void;
 }) {
   const { t } = usePreferences();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<SupplierFormState>({
     code: "",
     taxId: "",
     companyName: "",
@@ -813,13 +1073,11 @@ function CreateSupplierForm({
     contactLastName: "",
     email: "",
     phone: "",
-    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
+    status: "ACTIVE",
   });
   const [groups, setGroups] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const field = "w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
-  const label = "mb-1 block text-xs font-medium text-slate-500";
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -840,53 +1098,7 @@ function CreateSupplierForm({
         </p>
       )}
       {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className={label}>{t("suppliersScreen.createCode")} *</label>
-          <input className={field} required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createTaxId")} *</label>
-          <input className={field} required value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
-        </div>
-        <div className="sm:col-span-2">
-          <label className={label}>{t("suppliersScreen.createCompany")} *</label>
-          <input className={field} required value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createFirstName")}</label>
-          <input className={field} value={form.contactFirstName} onChange={(e) => setForm({ ...form, contactFirstName: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createLastName")}</label>
-          <input className={field} value={form.contactLastName} onChange={(e) => setForm({ ...form, contactLastName: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createEmail")}</label>
-          <input type="email" className={field} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createPhone")}</label>
-          <input className={field} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        </div>
-        <div>
-          <label className={label}>{t("suppliersScreen.createStatus")}</label>
-          <select
-            className={field}
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value as "ACTIVE" | "INACTIVE" })}
-          >
-            <option value="ACTIVE">{t("suppliersScreen.createActive")}</option>
-            <option value="INACTIVE">{t("suppliersScreen.createInactive")}</option>
-          </select>
-        </div>
-        {viewGroups.length > 0 && (
-          <div>
-            <label className={label}>{t("suppliersScreen.createGroups")}</label>
-            <ViewGroupPicker groups={viewGroups} value={groups} onChange={setGroups} />
-          </div>
-        )}
-      </div>
+      <SupplierFields form={form} setForm={setForm} groups={groups} setGroups={setGroups} viewGroups={viewGroups} />
       <div className="mt-5 flex justify-end gap-3">
         <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
           {t("suppliersScreen.createCancel")}
@@ -897,6 +1109,125 @@ function CreateSupplierForm({
           className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
         >
           {t("suppliersScreen.createSubmit")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function EditSupplierForm({
+  detail,
+  viewGroups,
+  onCancel,
+  onSaved,
+}: {
+  detail: SupplierDetail;
+  viewGroups: ViewGroupOption[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = usePreferences();
+  const [form, setForm] = useState<SupplierFormState>({
+    code: detail.code,
+    taxId: detail.taxId,
+    companyName: detail.companyName,
+    contactFirstName: detail.contactFirstName,
+    contactLastName: detail.contactLastName,
+    email: detail.email,
+    phone: detail.phone,
+    status: detail.status,
+  });
+  const [groups, setGroups] = useState<string[]>(detail.groupIds);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await updateSupplier(detail.id, { ...form, viewGroupIds: groups });
+      if ("error" in result) setError(result.error);
+      else onSaved();
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h3 className="text-base font-semibold text-slate-900">{t("suppliersScreen.editTitle")}</h3>
+      {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <SupplierFields form={form} setForm={setForm} groups={groups} setGroups={setGroups} viewGroups={viewGroups} />
+      <div className="mt-5 flex justify-end gap-3">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          {t("suppliersScreen.createCancel")}
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+        >
+          {t("suppliersScreen.editSave")}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AddContactForm({
+  directoryId,
+  onCancel,
+  onAdded,
+}: {
+  directoryId: string;
+  onCancel: () => void;
+  onAdded: (pendingApproval: boolean) => void;
+}) {
+  const { t } = usePreferences();
+  const [form, setForm] = useState({ name: "", lastName: "", email: "", isAdmin: false });
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await addSupplierContact(directoryId, form);
+      if ("error" in result) setError(result.error);
+      else onAdded(result.pendingApproval);
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-sm font-medium text-slate-700">{t("suppliersScreen.addContactTitle")}</p>
+      {error && <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <label className={LABEL_CLASS}>{t("suppliersScreen.contactFirstName")} *</label>
+          <input className={FIELD_CLASS} required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </div>
+        <div>
+          <label className={LABEL_CLASS}>{t("suppliersScreen.contactLastNameLabel")}</label>
+          <input className={FIELD_CLASS} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+        </div>
+        <div>
+          <label className={LABEL_CLASS}>{t("suppliersScreen.contactEmailLabel")} *</label>
+          <input type="email" required className={FIELD_CLASS} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+        <input type="checkbox" checked={form.isAdmin} onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })} />
+        {t("suppliersScreen.contactIsAdmin")}
+      </label>
+      <div className="mt-3 flex justify-end gap-3">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">
+          {t("suppliersScreen.createCancel")}
+        </button>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+        >
+          {t("suppliersScreen.contactSubmit")}
         </button>
       </div>
     </form>

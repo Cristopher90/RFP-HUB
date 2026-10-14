@@ -9,7 +9,16 @@ import { canSeeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { docStatus, todayUtc } from "@/lib/supplierDocs";
 import { formatDate } from "@/lib/format";
 import { loadRatingSummaries } from "@/lib/suppliers";
-import { canBlockSuppliers, canManageSupplierDocs, canRateSuppliers, canReviewRatings } from "@/lib/supplierAccess";
+import {
+  canAddSupplierContacts,
+  canBlockSuppliers,
+  canCreateSuppliers,
+  canEditSuppliers,
+  canManageSupplierDocs,
+  canRateSuppliers,
+  canReviewRatings,
+} from "@/lib/supplierAccess";
+import { clientAi } from "@/lib/supplierResearch";
 import { SuppliersView, type SupplierDetail, type SupplierListItem } from "./SuppliersView";
 
 export default async function SuppliersPage({ searchParams }: PageProps<"/suppliers">) {
@@ -50,7 +59,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
     );
   }
 
-  const [rows, ratings, groups, allDocTypes, docIndex] = await Promise.all([
+  const [rows, ratings, groups, allDocTypes, docIndex, ai] = await Promise.all([
     prisma.supplierDirectory.findMany({
       where: { clientId, ...viewGroupWhere(user) },
       include: {
@@ -65,6 +74,7 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
       where: { clientId },
       select: { supplierDirectoryId: true, typeId: true, startDate: true, endDate: true },
     }),
+    clientAi(clientId),
   ]);
   // Document types this user may see (view groups) and each supplier's documents by status.
   const visibleTypes = allDocTypes.filter((t) => canSeeByGroups(user, t.viewGroupIds));
@@ -156,6 +166,23 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
       phone: selected.phone,
       email: selected.email,
       contactName: `${selected.contactFirstName} ${selected.contactLastName}`.trim(),
+      contactFirstName: selected.contactFirstName,
+      contactLastName: selected.contactLastName,
+      groupIds: selected.viewGroupIds,
+      status: selected.status,
+      ai: selected.aiSummary
+        ? {
+            summary: selected.aiSummary,
+            at: selected.aiSummaryAt ? formatDateTime(selected.aiSummaryAt, { locale, timeZone: user.timezone }) : "",
+            model: selected.aiSummaryModel ?? "",
+            stale: selected.aiSummaryKey !== `${selected.companyName}|${selected.taxId}`,
+            sources: Array.isArray(selected.aiSummarySources)
+              ? (selected.aiSummarySources as { title?: string; url?: string }[])
+                  .filter((s) => typeof s?.url === "string")
+                  .map((s) => ({ title: s.title || s.url!, url: s.url! }))
+              : [],
+          }
+        : null,
       blocked: selected.blocked,
       inactive: selected.status === "INACTIVE",
       groups: selected.viewGroupIds.map((g) => groupName.get(g)).filter((n): n is string => Boolean(n)),
@@ -219,7 +246,11 @@ export default async function SuppliersPage({ searchParams }: PageProps<"/suppli
         canRate={canRateSuppliers(user)}
         canBlock={canBlockSuppliers(user)}
         canManageDocs={canManageSupplierDocs(user)}
-        canCreate={true}
+        canCreate={canCreateSuppliers(user)}
+        canEdit={canEditSuppliers(user)}
+        canAddContacts={canAddSupplierContacts(user)}
+        aiAvailable={ai !== null}
+        autoSummary={sp.summary === "1"}
         clientId={clientId}
         viewGroups={groups.map((g) => ({ id: g.id, name: g.name }))}
         docTypes={visibleTypes

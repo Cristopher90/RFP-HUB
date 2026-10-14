@@ -78,6 +78,9 @@ export function UserForm({
     canRateSuppliers: initial?.canRateSuppliers ?? false,
     canBlockSuppliers: initial?.canBlockSuppliers ?? false,
     canManageSupplierDocs: initial?.canManageSupplierDocs ?? false,
+    canCreateSuppliers: initial?.canCreateSuppliers ?? false,
+    canEditSuppliers: initial?.canEditSuppliers ?? false,
+    canAddSupplierContacts: initial?.canAddSupplierContacts ?? false,
   });
   const [viewGroupIds, setViewGroupIds] = useState<string[]>(initial?.viewGroupIds ?? []);
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
@@ -355,7 +358,7 @@ export function UserForm({
         <h2 className="text-base font-semibold text-slate-900">{t("userForm.suppliersTitle")}</h2>
         <p className="mt-1 text-sm text-slate-500">{t("userForm.suppliersSubtitle")}</p>
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {(["canRateSuppliers", "canBlockSuppliers", "canManageSupplierDocs"] as const).map((field) => (
+          {(["canCreateSuppliers", "canEditSuppliers", "canAddSupplierContacts", "canRateSuppliers", "canBlockSuppliers", "canManageSupplierDocs"] as const).map((field) => (
             <label key={field} className="flex items-center gap-2 text-sm text-slate-600">
               <input
                 type="checkbox"

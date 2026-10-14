@@ -185,14 +185,17 @@ model User {
   noteReads   NoteRead[]
 
   // Puede usar el Asistente de IA (además, el cliente debe tenerlo activado)
-  canUseAssistant       Boolean          @default(false)
+  canUseAssistant        Boolean          @default(false)
   // Proveedores: puntuar, y bloquear/desbloquear proveedores y contactos.
-  canRateSuppliers      Boolean          @default(false)
-  canBlockSuppliers     Boolean          @default(false)
-  canManageSupplierDocs Boolean          @default(false) // subir y borrar documentación de proveedores
+  canRateSuppliers       Boolean          @default(false)
+  canBlockSuppliers      Boolean          @default(false)
+  canManageSupplierDocs  Boolean          @default(false) // subir y borrar documentación de proveedores
+  canCreateSuppliers     Boolean          @default(false) // crear proveedores desde la pantalla Proveedores
+  canEditSuppliers       Boolean          @default(false) // editar los datos de un proveedor
+  canAddSupplierContacts Boolean          @default(false) // agregar contactos a un proveedor
   // Grupos de visualización del usuario (ids de ViewGroup). Vacío = ve todo lo de su cliente.
-  viewGroupIds          String[]         @default([])
-  supplierRatings       SupplierRating[]
+  viewGroupIds           String[]         @default([])
+  supplierRatings        SupplierRating[]
 
   approvalGroups        UserApprovalGroup[]
   buyerGroupMemberships BuyerGroupMember[]
@@ -325,6 +328,13 @@ model SupplierDirectory {
   suppliers Supplier[]
   ratings   SupplierRating[]
   documents SupplierDocument[]
+
+  // Resumen generado por IA al crear el proveedor (consulta web); se guarda para no volver a consultar.
+  aiSummary        String?
+  aiSummaryAt      DateTime?
+  aiSummaryModel   String?
+  aiSummaryKey     String? // nombre|CIF con el que se generó (para avisar si cambiaron)
+  aiSummarySources Json? // [{ title, url }]
 
   @@unique([clientId, code])
 }

@@ -137,3 +137,27 @@ export async function runGemini(options: {
   }
   return { kind: "maxSteps", inputTokens, outputTokens };
 }
+
+// One-shot answer grounded on Google Search (used for supplier summaries).
+export async function geminiSearchAnswer(options: { apiKey: string; model: string; system: string; prompt: string }) {
+  const data = await generate(options.apiKey, options.model, {
+    systemInstruction: { parts: [{ text: options.system }] },
+    contents: [{ role: "user", parts: [{ text: options.prompt }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { maxOutputTokens: 4096 },
+  });
+  const candidate = data.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+  const text = parts.filter((p) => typeof p.text === "string" && !p.thought).map((p) => p.text).join("").trim();
+  const chunks = (candidate as { groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] } } | undefined)
+    ?.groundingMetadata?.groundingChunks;
+  const sources = (chunks ?? [])
+    .map((c) => ({ title: c.web?.title ?? "", url: c.web?.uri ?? "" }))
+    .filter((s) => s.url);
+  return {
+    text,
+    sources,
+    inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: (data.usageMetadata?.candidatesTokenCount ?? 0) + (data.usageMetadata?.thoughtsTokenCount ?? 0),
+  };
+}
