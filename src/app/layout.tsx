@@ -10,6 +10,7 @@ import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { PreferencesProvider } from "@/i18n/PreferencesProvider";
+import { DARK_COLOR_MODES, PALETTE_MODES } from "@/lib/themes";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -57,9 +58,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={preferences.language}
       data-theme={preferences.theme}
-      data-mode={preferences.colorMode === "dark" ? "dark" : "light"}
+      data-mode={DARK_COLOR_MODES.includes(preferences.colorMode) ? "dark" : "light"}
+      data-palette={PALETTE_MODES.includes(preferences.colorMode) ? preferences.colorMode : undefined}
       data-color-mode={preferences.colorMode}
-      data-ui={preferences.uiStyle}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >

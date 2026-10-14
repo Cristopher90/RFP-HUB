@@ -27,9 +27,7 @@ export default async function ProfilePage() {
             currency: activeSession.currency,
             theme: activeSession.theme,
             colorMode: activeSession.colorMode,
-            uiStyle: user?.role === "ADMIN" && user.uiStyle === "bento" ? "bento" : "classic",
           }}
-          canChooseUiStyle={user?.role === "ADMIN"}
           timezones={timezones}
           currencies={CURRENCIES}
         />

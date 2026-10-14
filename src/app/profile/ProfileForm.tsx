@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLOR_MODES, THEMES, UI_STYLES } from "@/lib/themes";
+import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -18,9 +18,7 @@ export function ProfileForm({
   initial,
   timezones,
   currencies,
-  canChooseUiStyle = false,
 }: {
-  canChooseUiStyle?: boolean;
   initial: ProfileFormInput;
   timezones: string[];
   currencies: string[];
@@ -35,11 +33,13 @@ export function ProfileForm({
   function previewAppearance(theme: string, colorMode: string) {
     const root = document.documentElement;
     const dark =
-      colorMode === "dark" ||
+      DARK_COLOR_MODES.includes(colorMode) ||
       (colorMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.setAttribute("data-theme", theme);
     root.setAttribute("data-color-mode", colorMode);
     root.setAttribute("data-mode", dark ? "dark" : "light");
+    if (PALETTE_MODES.includes(colorMode)) root.setAttribute("data-palette", colorMode);
+    else root.removeAttribute("data-palette");
   }
 
   function update(patch: Partial<ProfileFormInput>) {
@@ -48,9 +48,6 @@ export function ProfileForm({
     setSaved(false);
     if (patch.theme !== undefined || patch.colorMode !== undefined) {
       previewAppearance(next.theme, next.colorMode);
-    }
-    if (patch.uiStyle !== undefined) {
-      document.documentElement.setAttribute("data-ui", patch.uiStyle);
     }
   }
 
@@ -111,33 +108,6 @@ export function ProfileForm({
               ))}
             </div>
           </div>
-          {canChooseUiStyle && (
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.uiStyle")}</p>
-              <div className="flex flex-wrap gap-3">
-                {UI_STYLES.map((style) => (
-                  <label
-                    key={style}
-                    className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${
-                      (form.uiStyle ?? "classic") === style
-                        ? "border-violet-500 ring-1 ring-violet-500"
-                        : "border-slate-300 hover:bg-slate-50"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="uiStyle"
-                      className="sr-only"
-                      checked={(form.uiStyle ?? "classic") === style}
-                      onChange={() => update({ uiStyle: style })}
-                    />
-                    {t(`profile.uiStyle_${style}`)}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-1.5 text-xs text-slate-500">{t("profile.uiStyleHint")}</p>
-            </div>
-          )}
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.colorMode")}</p>
             <div className="flex flex-wrap gap-3">
@@ -156,6 +126,13 @@ export function ProfileForm({
                     className="sr-only"
                     checked={form.colorMode === mode}
                     onChange={() => update({ colorMode: mode })}
+                  />
+                  <span
+                    aria-hidden
+                    className="mr-2 inline-block h-3.5 w-3.5 rounded-full align-[-2px] ring-1 ring-slate-300"
+                    style={{
+                      background: `linear-gradient(135deg, ${COLOR_MODE_SWATCH[mode][0]} 50%, ${COLOR_MODE_SWATCH[mode][1]} 50%)`,
+                    }}
                   />
                   {t(`profile.mode_${mode}`)}
                 </label>

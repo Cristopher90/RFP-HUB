@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { CURRENCIES } from "@/lib/profileOptions";
-import { isColorMode, isTheme, isUiStyle } from "@/lib/themes";
+import { isColorMode, isTheme } from "@/lib/themes";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export type ProfileFormInput = {
@@ -14,7 +14,6 @@ export type ProfileFormInput = {
   currency: string;
   theme: string;
   colorMode: string;
-  uiStyle?: string; // solo se aplica al Super Administrador
 };
 
 const SUPPORTED_LANGUAGES = ["es", "en"];
@@ -51,10 +50,7 @@ export async function updateOwnProfile(
   };
 
   if (user) {
-    // The bento style is for the Super Administrador only (for now).
-    const uiStyle =
-      user.role === "ADMIN" && input.uiStyle && isUiStyle(input.uiStyle) ? input.uiStyle : undefined;
-    await prisma.user.update({ where: { id: user.id }, data: { ...data, ...(uiStyle ? { uiStyle } : {}) } });
+    await prisma.user.update({ where: { id: user.id }, data });
   } else {
     await prisma.supplierUser.update({ where: { id: supplierUser!.id }, data });
   }

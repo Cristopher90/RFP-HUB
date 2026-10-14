@@ -4,8 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { getDictionary } from "@/i18n/getDictionary";
-import { usesBento } from "@/lib/themes";
-import { BentoGrid, Tile } from "@/components/bento/Bento";
 
 export default async function AdminPage() {
   const scope = await requireClientScope();
@@ -13,7 +11,6 @@ export default async function AdminPage() {
     redirect("/");
   }
   const dictionary = getDictionary(scope.user.language);
-  const bento = usesBento(scope.user);
 
   const templates = await prisma.rfpTemplate.findMany({
     where: scope.where,
@@ -32,113 +29,6 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      {bento && (
-        <BentoGrid className="mb-8">
-          <Tile tone="dark" span={4}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.masterDataTitle}</h2>
-            <p className="mt-1 text-sm opacity-70">{dictionary.adminDashboard.masterDataSubtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                ["/admin/master-data/commodities", dictionary.adminDashboard.commodities],
-                ["/admin/master-data/regions", dictionary.adminDashboard.regions],
-                ["/admin/master-data/suppliers", dictionary.adminDashboard.suppliers],
-                ["/admin/master-data/origins", dictionary.adminDashboard.origins],
-                ["/admin/master-data/approval-groups", dictionary.adminDashboard.approvalGroups],
-                ["/admin/master-data/items", dictionary.adminDashboard.itemCatalog],
-                ["/admin/master-data/lookups", dictionary.lookups.title],
-                ["/admin/master-data/view-groups", dictionary.viewGroups.title],
-                ...(scope.isSuperAdmin
-                  ? [
-                      ["/admin/master-data/clients", dictionary.adminDashboard.clients],
-                      ["/admin/custom-fields", dictionary.customFields.adminTitle],
-                    ]
-                  : []),
-              ].map(([href, label]) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="rounded-full bg-white/10 px-3.5 py-1.5 text-sm hover:bg-white/20"
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </Tile>
-          <Tile tone="lilac" span={2}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.approvalsTitle}</h2>
-            <p className="mt-1 text-sm opacity-70">{dictionary.adminDashboard.approvalsSubtitle}</p>
-            <div className="mt-4">
-              <Link href="/admin/approvals" className="rounded-full bg-black/10 px-3.5 py-1.5 text-sm hover:bg-black/20">
-                {dictionary.adminDashboard.approvalsTitle}
-              </Link>
-            </div>
-          </Tile>
-          <Tile tone="lime" span={2}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.usersTitle}</h2>
-            <p className="mt-1 text-sm opacity-70">{dictionary.adminDashboard.usersSubtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/admin/users" className="rounded-full bg-black/10 px-3.5 py-1.5 text-sm hover:bg-black/20">
-                {dictionary.adminDashboard.usersLink}
-              </Link>
-              <Link href="/admin/buyer-groups" className="rounded-full bg-black/10 px-3.5 py-1.5 text-sm hover:bg-black/20">
-                {dictionary.adminDashboard.buyerGroupsLink}
-              </Link>
-            </div>
-          </Tile>
-          <Tile tone="peach" span={2}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.requestsTitle}</h2>
-            <p className="mt-1 text-sm opacity-70">{dictionary.adminDashboard.requestsSubtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/admin/request-templates" className="rounded-full bg-black/10 px-3.5 py-1.5 text-sm hover:bg-black/20">
-                {dictionary.adminDashboard.requestTemplatesLink}
-              </Link>
-              <Link href="/admin/request-rfp-mapping" className="rounded-full bg-black/10 px-3.5 py-1.5 text-sm hover:bg-black/20">
-                {dictionary.adminDashboard.requestRfpMappingLink}
-              </Link>
-            </div>
-          </Tile>
-          <Tile span={2}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.emailsTitle}</h2>
-            <p className="mt-1 text-sm text-slate-500">{dictionary.adminDashboard.emailsSubtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/admin/email-templates" className="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm hover:bg-slate-200">
-                {dictionary.adminDashboard.emailTemplatesLink}
-              </Link>
-              {scope.isSuperAdmin && (
-                <Link href="/admin/email-log" className="rounded-full bg-violet-100 px-3.5 py-1.5 text-sm hover:bg-violet-200">
-                  {dictionary.nav.emailLog}
-                </Link>
-              )}
-            </div>
-          </Tile>
-          <Tile span={scope.isSuperAdmin ? 2 : 4}>
-            <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.assistantTitle}</h2>
-            <p className="mt-1 text-sm text-slate-500">{dictionary.adminDashboard.assistantSubtitle}</p>
-            <div className="mt-4">
-              <Link href="/admin/assistant" className="rounded-full bg-slate-100 px-3.5 py-1.5 text-sm hover:bg-slate-200">
-                {dictionary.adminDashboard.assistantLink}
-              </Link>
-            </div>
-          </Tile>
-          {scope.isSuperAdmin && (
-            <Tile tone="dark" span={2}>
-              <h2 className="text-lg font-medium tracking-tight">{dictionary.adminDashboard.securityTitle}</h2>
-              <p className="mt-1 text-sm opacity-70">{dictionary.adminDashboard.securitySubtitle}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href="/admin/login-log" className="rounded-full bg-white/10 px-3.5 py-1.5 text-sm hover:bg-white/20">
-                  {dictionary.adminDashboard.loginLogLink}
-                </Link>
-                <Link href="/admin/system-tables/log" className="rounded-full bg-white/10 px-3.5 py-1.5 text-sm hover:bg-white/20">
-                  {dictionary.adminDashboard.changeLogLink}
-                </Link>
-              </div>
-            </Tile>
-          )}
-        </BentoGrid>
-      )}
-
-      {!bento && (
-        <>
       <CollapsibleSection
         title={dictionary.adminDashboard.masterDataTitle}
         subtitle={dictionary.adminDashboard.masterDataSubtitle}
@@ -336,9 +226,6 @@ export default async function AdminPage() {
           </Link>
         </div>
       </CollapsibleSection>
-
-        </>
-      )}
 
       <CollapsibleSection
         title={dictionary.adminDashboard.templatesTitle}

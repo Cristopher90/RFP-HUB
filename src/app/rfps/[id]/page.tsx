@@ -33,8 +33,6 @@ import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import { applyViewGroupsToFields, displayValue, labelFor } from "@/lib/customFieldsShared";
-import { usesBento } from "@/lib/themes";
-import { BentoGrid, Metric, Tile } from "@/components/bento/Bento";
 
 export default async function RfpDetailPage({
   params,
@@ -161,70 +159,6 @@ export default async function RfpDetailPage({
     ),
   );
 
-  // Bento: summary tiles under the header (deadline, responses, best offer).
-  let bentoTiles: React.ReactNode = null;
-  if (usesBento(user)) {
-    const b = dictionary.bento;
-    const isBlind = rfp.hideResponsesUntilClosed && rfp.status === "OPEN";
-    const quantityByItem = new Map(rfp.items.map((i) => [i.id, i.quantity]));
-    const totals = new Map<string, number>();
-    if (!isBlind && respondedCount > 0) {
-      const prices = await prisma.itemPrice.findMany({
-        where: { response: { invitation: { rfpId: rfp.id } } },
-        select: { itemId: true, unitPrice: true, response: { select: { invitationId: true } } },
-      });
-      for (const p of prices) {
-        const id = p.response.invitationId;
-        totals.set(id, (totals.get(id) ?? 0) + p.unitPrice * (quantityByItem.get(p.itemId) ?? 0));
-      }
-    }
-    const best = totals.size > 0 ? Math.min(...totals.values()) : null;
-    const invited = rfp.invitations.length;
-    bentoTiles = (
-      <BentoGrid className="mb-6">
-        <Tile tone="dark">
-          <Metric
-            label={b.responses}
-            value={
-              <>
-                {respondedCount}
-                <span className="text-2xl opacity-60">/{invited}</span>
-              </>
-            }
-            sub={b.respondedOfInvited.replace("{responded}", String(respondedCount)).replace("{invited}", String(invited))}
-          />
-        </Tile>
-        <Tile tone="lilac">
-          <Metric
-            label={b.bestOffer}
-            value={
-              isBlind ? (
-                <span className="text-xl leading-snug tracking-normal">{b.hiddenUntilClose}</span>
-              ) : best !== null ? (
-                <span className="text-4xl">{formatCurrency(best, currencyOptions)}</span>
-              ) : (
-                <span className="text-xl leading-snug tracking-normal">{b.noOffers}</span>
-              )
-            }
-          />
-        </Tile>
-        <Tile tone="lime">
-          <Metric
-            label={rfp.status === "CLOSED" ? b.closedLabel : b.closesIn}
-            value={
-              rfp.status === "OPEN" ? (
-                <CountdownTimer deadline={rfp.deadlineAt.toISOString()} />
-              ) : (
-                <span className="text-2xl tracking-normal">{formatDateTime(rfp.deadlineAt, dateOptions)}</span>
-              )
-            }
-            sub={formatDateTime(rfp.deadlineAt, dateOptions)}
-          />
-        </Tile>
-      </BentoGrid>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -307,8 +241,6 @@ export default async function RfpDetailPage({
           )}
         </div>
       </div>
-
-      {bentoTiles}
 
       {rfp.status === "PENDING_PUBLISH_APPROVAL" && (
         <PublishApprovalSection

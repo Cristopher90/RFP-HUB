@@ -8,7 +8,36 @@ export const THEMES = [
   { value: "rose", swatch: "#e11d48" },
 ] as const;
 
-export const COLOR_MODES = ["light", "dark", "system"] as const;
+// Color modes: the classic light / dark / follow-the-system, plus ready-made
+// palettes. Each palette builds on a light or a dark base (see DARK_COLOR_MODES)
+// and then remaps the neutral scale (globals.css, [data-palette]).
+export const COLOR_MODES = [
+  "light",
+  "dark",
+  "system",
+  "warm",
+  "ocean",
+  "contrast",
+  "graphite",
+  "forest",
+] as const;
+
+// Modes that sit on the dark base.
+export const DARK_COLOR_MODES: readonly string[] = ["dark", "graphite", "forest"];
+// Modes that are palettes (need data-palette on <html>).
+export const PALETTE_MODES: readonly string[] = ["warm", "ocean", "contrast", "graphite", "forest"];
+
+// Two-tone swatch (background, ink) shown next to each mode in Mi perfil.
+export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
+  light: ["#ffffff", "#0f172a"],
+  dark: ["#0b1220", "#eef1f7"],
+  system: ["#ffffff", "#0b1220"],
+  warm: ["#f6f0e4", "#1d1913"],
+  ocean: ["#eaf2f7", "#12212e"],
+  contrast: ["#ffffff", "#000000"],
+  graphite: ["#161616", "#f0f0f0"],
+  forest: ["#0a1410", "#eef5f0"],
+};
 
 export type ThemeName = (typeof THEMES)[number]["value"];
 export type ColorMode = (typeof COLOR_MODES)[number];
@@ -22,19 +51,4 @@ export function isTheme(value: string): value is ThemeName {
 
 export function isColorMode(value: string): value is ColorMode {
   return (COLOR_MODES as readonly string[]).includes(value);
-}
-
-// Visual style of the whole interface. "bento" (tiles on a warm canvas, ink and
-// lime accents) is only offered to the Super Administrador for now; it changes
-// looks only, never behaviour.
-export const UI_STYLES = ["classic", "bento"] as const;
-export type UiStyle = (typeof UI_STYLES)[number];
-
-export function isUiStyle(value: string): value is UiStyle {
-  return (UI_STYLES as readonly string[]).includes(value);
-}
-
-// True when this user sees the bento layouts (Super Administrador who chose it).
-export function usesBento(user: { role: string; uiStyle: string }): boolean {
-  return user.role === "ADMIN" && user.uiStyle === "bento";
 }

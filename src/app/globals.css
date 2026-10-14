@@ -299,98 +299,76 @@ html[data-mode="dark"] .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background-color: #64748b;
 }
 
-/* ---------- Bento style (opt-in, Super Administrador only for now) ---------- */
-/* Looks only: tiles on a warm canvas, ink and lime accents, rounder shapes. It
-   remaps the same Tailwind scales the UI already uses, so no screen changes
-   behaviour. Activated by <html data-ui="bento"> (see Mi perfil). */
-html[data-ui="bento"] {
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.375rem;
-  --radius-2xl: 1.75rem;
+/* ---------- Color palettes (Mi perfil → Modo) ---------- */
+/* Each palette builds on the light or dark base (data-mode) and remaps the
+   neutral scale; the accent color (theme) is chosen separately. */
+html[data-palette="warm"] {
+  --color-slate-50: #f6f0e4;
+  --color-slate-100: #ece4d3;
+  --color-slate-200: #e1d7c1;
+  --color-slate-300: #cdc1a8;
+  --color-slate-400: #a09680;
+  --color-slate-500: #7b7260;
+  --color-slate-600: #5f574a;
+  --color-slate-700: #463f35;
+  --color-slate-800: #2f2a23;
+  --color-slate-900: #1d1913;
+  --color-slate-950: #0f0c08;
 }
-/* Light: warm canvas, ink text, lime tints replace the violet accent. */
-html[data-ui="bento"]:not([data-mode="dark"]) {
-  --color-slate-50: #f3f2ee;
-  --color-slate-100: #ebe9e2;
-  --color-slate-200: #e4e1d8;
-  --color-slate-300: #d3d0c5;
-  --color-slate-400: #9a988f;
-  --color-slate-500: #77757d;
-  --color-slate-600: #5c5b63;
-  --color-slate-700: #3f3e45;
-  --color-slate-800: #26262c;
-  --color-slate-900: #15151a;
-  --color-slate-950: #0b0b0e;
-  --color-violet-50: #f4f9d6;
-  --color-violet-100: #e8f5a8;
-  --color-violet-200: #d9f26b;
-  --color-violet-300: #c4dd4f;
-  --color-violet-400: #6b6a72;
-  --color-violet-500: #3f3e45;
-  --color-violet-600: #15151a;
-  --color-violet-700: #26262c;
-  --color-violet-800: #15151a;
-  --color-violet-900: #15151a;
-  --color-violet-950: #0b0b0e;
-  --color-indigo-500: #3f3e45;
-  --color-indigo-600: #26262c;
+html[data-palette="warm"] .bg-white {
+  background-color: #fffdf8;
 }
-/* Dark: keep the navy surfaces, swap the accent for lime. */
-html[data-ui="bento"][data-mode="dark"] {
-  --color-violet-50: #22280a;
-  --color-violet-100: #343d0f;
-  --color-violet-200: #4a5714;
-  --color-violet-300: #6b7d1a;
-  --color-violet-400: #8ea61f;
-  --color-violet-500: #b6d334;
-  --color-violet-600: #d9f26b;
-  --color-violet-700: #d9f26b;
-  --color-violet-800: #e5f59a;
-  --color-violet-900: #eefabf;
-  --color-violet-950: #f6fddc;
-  --color-indigo-500: #8ea61f;
-  --color-indigo-600: #b6d334;
+html[data-palette="ocean"] {
+  --color-slate-50: #eaf2f7;
+  --color-slate-100: #dce8f0;
+  --color-slate-200: #cbdbe7;
+  --color-slate-300: #aec4d5;
+  --color-slate-400: #7f9bb0;
+  --color-slate-500: #5c7a91;
+  --color-slate-600: #46627a;
+  --color-slate-700: #334b60;
+  --color-slate-800: #223647;
+  --color-slate-900: #12212e;
+  --color-slate-950: #0a141c;
 }
-html[data-ui="bento"][data-mode="dark"] .bg-violet-600,
-html[data-ui="bento"][data-mode="dark"] .hover\:bg-violet-700:hover {
-  color: #15151a;
+html[data-palette="contrast"] {
+  --color-slate-50: #ffffff;
+  --color-slate-100: #f0f0f0;
+  --color-slate-200: #8a8a8a;
+  --color-slate-300: #5a5a5a;
+  --color-slate-400: #3d3d3d;
+  --color-slate-500: #2b2b2b;
+  --color-slate-600: #1f1f1f;
+  --color-slate-700: #141414;
+  --color-slate-800: #0a0a0a;
+  --color-slate-900: #000000;
+  --color-slate-950: #000000;
 }
-/* Chrome: no decorative glow, header/footer/sidebar sit directly on the canvas. */
-html[data-ui="bento"] body > div[aria-hidden] {
-  display: none;
+html[data-palette="graphite"] {
+  --color-slate-50: #121212;
+  --color-slate-100: #1c1c1c;
+  --color-slate-200: #2a2a2a;
+  --color-slate-300: #3a3a3a;
+  --color-slate-400: #6d6d6d;
+  --color-slate-500: #8c8c8c;
+  --color-slate-600: #a8a8a8;
+  --color-slate-700: #c4c4c4;
+  --color-slate-800: #dedede;
+  --color-slate-900: #f0f0f0;
+  --color-slate-950: #ffffff;
+  --surface: #191919;
 }
-html[data-ui="bento"] body > header {
-  background: color-mix(in srgb, var(--color-slate-50) 82%, transparent);
-  border-bottom-color: transparent;
-}
-html[data-ui="bento"] body > footer {
-  background: transparent;
-  border-top-color: transparent;
-}
-html[data-ui="bento"] body > div.flex > aside {
-  background: transparent;
-  border-right-color: transparent;
-}
-/* Tiles: flat, borderless white cards; no soft shadows anywhere. */
-html[data-ui="bento"] .shadow-sm,
-html[data-ui="bento"] .shadow-md {
-  box-shadow: none;
-}
-html[data-ui="bento"] .rounded-xl.border.bg-white {
-  border-color: transparent;
-}
-/* Buttons are pills. */
-html[data-ui="bento"] :is(button, a).bg-violet-600,
-html[data-ui="bento"] :is(button, a).border.rounded-lg:not(.rounded-xl),
-html[data-ui="bento"] :is(button, a).border.rounded-md:not(.rounded-xl) {
-  border-radius: 9999px;
-}
-/* Type: tighter, a touch heavier headings. */
-html[data-ui="bento"] main h1 {
-  font-size: 1.875rem;
-  letter-spacing: -0.03em;
-}
-html[data-ui="bento"] main h2 {
-  letter-spacing: -0.015em;
+html[data-palette="forest"] {
+  --color-slate-50: #0a1410;
+  --color-slate-100: #12221b;
+  --color-slate-200: #1c3328;
+  --color-slate-300: #2b4a3a;
+  --color-slate-400: #5f7f6e;
+  --color-slate-500: #7fa08e;
+  --color-slate-600: #9db8aa;
+  --color-slate-700: #bcd0c5;
+  --color-slate-800: #d8e5dd;
+  --color-slate-900: #eef5f0;
+  --color-slate-950: #ffffff;
+  --surface: #0f1d17;
 }
