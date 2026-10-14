@@ -647,7 +647,7 @@ export function TemplateForm({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
               {t("templateForm.appliesWhenCommodity")}
             </label>
@@ -682,7 +682,7 @@ export function TemplateForm({
               </label>
             )}
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">
               {t("templateForm.appliesWhenRegion")}
             </label>
@@ -768,181 +768,6 @@ export function TemplateForm({
               )}
             </div>
           </div>
-          {customFilterFields.length > 0 && (
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                {t("customFields.templateFiltersTitle")}
-              </label>
-              <p className="mb-2 text-xs text-slate-500">{t("customFields.templateFiltersHint")}</p>
-              <div className="space-y-2">
-                {matchCustom.map((cond, idx) => {
-                  const field = customFilterFields.find((f) => f.key === cond.fieldKey);
-                  return (
-                    <div key={idx} className="flex flex-wrap items-center gap-2">
-                      <select
-                        className={inputClass()}
-                        style={{ maxWidth: "16rem" }}
-                        value={cond.fieldKey}
-                        onChange={(e) =>
-                          setMatchCustom((prev) =>
-                            prev.map((c, i) => (i === idx ? { fieldKey: e.target.value, value: "" } : c)),
-                          )
-                        }
-                      >
-                        {customFilterFields.map((f) => (
-                          <option key={f.key} value={f.key}>
-                            {labelFor(f.labels, language, f.key)}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-sm text-slate-400">=</span>
-                      {field && hasOptions(field.type) ? (
-                        <select
-                          className={inputClass()}
-                          style={{ maxWidth: "14rem" }}
-                          value={cond.value}
-                          onChange={(e) =>
-                            setMatchCustom((prev) =>
-                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
-                            )
-                          }
-                        >
-                          <option value="" />
-                          {field.options.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {optionLabel(o, language)}
-                            </option>
-                          ))}
-                        </select>
-                      ) : field?.type === "CHECKBOX" ? (
-                        <select
-                          className={inputClass()}
-                          style={{ maxWidth: "10rem" }}
-                          value={cond.value}
-                          onChange={(e) =>
-                            setMatchCustom((prev) =>
-                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
-                            )
-                          }
-                        >
-                          <option value="" />
-                          <option value="true">{t("customFields.yes")}</option>
-                          <option value="false">{t("customFields.no")}</option>
-                        </select>
-                      ) : (
-                        <input
-                          className={inputClass()}
-                          style={{ maxWidth: "14rem" }}
-                          value={cond.value}
-                          onChange={(e) =>
-                            setMatchCustom((prev) =>
-                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
-                            )
-                          }
-                        />
-                      )}
-                      <button
-                        type="button"
-                        className="text-xs text-slate-400 hover:text-red-600"
-                        onClick={() => setMatchCustom((prev) => prev.filter((_, i) => i !== idx))}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
-                onClick={() =>
-                  setMatchCustom((prev) => [
-                    ...prev,
-                    {
-                      fieldKey:
-                        customFilterFields.find((f) => !prev.some((c) => c.fieldKey === f.key))?.key ??
-                        customFilterFields[0].key,
-                      value: "",
-                    },
-                  ])
-                }
-              >
-                + {t("customFields.templateFiltersAdd")}
-              </button>
-            </div>
-          )}
-          {documentTypes.length > 0 && (
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                {t("supplierDocs.requirementsTitle")}
-              </label>
-              <p className="mb-2 text-xs text-slate-500">{t("supplierDocs.requirementsHint")}</p>
-              <div className="space-y-2">
-                {docRequirements.length === 0 && (
-                  <p className="text-xs text-slate-400">{t("supplierDocs.requirementNone")}</p>
-                )}
-                {docRequirements.map((req, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
-                  >
-                    <div className="w-64">
-                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
-                        {t("supplierDocs.requirementTypes")}
-                      </span>
-                      <ViewGroupPicker
-                        compact
-                        groups={documentTypes}
-                        value={req.typeIds}
-                        onChange={(next) =>
-                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, typeIds: next } : r)))
-                        }
-                        emptyLabel={t("supplierDocs.pickType")}
-                        unitLabel={t("supplierDocs.docsTitle").toLowerCase()}
-                      />
-                    </div>
-                    <div>
-                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
-                        {t("supplierDocs.requirementCondition")}
-                      </span>
-                      <HeaderConditionEditor
-                        value={req.condition}
-                        customFields={customHeaderFields}
-                        onChange={(condition) =>
-                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, condition } : r)))
-                        }
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className="ml-auto text-xs text-slate-400 hover:text-red-600"
-                      onClick={() => setDocRequirements((prev) => prev.filter((_, i) => i !== idx))}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
-                onClick={() => setDocRequirements((prev) => [...prev, { typeIds: [], condition: null }])}
-              >
-                + {t("supplierDocs.addRequirement")}
-              </button>
-            </div>
-          )}
-          {viewGroups.length > 0 && (
-            <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                {t("viewGroups.fieldLabel")}
-              </label>
-              <div className="max-w-sm">
-                <ViewGroupPicker groups={viewGroups} value={viewGroupIds} onChange={setViewGroupIds} />
-              </div>
-              <p className="mt-1 text-xs text-slate-400">{t("viewGroups.fieldHint")}</p>
-            </div>
-          )}
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <input
@@ -952,36 +777,6 @@ export function TemplateForm({
               />
               {t("templateForm.activeLabel")}
             </label>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
-                checked={hideResponsesUntilClosed}
-                onChange={(e) => setHideResponsesUntilClosed(e.target.checked)}
-              />
-              {t("templateForm.blindOfferLabel")}
-            </label>
-          </div>
-          <div className="sm:col-span-2">
-            <label
-              htmlFor={`${idBase}-min-suppliers`}
-              className="mb-1 block text-sm font-medium text-slate-700"
-            >
-              {t("templateForm.minSuppliersLabel")}
-            </label>
-            <input
-              id={`${idBase}-min-suppliers`}
-              type="number"
-              min={1}
-              max={99}
-              step={1}
-              className={inputClass()}
-              style={{ maxWidth: "10rem" }}
-              value={minSuppliers}
-              onChange={(e) => setMinSuppliers(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-slate-400">{t("templateForm.minSuppliersHelp")}</p>
           </div>
         </div>
       </CollapsibleSection>
@@ -1911,6 +1706,220 @@ export function TemplateForm({
               )}
             </div>
           ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title={t("templateForm.additionalTitle")}
+        subtitle={t("templateForm.additionalSubtitle")}
+        storageKey="template-additional"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {documentTypes.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("supplierDocs.requirementsTitle")}
+              </label>
+              <p className="mb-2 text-xs text-slate-500">{t("supplierDocs.requirementsHint")}</p>
+              <div className="space-y-2">
+                {docRequirements.length === 0 && (
+                  <p className="text-xs text-slate-400">{t("supplierDocs.requirementNone")}</p>
+                )}
+                {docRequirements.map((req, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <div className="w-64">
+                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
+                        {t("supplierDocs.requirementTypes")}
+                      </span>
+                      <ViewGroupPicker
+                        compact
+                        groups={documentTypes}
+                        value={req.typeIds}
+                        onChange={(next) =>
+                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, typeIds: next } : r)))
+                        }
+                        emptyLabel={t("supplierDocs.pickType")}
+                        unitLabel={t("supplierDocs.docsTitle").toLowerCase()}
+                      />
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-[11px] font-medium text-slate-500">
+                        {t("supplierDocs.requirementCondition")}
+                      </span>
+                      <HeaderConditionEditor
+                        value={req.condition}
+                        customFields={customHeaderFields}
+                        onChange={(condition) =>
+                          setDocRequirements((prev) => prev.map((r, i) => (i === idx ? { ...r, condition } : r)))
+                        }
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="ml-auto text-xs text-slate-400 hover:text-red-600"
+                      onClick={() => setDocRequirements((prev) => prev.filter((_, i) => i !== idx))}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+                onClick={() => setDocRequirements((prev) => [...prev, { typeIds: [], condition: null }])}
+              >
+                + {t("supplierDocs.addRequirement")}
+              </button>
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-min-suppliers`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("templateForm.minSuppliersLabel")}
+            </label>
+            <input
+              id={`${idBase}-min-suppliers`}
+              type="number"
+              min={1}
+              max={99}
+              step={1}
+              className={inputClass()}
+              style={{ maxWidth: "10rem" }}
+              value={minSuppliers}
+              onChange={(e) => setMinSuppliers(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">{t("templateForm.minSuppliersHelp")}</p>
+          </div>
+          {customFilterFields.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("customFields.templateFiltersTitle")}
+              </label>
+              <p className="mb-2 text-xs text-slate-500">{t("customFields.templateFiltersHint")}</p>
+              <div className="space-y-2">
+                {matchCustom.map((cond, idx) => {
+                  const field = customFilterFields.find((f) => f.key === cond.fieldKey);
+                  return (
+                    <div key={idx} className="flex flex-wrap items-center gap-2">
+                      <select
+                        className={inputClass()}
+                        style={{ maxWidth: "16rem" }}
+                        value={cond.fieldKey}
+                        onChange={(e) =>
+                          setMatchCustom((prev) =>
+                            prev.map((c, i) => (i === idx ? { fieldKey: e.target.value, value: "" } : c)),
+                          )
+                        }
+                      >
+                        {customFilterFields.map((f) => (
+                          <option key={f.key} value={f.key}>
+                            {labelFor(f.labels, language, f.key)}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-sm text-slate-400">=</span>
+                      {field && hasOptions(field.type) ? (
+                        <select
+                          className={inputClass()}
+                          style={{ maxWidth: "14rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        >
+                          <option value="" />
+                          {field.options.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {optionLabel(o, language)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : field?.type === "CHECKBOX" ? (
+                        <select
+                          className={inputClass()}
+                          style={{ maxWidth: "10rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        >
+                          <option value="" />
+                          <option value="true">{t("customFields.yes")}</option>
+                          <option value="false">{t("customFields.no")}</option>
+                        </select>
+                      ) : (
+                        <input
+                          className={inputClass()}
+                          style={{ maxWidth: "14rem" }}
+                          value={cond.value}
+                          onChange={(e) =>
+                            setMatchCustom((prev) =>
+                              prev.map((c, i) => (i === idx ? { ...c, value: e.target.value } : c)),
+                            )
+                          }
+                        />
+                      )}
+                      <button
+                        type="button"
+                        className="text-xs text-slate-400 hover:text-red-600"
+                        onClick={() => setMatchCustom((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="mt-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+                onClick={() =>
+                  setMatchCustom((prev) => [
+                    ...prev,
+                    {
+                      fieldKey:
+                        customFilterFields.find((f) => !prev.some((c) => c.fieldKey === f.key))?.key ??
+                        customFilterFields[0].key,
+                      value: "",
+                    },
+                  ])
+                }
+              >
+                + {t("customFields.templateFiltersAdd")}
+              </button>
+            </div>
+          )}
+          {viewGroups.length > 0 && (
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {t("viewGroups.fieldLabel")}
+              </label>
+              <div className="max-w-sm">
+                <ViewGroupPicker groups={viewGroups} value={viewGroupIds} onChange={setViewGroupIds} />
+              </div>
+              <p className="mt-1 text-xs text-slate-400">{t("viewGroups.fieldHint")}</p>
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={hideResponsesUntilClosed}
+                onChange={(e) => setHideResponsesUntilClosed(e.target.checked)}
+              />
+              {t("templateForm.blindOfferLabel")}
+            </label>
+          </div>
         </div>
       </CollapsibleSection>
 

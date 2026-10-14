@@ -300,6 +300,8 @@ export const en: Dictionary = {
     close: "Close",
   },
   templateForm: {
+    additionalTitle: "Additional settings",
+    additionalSubtitle: "Required documentation, minimum number of suppliers, custom-field conditions, view groups and blind offer.",
     detailsTitle: "Template details",
     nameLabel: "Name",
     namePlaceholder: "E.g. Standard Hardware / IT",
@@ -1291,6 +1293,12 @@ export const en: Dictionary = {
     emptyTable: "This table is empty.",
   },
   adminDashboard: {
+    templatesLink: "RFP templates",
+    copyTemplate: "Copy",
+    copySuffix: "(copy)",
+    backToTemplates: "Templates",
+    backToConfig: "Settings",
+    copyingFrom: "Copy of template “{name}”: review the data and save to create it.",
     securityTitle: "Security",
     assistantTitle: "AI assistant",
     assistantSubtitle: "Per-client connection with Claude or Gemini: API key, model and usage.",

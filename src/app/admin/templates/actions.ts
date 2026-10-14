@@ -347,6 +347,7 @@ export async function saveTemplate(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/templates");
   redirect(`/admin/templates/${template.id}`);
 }
 
@@ -361,6 +362,6 @@ export async function deleteTemplate(templateId: string) {
   if (existing && (scope.isSuperAdmin || existing.clientId === scope.user.clientId)) {
     await prisma.rfpTemplate.delete({ where: { id: templateId } });
   }
-  revalidatePath("/admin");
-  redirect("/admin");
+  revalidatePath("/admin/templates");
+  redirect("/admin/templates");
 }

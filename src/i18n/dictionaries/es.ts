@@ -301,6 +301,8 @@ export const es = {
     close: "Cerrar",
   },
   templateForm: {
+    additionalTitle: "Configuraciones adicionales",
+    additionalSubtitle: "Documentación requerida, cantidad mínima de proveedores, condiciones por campos personalizados, grupos de visualización y oferta a ciegas.",
     detailsTitle: "Detalles de la plantilla",
     nameLabel: "Nombre",
     namePlaceholder: "Ej. Estándar Hardware / IT",
@@ -1292,6 +1294,12 @@ export const es = {
     emptyTable: "Esta tabla está vacía.",
   },
   adminDashboard: {
+    templatesLink: "Plantillas de RFP",
+    copyTemplate: "Copiar",
+    copySuffix: "(copia)",
+    backToTemplates: "Plantillas",
+    backToConfig: "Configuración",
+    copyingFrom: "Copia de la plantilla «{name}»: revisa los datos y guarda para crearla.",
     securityTitle: "Seguridad",
     assistantTitle: "Asistente de IA",
     assistantSubtitle: "Conexión con Claude o Gemini por cliente: clave de API, modelo y uso.",
