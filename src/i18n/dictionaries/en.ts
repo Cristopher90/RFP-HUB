@@ -1594,6 +1594,8 @@ export const en: Dictionary = {
     noneOption: "— None —",
   },
   rfpActions: {
+    buyerAnswersRequired: "Answer the buyer's required questions before publishing: {list}.",
+    buyerAttachmentHint: "Questions with an attachment are answered from the draft's page: save it as a draft, attach the file and publish it from there.",
     cannotRemoveRequiredItem: 'You can\'t remove the required item "{item}" (template: {template}).',
     cannotRemoveRequiredQuestion: 'You can\'t remove the required question "{question}" (template: {template}).',
     addAtLeastOneItem: "Add at least one item to the RFP.",

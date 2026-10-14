@@ -27,6 +27,7 @@ import {
 import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { extractTags } from "@/lib/tags";
+import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
 import { editDenied } from "@/lib/rfpAccess";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -250,6 +251,24 @@ export async function publishRfp(rfpId: string) {
         .replace("{count}", String(rfp._count.invitations)),
     };
   }
+
+  // Required questions the buyer answers themself must have an answer.
+  const storedQuestions = await prisma.rfpQuestion.findMany({ where: { rfpId } });
+  const missingAnswers = missingBuyerAnswers(
+    storedQuestions.map((q) => ({
+      key: q.id,
+      text: q.text,
+      type: q.type,
+      required: q.required,
+      respondedBy: q.respondedBy,
+      buyerAnswerValue: q.buyerAnswerValue,
+      dependsOnKey: q.dependsOnQuestionId,
+      dependsOnHeaderField: q.dependsOnHeaderField,
+      dependsOnValue: q.dependsOnValue,
+    })),
+    { commodity: rfp.commodity, region: rfp.region, custom: storedCustom, estimatedPrice: rfp.estimatedPrice },
+  );
+  if (missingAnswers.length > 0) return { error: buyerAnswersMessage(dictionary, missingAnswers) };
 
   const docError = await documentationError(
     rfp.clientId,

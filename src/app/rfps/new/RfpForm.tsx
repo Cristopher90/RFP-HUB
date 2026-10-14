@@ -26,6 +26,7 @@ import {
 } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { extractTags } from "@/lib/tags";
+import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
 import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
@@ -1099,6 +1100,27 @@ export function RfpForm({
 
   function handleSubmit(saveAsDraft: boolean) {
     setError(null);
+    // Publishing needs the buyer's required questions answered (a draft doesn't).
+    if (!saveAsDraft) {
+      const missing = missingBuyerAnswers(
+        [...questions, ...internalQuestions].map((q) => ({
+          key: q.clientKey,
+          text: q.text,
+          type: q.type,
+          required: q.required,
+          respondedBy: q.respondedBy,
+          buyerAnswerValue: q.buyerAnswerValue,
+          dependsOnKey: q.dependsOnQuestionKey,
+          dependsOnHeaderField: q.dependsOnHeaderField,
+          dependsOnValue: q.dependsOnValue,
+        })),
+        { commodity, region, custom: headCustom, estimatedPrice: parsePrice(estimatedPrice) },
+      );
+      if (missing.length > 0) {
+        setError(buyerAnswersMessage(dictionary, missing));
+        return;
+      }
+    }
     startTransition(async () => {
       const payload = {
         title,
@@ -1801,6 +1823,7 @@ export function RfpForm({
                       <div className="mt-2 pl-11">
                         <label className="mb-1 block text-xs font-medium text-slate-500">
                           {t("rfpForm.answerLabel")}
+                          {q.required && <span className="text-red-500"> *</span>}
                         </label>
                         {answerField(q, (value) =>
                           updateInternalQuestion(index, {
@@ -2091,6 +2114,16 @@ export function RfpForm({
                       </div>
                     </div>
 
+                    {q.respondedBy === "BUYER" && q.type !== "INFO" && (
+                      <div className="mt-2 pl-11">
+                        <label className="mb-1 block text-xs font-medium text-slate-500">
+                          {t("rfpForm.answerLabel")}
+                          {q.required && <span className="text-red-500"> *</span>}
+                        </label>
+                        {answerField(q, (value) => updateQuestion(index, { buyerAnswerValue: value }))}
+                      </div>
+                    )}
+
                     {expandedQuestions.has(index) && (
                       <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200 pt-3 sm:grid-cols-12">
                         {q.type === "SELECT" && (
@@ -2229,16 +2262,6 @@ export function RfpForm({
                               />
                               {t("rfpForm.prerequisiteLabel")}
                             </label>
-                          </div>
-                        )}
-                        {q.respondedBy === "BUYER" && q.type !== "INFO" && (
-                          <div className="sm:col-span-12">
-                            <label className="mb-1 block text-xs font-medium text-slate-500">
-                              {t("rfpForm.answerLabel")}
-                            </label>
-                            {answerField(q, (value) =>
-                              updateQuestion(index, { buyerAnswerValue: value }),
-                            )}
                           </div>
                         )}
                         <p className="text-xs text-slate-400 sm:col-span-12">

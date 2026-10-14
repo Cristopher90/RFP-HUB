@@ -1598,6 +1598,8 @@ export const es = {
   // via .replace() at the call site with a value that shouldn't itself be
   // translated (a name, an email, a code entered by the user).
   rfpActions: {
+    buyerAnswersRequired: "Responde las preguntas obligatorias del comprador antes de publicar: {list}.",
+    buyerAttachmentHint: "Las preguntas con adjunto se responden desde el detalle del borrador: guárdalo como borrador, adjunta el archivo y publícalo desde allí.",
     cannotRemoveRequiredItem: 'No puedes quitar el artículo obligatorio "{item}" (plantilla: {template}).',
     cannotRemoveRequiredQuestion: 'No puedes quitar la pregunta obligatoria "{question}" (plantilla: {template}).',
     addAtLeastOneItem: "Agrega al menos un artículo a la RFP.",
