@@ -207,6 +207,7 @@ model User {
   approvalDecisions RfpApprovalDecision[]
   supplierDocuments SupplierDocument[]
   rfpMemberships    RfpMember[]
+  rfpEvents         RfpEvent[]
 }
 
 // Un usuario puede pertenecer a varios grupos de aprobación a la vez, cada
@@ -622,6 +623,7 @@ model Rfp {
   approvals       RfpApproval[]
   purchaseRequest PurchaseRequest?
   members         RfpMember[]
+  events          RfpEvent[]
 }
 
 // Snapshot en vivo de un nivel de aprobación para una RFP concreta: se crea
@@ -1278,4 +1280,19 @@ model RfpMember {
 
   @@unique([rfpId, userId])
   @@index([userId])
+}
+
+// Registro de cambios de una RFP (equipo, ediciones, reaperturas...). Se muestra en
+// el histórico junto con los hitos que ya se derivan de las fechas de la RFP.
+model RfpEvent {
+  id        String   @id @default(cuid())
+  rfpId     String
+  rfp       Rfp      @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind      String // TEAM_ADDED | TEAM_REMOVED | TEAM_PERMISSION | EDITED | RETURNED_TO_DRAFT | REOPENED | SUPPLIER_INVITED | AWARD_REVOKED
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  @@index([rfpId, createdAt])
 }

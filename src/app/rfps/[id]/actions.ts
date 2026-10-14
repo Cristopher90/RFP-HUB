@@ -1,5 +1,6 @@
 "use server";
 
+import { logRfpEvent } from "@/lib/rfpEvents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { mkdir, writeFile } from "fs/promises";
@@ -90,6 +91,7 @@ export async function inviteSupplier(
   await prisma.invitation.create({
     data: { rfpId, supplierId: supplier.id, clientId: rfp.clientId },
   });
+  await logRfpEvent(rfpId, user.id, "SUPPLIER_INVITED", { name: company ? `${name} (${company})` : name });
   await sendPendingInvitations(rfpId);
 
   revalidatePath(`/rfps/${rfpId}`);
@@ -119,6 +121,7 @@ export async function reopenRfp(rfpId: string) {
     where: { id: rfpId },
     data: { status: resolveOpenStatus(rfp.startDate), closedAt: null },
   });
+  await logRfpEvent(rfpId, user.id, "REOPENED");
   const actor = await getCurrentUser();
   await notifyCreatorOfStatusChange(rfpId, "reopened", { actorUserId: actor?.id });
   revalidatePath(`/rfps/${rfpId}`);
@@ -340,6 +343,29 @@ export async function updateRfp(
     : publishLevels.length === 0
       ? resolveOpenStatus(startDateValue)
       : "PENDING_PUBLISH_APPROVAL";
+
+  // What changed in this save, for the history.
+  const newDeadline = zonedTimeToUtc(input.deadlineAt, user.timezone);
+  const same = (a: unknown, b: unknown) => (a ?? "") === (b ?? "");
+  const changedFields = [
+    !same(existing.title, title) && "title",
+    !same(existing.description, input.description.trim()) && "description",
+    !same(existing.internalNotes, internalNotes || null) && "internalNotes",
+    !same(existing.buyerName, buyerName) && "buyerName",
+    existing.deadlineAt.getTime() !== newDeadline.getTime() && "deadlineAt",
+    !same(existing.commodity, input.commodity.trim() || null) && "commodity",
+    !same(existing.region, input.region.trim() || null) && "region",
+    (existing.startDate?.getTime() ?? null) !== (startDateValue?.getTime() ?? null) && "startDate",
+    !same(existing.estimatedPrice, estimatedPriceValue) && "estimatedPrice",
+    !same(existing.origin, input.origin.trim() || null) && "origin",
+    !same(existing.predecessorDocument, input.predecessorDocument.trim() || null) && "predecessorDocument",
+    existing.scoringEnabled !== input.scoringEnabled && "scoringEnabled",
+  ].filter((f): f is string => Boolean(f));
+  const signature = (list: { name?: string; text?: string; quantity?: number; unit?: string | null }[]) =>
+    JSON.stringify(list.map((x) => [x.name ?? x.text ?? "", x.quantity ?? 0, x.unit ?? ""]));
+  if (signature(existing.items) !== signature(items)) changedFields.push("items");
+  if (signature(existing.questions) !== signature(questions)) changedFields.push("questions");
+  if (changedFields.length > 0) await logRfpEvent(rfpId, user.id, "EDITED", { fields: changedFields });
 
   await prisma.rfp.update({
     where: { id: rfpId },
@@ -573,6 +599,7 @@ export async function returnRfpToDraft(rfpId: string): Promise<{ error: string }
   if (!["PENDING_PUBLISH_APPROVAL", "AWAITING_START", "OPEN", "CLOSED"].includes(rfp.status)) {
     return { error: dictionary.rfpIdActions.cannotReturnToDraft };
   }
+  const responseCount = await prisma.response.count({ where: { invitation: { rfpId } } });
   await prisma.$transaction([
     prisma.response.deleteMany({ where: { invitation: { rfpId } } }),
     prisma.invitation.updateMany({
@@ -594,6 +621,7 @@ export async function returnRfpToDraft(rfpId: string): Promise<{ error: string }
       },
     }),
   ]);
+  await logRfpEvent(rfpId, user.id, "RETURNED_TO_DRAFT", { responses: responseCount });
   revalidatePath(`/rfps/${rfpId}`);
   revalidatePath("/");
   return { success: true };

@@ -1,5 +1,6 @@
 "use server";
 
+import { logRfpEvent } from "@/lib/rfpEvents";
 import { editDenied } from "@/lib/rfpAccess";
 import { readCustomValues } from "@/lib/customFields";
 import { revalidatePath } from "next/cache";
@@ -190,6 +191,7 @@ export async function rejectAward(rfpId: string, reason: string) {
 export async function revokeAward(rfpId: string) {
   const user = await requireUser();
   if (await editDenied(user, rfpId, "")) return;
+  await logRfpEvent(rfpId, user.id, "AWARD_REVOKED");
   await prisma.rfp.update({
     where: { id: rfpId },
     data: { awardedInvitationId: null, awardedAt: null },

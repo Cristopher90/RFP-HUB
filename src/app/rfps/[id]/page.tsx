@@ -149,6 +149,56 @@ export default async function RfpDetailPage({
       detail: h.reason ? `${h.userName} — ${h.reason}` : h.userName,
     });
   }
+  // Changes recorded as they happen (team, edits, reopenings...).
+  const ev = dictionary.rfpEvents;
+  const permissionText = (p: unknown) => (p === "EDIT" ? dictionary.rfpTeam.canEdit : dictionary.rfpTeam.canView);
+  for (const e of await prisma.rfpEvent.findMany({
+    where: { rfpId: rfp.id },
+    include: { user: { select: { name: true, lastName: true } } },
+    orderBy: { createdAt: "asc" },
+  })) {
+    const d = (e.detail ?? {}) as Record<string, unknown>;
+    const name = String(d.name ?? "");
+    let label: string;
+    switch (e.kind) {
+      case "TEAM_ADDED":
+        label = ev.teamAdded.replace("{name}", name).replace("{permission}", permissionText(d.permission));
+        break;
+      case "TEAM_REMOVED":
+        label = ev.teamRemoved.replace("{name}", name);
+        break;
+      case "TEAM_PERMISSION":
+        label = ev.teamPermission.replace("{name}", name).replace("{permission}", permissionText(d.permission));
+        break;
+      case "EDITED": {
+        const fields = (Array.isArray(d.fields) ? d.fields : []) as string[];
+        label = ev.edited.replace(
+          "{changes}",
+          fields.map((f) => (ev.fields as Record<string, string>)[f] ?? f).join(", "),
+        );
+        break;
+      }
+      case "RETURNED_TO_DRAFT":
+        label = ev.returnedToDraft.replace("{count}", String(d.responses ?? 0));
+        break;
+      case "REOPENED":
+        label = ev.reopened;
+        break;
+      case "SUPPLIER_INVITED":
+        label = ev.supplierInvited.replace("{name}", name);
+        break;
+      case "AWARD_REVOKED":
+        label = ev.awardRevoked;
+        break;
+      default:
+        continue;
+    }
+    history.push({
+      date: e.createdAt,
+      label,
+      detail: e.user ? `${e.user.name} ${e.user.lastName ?? ""}`.trim() : undefined,
+    });
+  }
   if (rfp.closedAt) history.push({ date: rfp.closedAt, label: dictionary.rfpDetail.closure });
   if (rfp.status === "CLOSED") {
     for (const inv of rfp.invitations) {
@@ -681,6 +731,7 @@ export default async function RfpDetailPage({
 
       <CollapsibleSection
         title={dictionary.rfpDetail.historyTitle}
+        defaultOpen={false}
         storageKey="rfp-detail-history"
         className="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
       >

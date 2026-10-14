@@ -1,5 +1,6 @@
 "use server";
 
+import { logRfpEvent } from "@/lib/rfpEvents";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -41,13 +42,18 @@ export async function addRfpMember(rfpId: string, userId: string, permission: st
   const existing = await prisma.rfpMember.findUnique({ where: { rfpId_userId: { rfpId, userId } } });
   if (existing) return { error: d.alreadyMember };
 
+  const targetUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, lastName: true } });
   await prisma.rfpMember.create({ data: { rfpId, userId, permission, addedByUserId: user.id } });
+  await logRfpEvent(rfpId, user.id, "TEAM_ADDED", { name: `${targetUser?.name ?? ""} ${targetUser?.lastName ?? ""}`.trim(), permission });
   revalidatePath(`/rfps/${rfpId}`);
   return { success: true };
 }
 
 export async function setRfpMemberPermission(memberId: string, permission: string): Promise<Result> {
-  const member = await prisma.rfpMember.findUnique({ where: { id: memberId }, select: { rfpId: true } });
+  const member = await prisma.rfpMember.findUnique({
+    where: { id: memberId },
+    select: { rfpId: true, user: { select: { name: true, lastName: true } } },
+  });
   const user = await requireUser();
   const d = getDictionary(user.language).rfpTeam;
   if (!member) return { error: d.notFound };
@@ -56,12 +62,19 @@ export async function setRfpMemberPermission(memberId: string, permission: strin
   if (!canManageTeam(user, rfp)) return { error: d.noPermission };
   if (!validPermission(permission)) return { error: d.invalidPermission };
   await prisma.rfpMember.update({ where: { id: memberId }, data: { permission } });
+  await logRfpEvent(rfp.id, user.id, "TEAM_PERMISSION", {
+    name: `${member.user.name} ${member.user.lastName ?? ""}`.trim(),
+    permission,
+  });
   revalidatePath(`/rfps/${rfp.id}`);
   return { success: true };
 }
 
 export async function removeRfpMember(memberId: string): Promise<Result> {
-  const member = await prisma.rfpMember.findUnique({ where: { id: memberId }, select: { rfpId: true } });
+  const member = await prisma.rfpMember.findUnique({
+    where: { id: memberId },
+    select: { rfpId: true, user: { select: { name: true, lastName: true } } },
+  });
   const user = await requireUser();
   const d = getDictionary(user.language).rfpTeam;
   if (!member) return { error: d.notFound };
@@ -69,6 +82,7 @@ export async function removeRfpMember(memberId: string): Promise<Result> {
   if (!rfp) return { error: d.notFound };
   if (!canManageTeam(user, rfp)) return { error: d.noPermission };
   await prisma.rfpMember.delete({ where: { id: memberId } });
+  await logRfpEvent(rfp.id, user.id, "TEAM_REMOVED", { name: `${member.user.name} ${member.user.lastName ?? ""}`.trim() });
   revalidatePath(`/rfps/${rfp.id}`);
   return { success: true };
 }
