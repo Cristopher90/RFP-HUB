@@ -6,6 +6,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
+import { readCustomValues } from "@/lib/customFields";
 import { computeAutoScore } from "@/lib/questionScoring";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -56,6 +57,10 @@ export async function submitResponse(token: string, formData: FormData) {
   const header = {
     commodity: invitation.rfp.commodity,
     region: invitation.rfp.region,
+    custom:
+      (await readCustomValues(invitation.rfp.clientId, "RFP", [invitation.rfp.id])).get(
+        invitation.rfp.id,
+      ) ?? {},
   };
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads");

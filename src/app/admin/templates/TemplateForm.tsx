@@ -16,6 +16,8 @@ import {
 } from "@/i18n/labels";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
+import { HeaderConditionEditor } from "@/components/HeaderConditionEditor";
+import { CUSTOM_COND_PREFIX, type TemplateCondition } from "@/lib/templateConditions";
 import { makeClientKey } from "@/lib/clientKey";
 import type { UserRole } from "@/generated/prisma/enums";
 import { hasOptions, labelFor, optionLabel, type CustomFieldDef } from "@/lib/customFieldsShared";
@@ -143,28 +145,16 @@ function lockRolesField(
   onChange: (roles: UserRole[]) => void,
   dictionary: Dictionary,
 ) {
-  function toggle(role: UserRole) {
-    onChange(
-      selected.includes(role)
-        ? selected.filter((r) => r !== role)
-        : [...selected, role],
-    );
-  }
   return (
-    <div className="flex flex-wrap gap-x-3 gap-y-1">
-      {ALL_USER_ROLES.map((r) => (
-        <label
-          key={r}
-          className="flex items-center gap-1.5 text-xs text-slate-600"
-        >
-          <input
-            type="checkbox"
-            checked={selected.includes(r)}
-            onChange={() => toggle(r)}
-          />
-          {roleLabel(dictionary, r)}
-        </label>
-      ))}
+    <div className="max-w-xs">
+      <ViewGroupPicker
+        compact
+        groups={ALL_USER_ROLES.map((r) => ({ id: r, name: roleLabel(dictionary, r) }))}
+        value={selected}
+        onChange={(next) => onChange(next as UserRole[])}
+        emptyLabel={dictionary.templateForm.anyoneCan}
+        unitLabel={dictionary.templateForm.rolesUnit}
+      />
     </div>
   );
 }
@@ -177,8 +167,11 @@ export function TemplateForm({
   targetClientId,
   customFilterFields = [],
   viewGroups = [],
+  customHeaderFields = [],
 }: {
   viewGroups?: ViewGroupOption[];
+  // The client's custom RFP header fields, usable in content conditions.
+  customHeaderFields?: CustomFieldDef[];
   templateId?: string;
   targetClientId?: string;
   customFilterFields?: CustomFieldDef[];
@@ -406,6 +399,14 @@ export function TemplateForm({
     );
   }
 
+  function setSectionConditionIn<T extends { section: string | null; sectionCondition?: TemplateCondition | null }>(
+    setter: React.Dispatch<React.SetStateAction<T[]>>,
+    sectionName: string,
+    condition: TemplateCondition | null,
+  ) {
+    setter((prev) => prev.map((r) => (r.section === sectionName ? { ...r, sectionCondition: condition } : r)));
+  }
+
   const updateQuestion = (
     index: number,
     patch: Partial<TemplateQuestionInput>,
@@ -472,6 +473,41 @@ export function TemplateForm({
     ...internalQuestions.map((q) => ({ ...q, area: t("rfpForm.areaInternal") })),
   ];
 
+  // Value box of a question's condition: a picker when the header field is a
+  // custom dropdown/tree/checkbox, free text otherwise.
+  function questionConditionValue(q: TemplateQuestionInput, onChange: (value: string) => void) {
+    const custom = q.dependsOnHeaderField?.startsWith(CUSTOM_COND_PREFIX)
+      ? customHeaderFields.find((f) => f.key === q.dependsOnHeaderField!.slice(CUSTOM_COND_PREFIX.length))
+      : undefined;
+    if (custom && (custom.options.length > 0 || custom.type === "CHECKBOX")) {
+      return (
+        <select className={smallInputClass()} value={q.dependsOnValue} onChange={(e) => onChange(e.target.value)}>
+          <option value="" />
+          {custom.type === "CHECKBOX" ? (
+            <>
+              <option value="true">{t("customFields.yes")}</option>
+              <option value="false">{t("customFields.no")}</option>
+            </>
+          ) : (
+            custom.options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {optionLabel(o, language)}
+              </option>
+            ))
+          )}
+        </select>
+      );
+    }
+    return (
+      <input
+        className={smallInputClass()}
+        placeholder={t("rfpForm.exampleYes")}
+        value={q.dependsOnValue}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
   function conditionSelect(
     q: TemplateQuestionInput,
     onChange: (patch: Partial<TemplateQuestionInput>) => void,
@@ -496,7 +532,7 @@ export function TemplateForm({
             });
           } else if (v.startsWith("header:")) {
             onChange({
-              dependsOnHeaderField: v.slice(7) as "commodity" | "region",
+              dependsOnHeaderField: v.slice(7),
               dependsOnQuestionKey: null,
               dependsOnValue: "",
             });
@@ -512,6 +548,11 @@ export function TemplateForm({
         <option value="">{t("rfpForm.noCondition")}</option>
         <option value="header:commodity">{t("rfpForm.rfpCommodity")}</option>
         <option value="header:region">{t("rfpForm.rfpRegion")}</option>
+        {customHeaderFields.map((f) => (
+          <option key={f.key} value={`header:${CUSTOM_COND_PREFIX}${f.key}`}>
+            {labelFor(f.labels, language, f.key)}
+          </option>
+        ))}
         {allQuestionsForConditions
           .filter(
             (other) => other.clientKey !== q.clientKey && other.text.trim(),
@@ -923,6 +964,14 @@ export function TemplateForm({
                       renameItemSection(group.name!, e.target.value)
                     }
                   />
+                  <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
+                    <span>{t("templateForm.sectionConditionLabel")}</span>
+                    <HeaderConditionEditor
+                      value={group.entries[0]?.item.sectionCondition}
+                      customFields={customHeaderFields}
+                      onChange={(c) => setSectionConditionIn(setItems, group.name!, c)}
+                    />
+                  </div>
                 </div>
               )}
               <div className="space-y-3">
@@ -1050,6 +1099,16 @@ export function TemplateForm({
                             {t("templateForm.unmarkedMeansAnyoneItem")}
                           </p>
                         </div>
+                        <div className="sm:col-span-6">
+                          <label className="mb-1 block text-xs font-medium text-slate-500">
+                            {t("templateForm.itemConditionLabel")}
+                          </label>
+                          <HeaderConditionEditor
+                            value={item.condition}
+                            customFields={customHeaderFields}
+                            onChange={(condition) => updateItem(index, { condition })}
+                          />
+                        </div>
                         <div className="sm:col-span-12">
                           <div className="mb-1 flex items-center justify-between">
                             <label className="text-xs font-medium text-slate-500">
@@ -1072,7 +1131,8 @@ export function TemplateForm({
                           </div>
                           <div className="space-y-1.5">
                             {item.customFields.map((field, fieldIndex) => (
-                              <div key={fieldIndex} className="flex gap-1.5">
+                              <div key={fieldIndex} className="space-y-1">
+                                <div className="flex gap-1.5">
                                 <input
                                   className={smallInputClass()}
                                   placeholder={t("rfpForm.fieldNamePlaceholder")}
@@ -1116,6 +1176,21 @@ export function TemplateForm({
                                 >
                                   ✕
                                 </button>
+                                </div>
+                                <div className="flex items-center gap-1.5 pl-1 text-[11px] text-slate-500">
+                                  <span>{t("templateForm.adhocConditionLabel")}</span>
+                                  <HeaderConditionEditor
+                                    value={field.condition}
+                                    customFields={customHeaderFields}
+                                    onChange={(condition) =>
+                                      updateItem(index, {
+                                        customFields: item.customFields.map((f, i) =>
+                                          i === fieldIndex ? { ...f, condition } : f,
+                                        ),
+                                      })
+                                    }
+                                  />
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1207,6 +1282,14 @@ export function TemplateForm({
                       )
                     }
                   />
+                  <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
+                    <span>{t("templateForm.sectionConditionLabel")}</span>
+                    <HeaderConditionEditor
+                      value={group.entries[0]?.item.sectionCondition}
+                      customFields={customHeaderFields}
+                      onChange={(c) => setSectionConditionIn(setInternalQuestions, group.name!, c)}
+                    />
+                  </div>
                 </div>
               )}
               <div className="space-y-3">
@@ -1393,16 +1476,9 @@ export function TemplateForm({
                             <label className="mb-1 block text-xs font-medium text-slate-500">
                               {t("rfpForm.requiredValueToShow")}
                             </label>
-                            <input
-                              className={smallInputClass()}
-                              placeholder={t("rfpForm.exampleYes")}
-                              value={q.dependsOnValue}
-                              onChange={(e) =>
-                                updateInternalQuestion(index, {
-                                  dependsOnValue: e.target.value,
-                                })
-                              }
-                            />
+                            {questionConditionValue(q, (dependsOnValue) =>
+                              updateInternalQuestion(index, { dependsOnValue }),
+                            )}
                           </div>
                         )}
                       </div>
@@ -1486,6 +1562,14 @@ export function TemplateForm({
                       renameQuestionSection(group.name!, e.target.value)
                     }
                   />
+                  <div className="flex shrink-0 items-center gap-1.5 text-xs text-slate-500">
+                    <span>{t("templateForm.sectionConditionLabel")}</span>
+                    <HeaderConditionEditor
+                      value={group.entries[0]?.item.sectionCondition}
+                      customFields={customHeaderFields}
+                      onChange={(c) => setSectionConditionIn(setQuestions, group.name!, c)}
+                    />
+                  </div>
                 </div>
               )}
               <div className="space-y-3">
@@ -1731,16 +1815,9 @@ export function TemplateForm({
                             <label className="mb-1 block text-xs font-medium text-slate-500">
                               {t("rfpForm.requiredValueToShow")}
                             </label>
-                            <input
-                              className={smallInputClass()}
-                              placeholder={t("rfpForm.exampleYes")}
-                              value={q.dependsOnValue}
-                              onChange={(e) =>
-                                updateQuestion(index, {
-                                  dependsOnValue: e.target.value,
-                                })
-                              }
-                            />
+                            {questionConditionValue(q, (dependsOnValue) =>
+                              updateQuestion(index, { dependsOnValue }),
+                            )}
                           </div>
                         )}
                       </div>

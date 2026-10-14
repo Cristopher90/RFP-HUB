@@ -7,6 +7,8 @@ export type ConditionedQuestion = {
 export type HeaderValues = {
   commodity: string | null;
   region: string | null;
+  // The RFP's custom header values (key → value), for "custom:<key>" conditions.
+  custom?: Record<string, string>;
 };
 
 /**
@@ -21,8 +23,10 @@ export function isQuestionConditionMet(
   answerValuesByQuestionId: Record<string, string>,
 ) {
   if (question.dependsOnHeaderField) {
-    const val =
-      question.dependsOnHeaderField === "commodity"
+    const field = question.dependsOnHeaderField;
+    const val = field.startsWith("custom:")
+      ? header.custom?.[field.slice(7)]
+      : field === "commodity"
         ? header.commodity
         : header.region;
     return (

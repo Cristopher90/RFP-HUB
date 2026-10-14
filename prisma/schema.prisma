@@ -492,20 +492,22 @@ model ApprovalLevel {
 }
 
 model TemplateItem {
-  id           String     @id @default(cuid())
-  clientId     String
-  client       Client     @relation(fields: [clientId], references: [id])
-  templateId   String
-  name         String
-  description  String?
-  quantity     Float      @default(1)
-  unit         String     @default("unidad")
-  weight       Int        @default(1)
-  decimals     Int        @default(2)
-  customFields String?
-  section      String? // nombre de la sección a la que pertenece (agrupa y numera)
-  order        Int        @default(0)
-  lockRoles    UserRole[] // roles que pueden editarlo/quitarlo al crear la RFP; vacío = cualquiera puede
+  id               String     @id @default(cuid())
+  clientId         String
+  client           Client     @relation(fields: [clientId], references: [id])
+  templateId       String
+  name             String
+  description      String?
+  quantity         Float      @default(1)
+  unit             String     @default("unidad")
+  weight           Int        @default(1)
+  decimals         Int        @default(2)
+  customFields     String?
+  section          String? // nombre de la sección a la que pertenece (agrupa y numera)
+  order            Int        @default(0)
+  lockRoles        UserRole[] // roles que pueden editarlo/quitarlo al crear la RFP; vacío = cualquiera puede
+  condition        Json? // { "field": "commodity" | "region" | "custom:<clave>", "value": "..." }: solo entra en la RFP si la cabecera lo cumple
+  sectionCondition Json? // condición de su sección (igual en todas las filas de la sección): si no se cumple, nada de la sección entra en la RFP
 
   template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
@@ -533,6 +535,7 @@ model TemplateQuestion {
   dependsOnQuestionId  String?
   dependsOnHeaderField String?
   dependsOnValue       String?
+  sectionCondition     Json? // condición de su sección (igual en todas las filas de la sección): si no se cumple, nada de la sección entra en la RFP
 
   template RfpTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }

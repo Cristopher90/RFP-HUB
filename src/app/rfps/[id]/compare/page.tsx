@@ -1,3 +1,4 @@
+import { readCustomValues } from "@/lib/customFields";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -98,7 +99,11 @@ export default async function ComparePage({
   const internalQuestions = rfp.questions.filter(
     (q) => q.visibility === "INTERNAL",
   );
-  const header = { commodity: rfp.commodity, region: rfp.region };
+  const header = {
+    commodity: rfp.commodity,
+    region: rfp.region,
+    custom: (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {},
+  };
   const internalNotesByInvitation = new Map(
     responded.map((inv) => {
       const answerValues = Object.fromEntries(

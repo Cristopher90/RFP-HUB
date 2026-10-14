@@ -9,6 +9,7 @@ import { buildRfpFromRequest } from "@/lib/requestToRfp";
 import { buyerGroupIdsOf, canGenerateRfp, visibilityWhere } from "@/lib/requestAccess";
 import { deriveRequestStatus } from "@/lib/requestStatus";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { parseTemplateCondition } from "@/lib/templateConditions";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, applyViewGroupsToFields, coerceValue } from "@/lib/customFieldsShared";
@@ -319,6 +320,8 @@ export default async function NewRfpPage({
                   }[])
                 : [],
               lockRoles: i.lockRoles,
+              condition: parseTemplateCondition(i.condition),
+              sectionCondition: parseTemplateCondition(i.sectionCondition),
             })),
             questions: t.questions.map((q) => ({
               id: q.id,
@@ -337,6 +340,9 @@ export default async function NewRfpPage({
                 ? (JSON.parse(q.scoringConfig) as Record<string, number>)
                 : null,
               lockRoles: q.lockRoles,
+              dependsOnHeaderField: q.dependsOnHeaderField,
+              dependsOnValue: q.dependsOnValue,
+              sectionCondition: parseTemplateCondition(q.sectionCondition),
             })),
           }))}
         />

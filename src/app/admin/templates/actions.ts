@@ -2,6 +2,7 @@
 
 import { Prisma } from "@/generated/prisma/client";
 import { validViewGroupIds } from "@/lib/viewGroupsServer";
+import { CUSTOM_COND_PREFIX, STD_COND_FIELDS, type TemplateCondition } from "@/lib/templateConditions";
 import { loadCustomFields } from "@/lib/customFields";
 import { coerceValue } from "@/lib/customFieldsShared";
 import { revalidatePath } from "next/cache";
@@ -21,8 +22,11 @@ export type TemplateItemInput = {
   unit: string;
   weight: number;
   decimals: number;
-  customFields: { label: string; value: string }[];
+  // Ad-hoc item fields; each may carry a header condition (only in the template).
+  customFields: { label: string; value: string; condition?: TemplateCondition | null }[];
   lockRoles: UserRole[];
+  condition?: TemplateCondition | null; // the item only enters the RFP when the header meets it
+  sectionCondition?: TemplateCondition | null; // same, for its whole section
 };
 
 export type TemplateQuestionType =
@@ -57,9 +61,10 @@ export type TemplateQuestionInput = {
   numberMax: number | null;
   scoringConfig: Record<string, number> | null;
   dependsOnQuestionKey: string | null;
-  dependsOnHeaderField: "commodity" | "region" | null;
+  dependsOnHeaderField: string | null; // "commodity" | "region" | "custom:<clave>"
   dependsOnValue: string;
   lockRoles: UserRole[];
+  sectionCondition?: TemplateCondition | null;
 };
 
 export type TemplatePriceCondition = "GREATER_THAN" | "LESS_THAN" | "BETWEEN";
@@ -113,6 +118,19 @@ export async function saveTemplate(
     clientId = resolved;
   }
 
+  // Conditions refer to a standard header field or one of the client's custom
+  // header fields; anything else (or an empty value) is dropped.
+  const headerFieldKeys = new Set(
+    (await loadCustomFields(clientId, "RFP_HEAD")).map((f) => `${CUSTOM_COND_PREFIX}${f.key}`),
+  );
+  const validCondField = (field: string) =>
+    (STD_COND_FIELDS as readonly string[]).includes(field) || headerFieldKeys.has(field);
+  const cleanCondition = (c: TemplateCondition | null | undefined): TemplateCondition | null => {
+    const value = (c?.value ?? "").trim();
+    return c && validCondField(c.field) && value !== "" ? { field: c.field, value } : null;
+  };
+  const json = (c: TemplateCondition | null) => (c ? (c as object) : Prisma.DbNull);
+
   const items = input.items
     .map((item) => ({
       id: item.id,
@@ -125,10 +143,19 @@ export async function saveTemplate(
       decimals: Math.min(4, Math.max(0, Number(item.decimals) ?? 2)),
       customFields: JSON.stringify(
         item.customFields
-          .map((f) => ({ label: f.label.trim(), value: f.value.trim() }))
+          .map((f) => {
+            const condition = cleanCondition(f.condition);
+            return {
+              label: f.label.trim(),
+              value: f.value.trim(),
+              ...(condition ? { condition } : {}),
+            };
+          })
           .filter((f) => f.label.length > 0),
       ),
       lockRoles: item.lockRoles,
+      condition: json(cleanCondition(item.condition)),
+      sectionCondition: json(cleanCondition(item.sectionCondition)),
     }))
     .filter((item) => item.name.length > 0);
 
@@ -152,9 +179,11 @@ export async function saveTemplate(
           ? serializeScoringConfig(q.scoringConfig)
           : null,
       dependsOnQuestionKey: q.dependsOnQuestionKey,
-      dependsOnHeaderField: q.dependsOnHeaderField,
+      dependsOnHeaderField:
+        q.dependsOnHeaderField && validCondField(q.dependsOnHeaderField) ? q.dependsOnHeaderField : null,
       dependsOnValue: q.dependsOnValue.trim(),
       lockRoles: q.lockRoles,
+      sectionCondition: json(cleanCondition(q.sectionCondition)),
       options:
         q.type === "SELECT"
           ? JSON.stringify(
@@ -280,6 +309,7 @@ export async function saveTemplate(
       dependsOnValue: q.dependsOnValue || null,
       options: q.options,
       lockRoles: q.lockRoles,
+      sectionCondition: q.sectionCondition,
       order,
     };
     if (q.id && existingQuestionIds.has(q.id)) {

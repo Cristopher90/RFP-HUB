@@ -11,6 +11,7 @@ import {
 } from "@/lib/templateMatch";
 import { findUnacceptedContacts } from "@/lib/supplierContacts";
 import { viewGroupWhere } from "@/lib/viewGroups";
+import { parseTemplateCondition, templateConditionHolds } from "@/lib/templateConditions";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
@@ -82,7 +83,7 @@ export type NewQuestionInput = {
   numberMax: number | null;
   scoringConfig: Record<string, number> | null;
   dependsOnQuestionKey: string | null;
-  dependsOnHeaderField: "commodity" | "region" | null;
+  dependsOnHeaderField: string | null; // "commodity" | "region" | "custom:<clave>"
   dependsOnValue: string;
   buyerAnswerValue: string;
   sourceTemplateQuestionId?: string | null;
@@ -361,8 +362,21 @@ export async function validateAndShapeRfp(
     input.questions.map((q) => q.sourceTemplateQuestionId).filter(Boolean),
   );
 
+  // Template content whose header condition (own or its section's) isn't met
+  // never enters the RFP, so it can't be demanded either.
+  const conditionHeader = {
+    commodity: input.commodity,
+    region: input.region,
+    custom: "values" in earlyHeader ? earlyHeader.values : {},
+  };
   for (const template of matchingTemplates) {
     for (const templateItem of template.items) {
+      if (
+        !templateConditionHolds(parseTemplateCondition(templateItem.condition), conditionHeader) ||
+        !templateConditionHolds(parseTemplateCondition(templateItem.sectionCondition), conditionHeader)
+      ) {
+        continue;
+      }
       const locked =
         templateItem.lockRoles.length > 0 &&
         !templateItem.lockRoles.includes(user.role);
@@ -375,6 +389,11 @@ export async function validateAndShapeRfp(
       }
     }
     for (const templateQuestion of template.questions) {
+      if (
+        !templateConditionHolds(parseTemplateCondition(templateQuestion.sectionCondition), conditionHeader)
+      ) {
+        continue;
+      }
       const locked =
         templateQuestion.lockRoles.length > 0 &&
         !templateQuestion.lockRoles.includes(user.role);

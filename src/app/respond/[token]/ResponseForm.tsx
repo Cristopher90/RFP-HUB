@@ -57,12 +57,14 @@ export function ResponseForm({
   questions,
   rfpCommodity,
   rfpRegion,
+  rfpCustom = {},
 }: {
   token: string;
   items: Item[];
   questions: Question[];
   rfpCommodity: string | null;
   rfpRegion: string | null;
+  rfpCustom?: Record<string, string>;
 }) {
   const { t } = usePreferences();
   const [state, formAction] = useActionState(
@@ -75,7 +77,7 @@ export function ResponseForm({
   function isVisible(q: Question) {
     return isQuestionConditionMet(
       q,
-      { commodity: rfpCommodity, region: rfpRegion },
+      { commodity: rfpCommodity, region: rfpRegion, custom: rfpCustom },
       answers,
     );
   }
@@ -86,6 +88,9 @@ export function ResponseForm({
   const regularQuestions = questions.filter(
     (q) => !q.isPrerequisite && isVisible(q),
   );
+  // Prerequisites must be accepted before the rest of the RFP is shown.
+  const [accepted, setAccepted] = useState<Record<string, boolean>>({});
+  const allAccepted = prerequisites.every((q) => accepted[q.id]);
 
   return (
     <form action={formAction} className="space-y-8">
@@ -114,6 +119,10 @@ export function ResponseForm({
                   name={`question-${q.id}`}
                   required
                   className="mt-0.5"
+                  checked={Boolean(accepted[q.id])}
+                  onChange={(e) =>
+                    setAccepted((prev) => ({ ...prev, [q.id]: e.target.checked }))
+                  }
                 />
                 {q.text}
               </label>
@@ -122,6 +131,14 @@ export function ResponseForm({
         </section>
       )}
 
+      {!allAccepted && (
+        <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+          {t("responseForm.acceptToContinue")}
+        </p>
+      )}
+
+      {allAccepted && (
+        <>
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-base font-semibold text-slate-900">
           {t("responseForm.pricesByItemTitle")}
@@ -339,6 +356,8 @@ export function ResponseForm({
       <div className="flex justify-end">
         <SubmitButton />
       </div>
+        </>
+      )}
     </form>
   );
 }

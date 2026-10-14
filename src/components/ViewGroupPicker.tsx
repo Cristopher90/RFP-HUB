@@ -13,6 +13,8 @@ export function ViewGroupPicker({
   onChange,
   compact = false,
   inline = false,
+  emptyLabel,
+  unitLabel,
 }: {
   groups: ViewGroupOption[];
   value: string[];
@@ -20,6 +22,9 @@ export function ViewGroupPicker({
   compact?: boolean;
   // Plain checkbox list instead of a dropdown (for tables with scroll containers).
   inline?: boolean;
+  // Wording when nothing is picked / for the count ("3 roles"); defaults are for view groups.
+  emptyLabel?: string;
+  unitLabel?: string;
 }) {
   const { t } = usePreferences();
   const [open, setOpen] = useState(false);
@@ -52,10 +57,10 @@ export function ViewGroupPicker({
   const selected = groups.filter((g) => value.includes(g.id));
   const summary =
     selected.length === 0
-      ? t("viewGroups.noneSelected")
+      ? (emptyLabel ?? t("viewGroups.noneSelected"))
       : selected.length <= 2
         ? selected.map((g) => g.name).join(", ")
-        : `${selected.length} ${t("viewGroups.groupsCount")}`;
+        : `${selected.length} ${unitLabel ?? t("viewGroups.groupsCount")}`;
 
   if (inline) {
     return groups.length === 0 ? (

@@ -6,6 +6,7 @@ import { utcToZonedTime } from "@/lib/timezone";
 import { RfpForm, type RfpInitialData } from "../../new/RfpForm";
 import { getDictionary } from "@/i18n/getDictionary";
 import { loadCustomFields, readCustomValues } from "@/lib/customFields";
+import { parseTemplateCondition } from "@/lib/templateConditions";
 import { applyViewGroupsToFields } from "@/lib/customFieldsShared";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
@@ -240,6 +241,8 @@ export default async function EditRfpPage({
                   }[])
                 : [],
               lockRoles: i.lockRoles,
+              condition: parseTemplateCondition(i.condition),
+              sectionCondition: parseTemplateCondition(i.sectionCondition),
             })),
             questions: t.questions.map((q) => ({
               id: q.id,
@@ -258,6 +261,9 @@ export default async function EditRfpPage({
                 ? (JSON.parse(q.scoringConfig) as Record<string, number>)
                 : null,
               lockRoles: q.lockRoles,
+              dependsOnHeaderField: q.dependsOnHeaderField,
+              dependsOnValue: q.dependsOnValue,
+              sectionCondition: parseTemplateCondition(q.sectionCondition),
             })),
           }))}
         />

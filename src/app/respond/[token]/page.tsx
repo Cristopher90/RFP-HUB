@@ -1,3 +1,4 @@
+import { readCustomValues } from "@/lib/customFields";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
@@ -57,6 +58,7 @@ export default async function RespondPage({
   }
 
   const { rfp, supplier, response } = invitation;
+  const rfpCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const isClosed = rfp.status === "CLOSED";
   const isAwaitingStart = rfp.status === "AWAITING_START";
   const isNotYetPublished = !isPublished;
@@ -195,6 +197,7 @@ export default async function RespondPage({
           questions={supplierQuestions}
           rfpCommodity={rfp.commodity}
           rfpRegion={rfp.region}
+          rfpCustom={rfpCustom}
         />
       )}
     </div>

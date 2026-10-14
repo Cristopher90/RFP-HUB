@@ -31,6 +31,7 @@ export default async function NewTemplatePage({
     : [];
 
   const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
+  const customHeaderFields = effectiveClientId ? await loadCustomFields(effectiveClientId, "RFP_HEAD") : [];
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
@@ -53,6 +54,7 @@ export default async function NewTemplatePage({
             targetClientId={effectiveClientId}
             customFilterFields={customFilterFields}
             viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
+            customHeaderFields={customHeaderFields}
           />
         </div>
       ) : (

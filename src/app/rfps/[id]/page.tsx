@@ -154,7 +154,7 @@ export default async function RfpDetailPage({
   const visibleBuyerQuestions = internalOnlyQuestions.filter((q) =>
     isQuestionConditionMet(
       q,
-      { commodity: rfp.commodity, region: rfp.region },
+      { commodity: rfp.commodity, region: rfp.region, custom: customHeaderValues },
       buyerAnswerValues,
     ),
   );

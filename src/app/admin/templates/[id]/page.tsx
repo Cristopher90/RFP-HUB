@@ -7,6 +7,7 @@ import { TemplateForm } from "../TemplateForm";
 import { loadCustomFields } from "@/lib/customFields";
 import { loadViewGroups } from "@/lib/viewGroupsServer";
 import { parseMatchCustom } from "@/lib/templateMatch";
+import { parseTemplateCondition } from "@/lib/templateConditions";
 import { deleteTemplate } from "../actions";
 
 export default async function EditTemplatePage({
@@ -46,6 +47,7 @@ export default async function EditTemplatePage({
   );
 
   const viewGroups = await loadViewGroups(template.clientId);
+  const customHeaderFields = await loadCustomFields(template.clientId, "RFP_HEAD");
 
   const questionClientKeyById = new Map(
     template.questions.map((q) => [q.id, makeClientKey()]),
@@ -79,6 +81,8 @@ export default async function EditTemplatePage({
         ? (JSON.parse(i.customFields) as { label: string; value: string }[])
         : [],
       lockRoles: i.lockRoles,
+      condition: parseTemplateCondition(i.condition),
+      sectionCondition: parseTemplateCondition(i.sectionCondition),
     })),
     questions: template.questions.map((q) => ({
       id: q.id,
@@ -100,12 +104,10 @@ export default async function EditTemplatePage({
       dependsOnQuestionKey: q.dependsOnQuestionId
         ? (questionClientKeyById.get(q.dependsOnQuestionId) ?? null)
         : null,
-      dependsOnHeaderField: q.dependsOnHeaderField as
-        | "commodity"
-        | "region"
-        | null,
+      dependsOnHeaderField: q.dependsOnHeaderField,
       dependsOnValue: q.dependsOnValue ?? "",
       lockRoles: q.lockRoles,
+      sectionCondition: parseTemplateCondition(q.sectionCondition),
     })),
   };
 
@@ -145,6 +147,7 @@ export default async function EditTemplatePage({
           regions={regions}
           customFilterFields={customFilterFields}
           viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
+          customHeaderFields={customHeaderFields}
         />
       </div>
     </div>

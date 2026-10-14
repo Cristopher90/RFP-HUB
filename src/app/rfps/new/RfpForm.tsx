@@ -10,6 +10,7 @@ import { QuestionScoringFields } from "@/components/QuestionScoringFields";
 import { TemplatePicker } from "@/components/TemplatePicker";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
+import { templateConditionHolds, type TemplateCondition } from "@/lib/templateConditions";
 import { headerStdSnapshot, lineStdSnapshot, type CustomFieldDef } from "@/lib/customFieldsShared";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
@@ -59,8 +60,11 @@ export type TemplateData = {
     unit: string;
     weight: number;
     decimals: number;
-    customFields: NewCustomField[];
+    // Ad-hoc fields of the template item; each may carry a header condition.
+    customFields: (NewCustomField & { condition?: TemplateCondition | null })[];
     lockRoles: UserRole[];
+    condition?: TemplateCondition | null;
+    sectionCondition?: TemplateCondition | null;
   }[];
   questions: {
     id: string;
@@ -77,6 +81,9 @@ export type TemplateData = {
     numberMax: number | null;
     scoringConfig: Record<string, number> | null;
     lockRoles: UserRole[];
+    dependsOnHeaderField?: string | null;
+    dependsOnValue?: string | null;
+    sectionCondition?: TemplateCondition | null;
   }[];
 };
 
@@ -289,7 +296,7 @@ export function RfpForm({
   customFields?: CustomFieldDef[];
   clientCurrency?: string;
 }) {
-  const { t, dictionary } = usePreferences();
+  const { t, dictionary, language } = usePreferences();
   const idBase = useId();
   // Pre-filled from a purchase request: unlike a blank form, nothing has
   // triggered the commodity/region change that merges in the matching RFP
@@ -405,11 +412,40 @@ export function RfpForm({
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
-    const kept = prev.filter(
-      (item) =>
-        !item.sourceTemplateId ||
-        matchingTemplateIds.has(item.sourceTemplateId),
-    );
+    // Template content can carry header conditions (own, its section's and, for
+    // ad-hoc fields, per field): only what the header meets enters the RFP.
+    const header = { commodity: newCommodity, region: newRegion, custom };
+    const templateItemById = new Map(templates.flatMap((tpl) => tpl.items.map((i) => [i.id, i] as const)));
+    const applies = (ti: (typeof templates)[number]["items"][number]) =>
+      templateConditionHolds(ti.condition, header) && templateConditionHolds(ti.sectionCondition, header);
+    const adhocFor = (ti: (typeof templates)[number]["items"][number]) =>
+      ti.customFields
+        .filter((f) => templateConditionHolds(f.condition, header))
+        .map(({ label, value }) => ({ label, value }));
+    let changed = false;
+    const kept: NewItemInput[] = [];
+    for (const item of prev) {
+      if (item.sourceTemplateId && !matchingTemplateIds.has(item.sourceTemplateId)) continue;
+      const ti = item.sourceTemplateItemId ? templateItemById.get(item.sourceTemplateItemId) : undefined;
+      if (!ti) {
+        kept.push(item);
+        continue;
+      }
+      if (!applies(ti)) continue;
+      // The ad-hoc fields that came from the template follow their conditions.
+      const wanted = adhocFor(ti);
+      const templateLabels = new Set(ti.customFields.map((f) => f.label));
+      const without = item.customFields.filter(
+        (f) => !templateLabels.has(f.label) || wanted.some((w) => w.label === f.label),
+      );
+      const missing = wanted.filter((w) => !without.some((f) => f.label === w.label));
+      if (without.length === item.customFields.length && missing.length === 0) {
+        kept.push(item);
+      } else {
+        changed = true;
+        kept.push({ ...item, customFields: [...without, ...missing] });
+      }
+    }
     const existingSourceIds = new Set(
       kept.map((i) => i.sourceTemplateItemId).filter(Boolean),
     );
@@ -417,6 +453,7 @@ export function RfpForm({
     for (const t of matching) {
       for (const ti of t.items) {
         if (existingSourceIds.has(ti.id)) continue;
+        if (!applies(ti)) continue;
         additions.push({
           section: ti.section,
           code: null,
@@ -428,7 +465,7 @@ export function RfpForm({
           decimals: ti.decimals,
           historicalPrice: null,
           commodity: null,
-          customFields: ti.customFields,
+          customFields: adhocFor(ti),
           sourceTemplateItemId: ti.id,
           sourceTemplateId: t.id,
           locked:
@@ -437,7 +474,7 @@ export function RfpForm({
       }
     }
     if (additions.length === 0) {
-      return kept.length === prev.length ? prev : kept;
+      return !changed && kept.length === prev.length ? prev : kept;
     }
     return [...kept, ...additions];
   }
@@ -458,10 +495,19 @@ export function RfpForm({
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
-    const kept = prev.filter(
-      (q) =>
-        !q.sourceTemplateId || matchingTemplateIds.has(q.sourceTemplateId),
+    // A template question whose section has a header condition the RFP no longer
+    // meets leaves with the rest of the section.
+    const header = { commodity: newCommodity, region: newRegion, custom };
+    const templateQuestionById = new Map(
+      templates.flatMap((tpl) => tpl.questions.map((q) => [q.id, q] as const)),
     );
+    const sectionOk = (tq: (typeof templates)[number]["questions"][number]) =>
+      templateConditionHolds(tq.sectionCondition, header);
+    const kept = prev.filter((q) => {
+      if (q.sourceTemplateId && !matchingTemplateIds.has(q.sourceTemplateId)) return false;
+      const tq = q.sourceTemplateQuestionId ? templateQuestionById.get(q.sourceTemplateQuestionId) : undefined;
+      return !tq || sectionOk(tq);
+    });
     const existingSourceIds = new Set(
       kept.map((q) => q.sourceTemplateQuestionId).filter(Boolean),
     );
@@ -474,6 +520,7 @@ export function RfpForm({
         const area = tq.visibility === "INTERNAL" ? "INTERNAL" : "EXTERNAL";
         if (area !== areaFilter) continue;
         if (existingSourceIds.has(tq.id)) continue;
+        if (!sectionOk(tq)) continue;
         additions.push({
           clientKey: makeClientKey(),
           section: tq.section,
@@ -489,8 +536,9 @@ export function RfpForm({
           numberMax: tq.numberMax,
           scoringConfig: tq.scoringConfig,
           dependsOnQuestionKey: null,
-          dependsOnHeaderField: null,
-          dependsOnValue: "",
+          // The template's header condition travels with the question.
+          dependsOnHeaderField: tq.dependsOnHeaderField ?? null,
+          dependsOnValue: tq.dependsOnValue ?? "",
           buyerAnswerValue: "",
           sourceTemplateQuestionId: tq.id,
           sourceTemplateId: t.id,
@@ -905,7 +953,7 @@ export function RfpForm({
             });
           } else if (v.startsWith("header:")) {
             onChange({
-              dependsOnHeaderField: v.slice(7) as "commodity" | "region",
+              dependsOnHeaderField: v.slice(7),
               dependsOnQuestionKey: null,
               dependsOnValue: "",
             });
@@ -921,6 +969,11 @@ export function RfpForm({
         <option value="">{t("rfpForm.noCondition")}</option>
         <option value="header:commodity">{t("rfpForm.rfpCommodity")}</option>
         <option value="header:region">{t("rfpForm.rfpRegion")}</option>
+        {headFields.map((f) => (
+          <option key={f.key} value={`header:custom:${f.key}`}>
+            {f.labels[language] || f.labels.es || f.key}
+          </option>
+        ))}
         {allQuestionsForConditions
           .filter(
             (other) => other.clientKey !== q.clientKey && other.text.trim(),
