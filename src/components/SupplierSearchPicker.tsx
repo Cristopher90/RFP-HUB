@@ -90,7 +90,17 @@ export function SupplierSearchPicker({
   // A supplier can only be invited once at least one contact user has been
   // created for it (Proveedores → Usuarios de proveedor).
   function hasContactUser(dir: SupplierDirectoryEntry) {
-    return (dir.contacts?.length ?? 0) > 0 && !dir.docIssue;
+    return (dir.contacts?.length ?? 0) > 0 && !dir.docIssue && !dir.blocked;
+  }
+
+  // Why a supplier can't be picked (all the reasons that apply).
+  function blockers(dir: SupplierDirectoryEntry): string[] {
+    const reasons: string[] = [];
+    if (dir.blocked) reasons.push(t("suppliersScreen.blocked"));
+    // A blocked supplier has its contacts hidden, so "no contact" would only repeat the block.
+    if (!dir.blocked && (dir.contacts?.length ?? 0) === 0) reasons.push(t("supplierSearchPicker.noContactUser"));
+    if (dir.docIssue) reasons.push(t("supplierDocs.pickerMissing"));
+    return reasons;
   }
 
   function pickDir(dir: SupplierDirectoryEntry) {
@@ -222,9 +232,8 @@ export function SupplierSearchPicker({
                           <th className="px-4 py-2">{t("supplierSearchPicker.code")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.company")}</th>
                           <th className="px-4 py-2">{t("suppliersScreen.ratingTitle")}</th>
-                          <th className="px-4 py-2">{t("supplierSearchPicker.contact")}</th>
-                          <th className="px-4 py-2">{t("supplierSearchPicker.email")}</th>
                           <th className="px-4 py-2">{t("supplierSearchPicker.phone")}</th>
+                          <th className="px-4 py-2">{t("supplierSearchPicker.conditions")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -246,15 +255,6 @@ export function SupplierSearchPicker({
                             </td>
                             <td className="px-4 py-2 font-medium text-slate-800">
                               {s.companyName}
-                              {!selectable && (
-                                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                                  {s.blocked
-                                    ? t("suppliersScreen.blocked")
-                                    : s.docIssue
-                                      ? t("supplierDocs.pickerMissing")
-                                      : t("supplierSearchPicker.noContactUser")}
-                                </span>
-                              )}
                             </td>
                             <td className="whitespace-nowrap px-4 py-2 text-slate-500">
                               {s.rating ? (
@@ -268,14 +268,17 @@ export function SupplierSearchPicker({
                                 "—"
                               )}
                             </td>
-                            <td className="px-4 py-2 text-slate-600">
-                              {s.contactFirstName} {s.contactLastName}
-                            </td>
-                            <td className="px-4 py-2 text-slate-500">
-                              {s.email}
-                            </td>
                             <td className="px-4 py-2 text-slate-500">
                               {s.phone}
+                            </td>
+                            <td className="px-4 py-2 text-xs font-medium text-amber-700">
+                              {selectable
+                                ? ""
+                                : blockers(s).map((reason) => (
+                                    <span key={reason} className="block">
+                                      {reason}
+                                    </span>
+                                  ))}
                             </td>
                           </tr>
                           );

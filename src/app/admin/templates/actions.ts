@@ -85,6 +85,7 @@ export type SaveTemplateInput = {
   active: boolean;
   hideResponsesUntilClosed: boolean;
   minSuppliers: string;
+  defaultDeadlineDays: string;
   items: TemplateItemInput[];
   questions: TemplateQuestionInput[];
 };
@@ -215,6 +216,15 @@ export async function saveTemplate(
     return { error: dictionary.templatesActions.minSuppliersInvalid };
   }
 
+  const deadlineDaysRaw = (input.defaultDeadlineDays ?? "").trim();
+  const defaultDeadlineDays = deadlineDaysRaw ? Number(deadlineDaysRaw) : null;
+  if (
+    defaultDeadlineDays !== null &&
+    (!Number.isInteger(defaultDeadlineDays) || defaultDeadlineDays < 1 || defaultDeadlineDays > 365)
+  ) {
+    return { error: dictionary.templatesActions.defaultDeadlineInvalid };
+  }
+
   // Conditions over custom header fields: only fields the client flagged as
   // template filters, and only values that fit them.
   const filterFields = (await loadCustomFields(clientId)).filter(
@@ -260,6 +270,7 @@ export async function saveTemplate(
     active: input.active,
     hideResponsesUntilClosed: input.hideResponsesUntilClosed,
     minSuppliers,
+    defaultDeadlineDays,
   };
 
   const template = templateId

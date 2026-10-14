@@ -193,6 +193,8 @@ export const en: Dictionary = {
     regionLabel: "Region",
     selectRegion: "Select a region",
     noneOptionFeminine: "— None —",
+    startDateHint: "If left empty, the publication date will be used.",
+    deadlineFromTemplate: "Default: {days} days from today, from the template “{name}”.",
     startDateLabel: "Start date",
     estimatedPriceLabel: "Estimated price (USD)",
     estimatedPricePlaceholder: "E.g. 30000",
@@ -317,6 +319,8 @@ export const en: Dictionary = {
     and: "and",
     activeLabel: "Active template (applies to new matching RFPs)",
     blindOfferLabel: "Don't show supplier responses until closing (blind bid)",
+    defaultDeadlineLabel: "Default days until the deadline",
+    defaultDeadlineHelp: "Optional. When set, creating an RFP with this template proposes a deadline that many days from today (at 18:00); the buyer can change it. If several templates apply, the longest period is used.",
     minSuppliersLabel: "Minimum number of suppliers to invite",
     minSuppliersHelp: "Optional. When set, an RFP of this purchase type can't be published without inviting at least that many suppliers.",
     defaultItemsTitle: "Default items",
@@ -1159,6 +1163,7 @@ export const en: Dictionary = {
     bestPrice: "Best price",
   },
   supplierSearchPicker: {
+    conditions: "Conditions",
     searchPlaceholder: "Search by supplier code, tax ID, company, contact, email or phone...",
     trigger: "Search supplier...",
     chooseWhoToSend: "Choose who to send the RFP to.",
@@ -1557,6 +1562,7 @@ export const en: Dictionary = {
     priceRangeRequired: "Provide the full range (minimum and maximum) for the price condition.",
     priceMinRequired: "Provide the minimum value for the price condition.",
     priceMaxRequired: "Provide the maximum value for the price condition.",
+    defaultDeadlineInvalid: "The default number of days must be a whole number between 1 and 365.",
     minSuppliersInvalid: "The minimum number of suppliers must be a whole number between 1 and 99.",
   },
   masterDataActions: {

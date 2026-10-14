@@ -205,6 +205,7 @@ export function TemplateForm({
     active: boolean;
     hideResponsesUntilClosed: boolean;
     minSuppliers: number | null;
+    defaultDeadlineDays?: number | null;
     items: TemplateItemInput[];
     questions: TemplateQuestionInput[];
   };
@@ -243,6 +244,9 @@ export function TemplateForm({
   );
   const [minSuppliers, setMinSuppliers] = useState(
     initial?.minSuppliers != null ? String(initial.minSuppliers) : "",
+  );
+  const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(
+    initial?.defaultDeadlineDays != null ? String(initial.defaultDeadlineDays) : "",
   );
   const [items, setItems] = useState<TemplateItemInput[]>(
     initial?.items && initial.items.length > 0 ? initial.items : [emptyItem()],
@@ -594,6 +598,7 @@ export function TemplateForm({
       active,
       hideResponsesUntilClosed,
       minSuppliers,
+      defaultDeadlineDays,
       items,
       questions: [...questions, ...internalQuestions],
     };
@@ -1795,6 +1800,26 @@ export function TemplateForm({
               onChange={(e) => setMinSuppliers(e.target.value)}
             />
             <p className="mt-1 text-xs text-slate-400">{t("templateForm.minSuppliersHelp")}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-deadline-days`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("templateForm.defaultDeadlineLabel")}
+            </label>
+            <input
+              id={`${idBase}-deadline-days`}
+              type="number"
+              min={1}
+              max={365}
+              step={1}
+              className={inputClass()}
+              style={{ maxWidth: "10rem" }}
+              value={defaultDeadlineDays}
+              onChange={(e) => setDefaultDeadlineDays(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">{t("templateForm.defaultDeadlineHelp")}</p>
           </div>
           {customFilterFields.length > 0 && (
             <div className="sm:col-span-2">

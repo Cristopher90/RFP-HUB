@@ -231,6 +231,7 @@ export default async function EditRfpPage({
             matchPriceMax: t.matchPriceMax,
             matchCustom: t.matchCustom,
             documentRequirements: t.documentRequirements,
+            defaultDeadlineDays: t.defaultDeadlineDays,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

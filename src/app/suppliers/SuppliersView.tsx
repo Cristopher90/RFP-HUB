@@ -374,8 +374,7 @@ function SupplierPanel({
   const [pending, startTransition] = useTransition();
   const [stars, setStars] = useState(detail.myRating?.stars ?? 0);
   const [comment, setComment] = useState(detail.myRating?.comment ?? "");
-  const [docTypeId, setDocTypeId] = useState("");
-  const selectedDocType = docTypes.find((d) => d.id === docTypeId);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
@@ -779,7 +778,21 @@ function SupplierPanel({
       )}
 
       <div className={card}>
-        <h3 className="text-base font-semibold text-slate-900">{t("supplierDocs.docsTitle")}</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-slate-900">{t("supplierDocs.docsTitle")}</h3>
+          {canManageDocs && docTypes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setFlash(null);
+                setUploadOpen(true);
+              }}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              + {t("supplierDocs.upload")}
+            </button>
+          )}
+        </div>
         {detail.documents.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">{t("supplierDocs.docsEmpty")}</p>
         ) : (
@@ -844,80 +857,20 @@ function SupplierPanel({
             ))}
           </ul>
         )}
-        {canManageDocs &&
-          (docTypes.length === 0 ? (
-            <p className="mt-4 text-xs text-slate-400">{t("supplierDocs.docsNoTypes")}</p>
-          ) : (
-            <form
-              className="mt-5 grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                const fd = new FormData(form);
-                run(
-                  () => uploadSupplierDocument(detail.id, fd),
-                  () => {
-                    form.reset();
-                    setDocTypeId("");
-                  },
-                );
-              }}
-            >
-              <div className="sm:col-span-2 text-sm font-medium text-slate-700">{t("supplierDocs.upload")}</div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.uploadType")}</label>
-                <select
-                  name="typeId"
-                  required
-                  value={docTypeId}
-                  onChange={(e) => setDocTypeId(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="">{t("supplierDocs.pickType")}</option>
-                  {docTypes.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.uploadFile")}</label>
-                <input name="file" type="file" required className="block w-full text-sm text-slate-600" />
-              </div>
-              {selectedDocType?.hasDates && (
-                <>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.startDate")}</label>
-                    <input name="startDate" type="date" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.endDate")}</label>
-                    <input name="endDate" type="date" required className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
-                  </div>
-                </>
-              )}
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-slate-500">{t("supplierDocs.note")}</label>
-                <textarea
-                  name="note"
-                  rows={2}
-                  maxLength={1000}
-                  placeholder={t("supplierDocs.notePlaceholder")}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
-                >
-                  {pending ? t("supplierDocs.uploading") : t("supplierDocs.uploadBtn")}
-                </button>
-              </div>
-            </form>
-          ))}
+        {canManageDocs && docTypes.length === 0 && (
+          <p className="mt-4 text-xs text-slate-400">{t("supplierDocs.docsNoTypes")}</p>
+        )}
+        {uploadOpen && (
+          <UploadDocumentDialog
+            directoryId={detail.id}
+            docTypes={docTypes}
+            onClose={() => setUploadOpen(false)}
+            onUploaded={() => {
+              setUploadOpen(false);
+              router.refresh();
+            }}
+          />
+        )}
       </div>
 
       <div className={card}>
@@ -1231,5 +1184,117 @@ function AddContactForm({
         </button>
       </div>
     </form>
+  );
+}
+
+// Popup to upload a document to a supplier's record.
+function UploadDocumentDialog({
+  directoryId,
+  docTypes,
+  onClose,
+  onUploaded,
+}: {
+  directoryId: string;
+  docTypes: DocTypeOption[];
+  onClose: () => void;
+  onUploaded: () => void;
+}) {
+  const { t } = usePreferences();
+  const [typeId, setTypeId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const selected = docTypes.find((d) => d.id === typeId);
+
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await uploadSupplierDocument(directoryId, fd);
+      if ("error" in result) setError(result.error);
+      else onUploaded();
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 px-4 py-12"
+      onClick={() => !pending && onClose()}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg rounded-xl bg-white shadow-xl"
+      >
+        <div className="border-b border-slate-200 p-4">
+          <h2 className="text-base font-semibold text-slate-900">{t("supplierDocs.upload")}</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+          {error && (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 sm:col-span-2">{error}</p>
+          )}
+          <div className="sm:col-span-2">
+            <label className={LABEL_CLASS}>{t("supplierDocs.uploadType")} *</label>
+            <select
+              name="typeId"
+              required
+              value={typeId}
+              onChange={(e) => setTypeId(e.target.value)}
+              className={FIELD_CLASS}
+            >
+              <option value="">{t("supplierDocs.pickType")}</option>
+              {docTypes.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={LABEL_CLASS}>{t("supplierDocs.uploadFile")} *</label>
+            <input name="file" type="file" required className="block w-full text-sm text-slate-600" />
+          </div>
+          {selected?.hasDates && (
+            <>
+              <div>
+                <label className={LABEL_CLASS}>{t("supplierDocs.startDate")} *</label>
+                <input name="startDate" type="date" required className={FIELD_CLASS} />
+              </div>
+              <div>
+                <label className={LABEL_CLASS}>{t("supplierDocs.endDate")} *</label>
+                <input name="endDate" type="date" required className={FIELD_CLASS} />
+              </div>
+            </>
+          )}
+          <div className="sm:col-span-2">
+            <label className={LABEL_CLASS}>{t("supplierDocs.note")}</label>
+            <textarea
+              name="note"
+              rows={3}
+              maxLength={1000}
+              placeholder={t("supplierDocs.notePlaceholder")}
+              className={FIELD_CLASS}
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-slate-200 p-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onClose}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            {t("suppliersScreen.createCancel")}
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
+          >
+            {pending ? t("supplierDocs.uploading") : t("supplierDocs.uploadBtn")}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

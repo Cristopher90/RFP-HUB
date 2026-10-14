@@ -194,6 +194,8 @@ export const es = {
     regionLabel: "Región",
     selectRegion: "Selecciona una región",
     noneOptionFeminine: "— Ninguna —",
+    startDateHint: "En caso de no completar será utilizada la fecha de publicación.",
+    deadlineFromTemplate: "Por defecto: {days} días desde hoy, según la plantilla «{name}».",
     startDateLabel: "Fecha de inicio",
     estimatedPriceLabel: "Precio estimado (USD)",
     estimatedPricePlaceholder: "Ej. 30000",
@@ -318,6 +320,8 @@ export const es = {
     and: "y",
     activeLabel: "Plantilla activa (se aplica a nuevas RFPs que coincidan)",
     blindOfferLabel: "No mostrar respuestas de proveedores hasta el cierre (oferta a ciegas)",
+    defaultDeadlineLabel: "Días por defecto hasta la fecha límite",
+    defaultDeadlineHelp: "Opcional. Si se define, al crear una RFP con esta plantilla la fecha límite se propone a esa cantidad de días desde hoy (a las 18:00); el comprador puede cambiarla. Si varias plantillas aplican, se usa el plazo más largo.",
     minSuppliersLabel: "Cantidad mínima de proveedores a invitar",
     minSuppliersHelp: "Opcional. Si se define, no se podrá publicar una RFP de este tipo de compra sin invitar al menos esa cantidad de proveedores.",
     defaultItemsTitle: "Artículos por defecto",
@@ -1160,6 +1164,7 @@ export const es = {
     bestPrice: "Mejor precio",
   },
   supplierSearchPicker: {
+    conditions: "Condiciones",
     searchPlaceholder: "Buscar proveedor por código, CIF, empresa, contacto, correo o teléfono...",
     trigger: "Buscar proveedor...",
     chooseWhoToSend: "Elige a quién enviarle la RFP.",
@@ -1561,6 +1566,7 @@ export const es = {
     priceRangeRequired: "Indica el rango completo (mínimo y máximo) para la condición de precio.",
     priceMinRequired: "Indica el valor mínimo para la condición de precio.",
     priceMaxRequired: "Indica el valor máximo para la condición de precio.",
+    defaultDeadlineInvalid: "El plazo de días por defecto debe ser un número entero entre 1 y 365.",
     minSuppliersInvalid: "La cantidad mínima de proveedores debe ser un número entero entre 1 y 99.",
   },
   masterDataActions: {

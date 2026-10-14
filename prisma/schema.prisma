@@ -455,6 +455,7 @@ model RfpTemplate {
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
   matchCustom              Json? // condiciones sobre campos personalizados de cabecera: [{ "fieldKey": "...", "value": "..." }]
   minSuppliers             Int? // cantidad mínima de proveedores a invitar para poder publicar una RFP con esta plantilla
+  defaultDeadlineDays      Int? // días por defecto hasta la fecha límite al crear una RFP con esta plantilla
 
   approvalWorkflowId String?
   approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)

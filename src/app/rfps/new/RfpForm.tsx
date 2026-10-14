@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { GearButton } from "@/components/GearButton";
 import { TreePickerField } from "@/components/TreePickerField";
 import { SupplierSearchPicker } from "@/components/SupplierSearchPicker";
@@ -53,6 +53,7 @@ export type TemplateData = {
   matchPriceMax: number | null;
   matchCustom?: unknown;
   documentRequirements?: unknown;
+  defaultDeadlineDays?: number | null;
   items: {
     id: string;
     section: string | null;
@@ -193,9 +194,9 @@ function toDatetimeLocalValue(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function defaultDeadline() {
+function defaultDeadline(days = 14) {
   const d = new Date();
-  d.setDate(d.getDate() + 14);
+  d.setDate(d.getDate() + days);
   d.setHours(18, 0, 0, 0);
   return toDatetimeLocalValue(d);
 }
@@ -321,6 +322,10 @@ export function RfpForm({
     initial
       ? initial.deadlineAt || (seedTemplates ? defaultDeadline() : "")
       : defaultDeadline(),
+  );
+  // The deadline follows the applied templates' default period until the buyer edits it.
+  const [deadlineTouched, setDeadlineTouched] = useState(
+    Boolean(initial?.deadlineAt) && !seedTemplates,
   );
   const [commodity, setCommodity] = useState(initial?.commodity ?? "");
   const [region, setRegion] = useState(initial?.region ?? "");
@@ -1165,10 +1170,25 @@ export function RfpForm({
   // Documentation the applied templates demand from invited suppliers (some
   // only when the header meets a condition): suppliers lacking a valid
   // document can't be picked.
-  const docRequirements = applicableRequirements(
-    resolveAppliedTemplates([...matchingNow.always, ...matchingNow.conditional], selectedTemplateId),
-    { commodity, region, custom: headCustom },
+  const appliedTemplates = resolveAppliedTemplates(
+    [...matchingNow.always, ...matchingNow.conditional],
+    selectedTemplateId,
   );
+  const docRequirements = applicableRequirements(appliedTemplates, { commodity, region, custom: headCustom });
+  // Default period for the deadline: the longest one among the applied templates.
+  const templateDeadline = appliedTemplates.reduce<{ days: number; name: string } | null>(
+    (best, tpl) =>
+      tpl.defaultDeadlineDays && (!best || tpl.defaultDeadlineDays > best.days)
+        ? { days: tpl.defaultDeadlineDays, name: tpl.name }
+        : best,
+    null,
+  );
+  const templateDeadlineDays = templateDeadline?.days ?? null;
+  useEffect(() => {
+    if (deadlineTouched) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDeadlineAt(defaultDeadline(templateDeadlineDays ?? 14));
+  }, [deadlineTouched, templateDeadlineDays]);
   const pickerSuppliers = supplierDirectory.map((s) => ({
     ...s,
     docIssue:
@@ -1249,9 +1269,19 @@ export function RfpForm({
               type="datetime-local"
               className={inputClass()}
               value={deadlineAt}
-              onChange={(e) => setDeadlineAt(e.target.value)}
+              onChange={(e) => {
+                setDeadlineTouched(true);
+                setDeadlineAt(e.target.value);
+              }}
               required
             />
+            {!deadlineTouched && templateDeadline && (
+              <p className="mt-1 text-xs text-slate-400">
+                {t("rfpForm.deadlineFromTemplate")
+                  .replace("{days}", String(templateDeadline.days))
+                  .replace("{name}", templateDeadline.name)}
+              </p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
@@ -1313,6 +1343,7 @@ export function RfpForm({
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
+            <p className="mt-1 text-xs text-slate-400">{t("rfpForm.startDateHint")}</p>
           </div>
           <div>
             <label

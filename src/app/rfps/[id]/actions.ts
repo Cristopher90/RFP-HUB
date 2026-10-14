@@ -254,6 +254,8 @@ export async function publishRfp(rfpId: string) {
       status:
         levels.length === 0 ? resolveOpenStatus(rfp.startDate) : "PENDING_PUBLISH_APPROVAL",
       publishedAt: levels.length === 0 ? new Date() : null,
+      // No start date: the publication date is used.
+      ...(levels.length === 0 && !rfp.startDate ? { startDate: new Date() } : {}),
       approvalWorkflowId: workflow?.id ?? null,
     },
   });
@@ -271,7 +273,7 @@ export async function publishRfp(rfpId: string) {
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfpId },
-        data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date() },
+        data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date(), startDate: rfp.startDate ?? new Date() },
       });
     }
   }
@@ -333,9 +335,11 @@ export async function updateRfp(
       status,
       publishedAt:
         status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
+      // No start date: the publication date is used.
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
-      startDate: startDateValue,
+      startDate:
+        startDateValue ?? (status === "OPEN" || status === "AWAITING_START" ? new Date() : null),
       estimatedPrice: estimatedPriceValue,
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
@@ -474,7 +478,7 @@ export async function updateRfp(
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfpId },
-        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date() },
+        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date(), startDate: startDateValue ?? new Date() },
       });
     }
   }
@@ -501,7 +505,7 @@ export async function approvePublish(rfpId: string) {
   if (result.stageCompleted) {
     await prisma.rfp.update({
       where: { id: rfpId },
-      data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date() },
+      data: { status: resolveOpenStatus(rfp.startDate), publishedAt: new Date(), startDate: rfp.startDate ?? new Date() },
     });
     await sendPendingInvitations(rfpId);
     await notifyCreatorOfStatusChange(rfpId, "published", { actorUserId: user.id });

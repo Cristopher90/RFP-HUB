@@ -372,3 +372,28 @@ html[data-palette="forest"] {
   --color-slate-950: #ffffff;
   --surface: #0f1d17;
 }
+
+/* File inputs: the native "Choose file" control looks like plain text, so
+   style its button like the app's primary buttons (follows the theme color). */
+input[type="file"] {
+  cursor: pointer;
+}
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.5rem;
+  background-color: var(--color-violet-600, #7c3aed);
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #fff;
+  transition: background-color 0.15s;
+}
+input[type="file"]::file-selector-button:hover {
+  background-color: var(--color-violet-700, #6d28d9);
+}
+input[type="file"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

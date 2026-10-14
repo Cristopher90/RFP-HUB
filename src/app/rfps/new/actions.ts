@@ -567,9 +567,11 @@ export async function createRfp(
       status,
       publishedAt:
         status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
+      // No start date: the publication date is used.
       commodity: input.commodity.trim() || null,
       region: input.region.trim() || null,
-      startDate: startDateValue,
+      startDate:
+        startDateValue ?? (status === "OPEN" || status === "AWAITING_START" ? new Date() : null),
       estimatedPrice: estimatedPriceValue,
       origin: input.origin.trim() || null,
       predecessorDocument: input.predecessorDocument.trim() || null,
@@ -687,7 +689,7 @@ export async function createRfp(
     if (completed) {
       await prisma.rfp.update({
         where: { id: rfp.id },
-        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date() },
+        data: { status: resolveOpenStatus(startDateValue), publishedAt: new Date(), startDate: startDateValue ?? new Date() },
       });
     }
   }
