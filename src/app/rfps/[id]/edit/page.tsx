@@ -237,6 +237,7 @@ export default async function EditRfpPage({
             documentRequirements: t.documentRequirements,
             defaultDeadlineDays: t.defaultDeadlineDays,
             priority: t.priority,
+            priorityAbsolute: t.priorityAbsolute,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

@@ -30,6 +30,7 @@ export function templateInitial(template: TemplateWithContent) {
     minSuppliers: template.minSuppliers,
     defaultDeadlineDays: template.defaultDeadlineDays,
     priority: template.priority,
+    priorityAbsolute: template.priorityAbsolute,
     items: template.items.map((i) => ({
       id: i.id,
       section: i.section,

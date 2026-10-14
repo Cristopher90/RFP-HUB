@@ -366,6 +366,8 @@ export const es = {
     close: "Cerrar",
   },
   templateForm: {
+    priorityAbsoluteLabel: "Prioridad absoluta",
+    priorityAbsoluteHelp: "Si esta plantilla coincide al crear una RFP, se aplica aunque coincidan otras (aunque tengan mejor número de prioridad) y el comprador no podrá cambiar la plantilla. Si coinciden varias absolutas, gana la de número más bajo.",
     priorityLabel: "Prioridad",
     priorityHelp: "Número entero (1 = máxima prioridad). Cuando al crear una RFP aplican dos o más plantillas con condiciones, se elige primero la de número más bajo; el comprador aún puede cambiarla. Las plantillas sin condiciones se aplican siempre.",
     additionalTitle: "Configuraciones adicionales",

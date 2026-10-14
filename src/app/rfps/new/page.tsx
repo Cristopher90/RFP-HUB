@@ -313,6 +313,7 @@ export default async function NewRfpPage({
             documentRequirements: t.documentRequirements,
             defaultDeadlineDays: t.defaultDeadlineDays,
             priority: t.priority,
+            priorityAbsolute: t.priorityAbsolute,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

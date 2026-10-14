@@ -18,7 +18,9 @@ export function TemplatePicker({
   templates,
   selectedId,
   onChange,
+  locked = false,
 }: {
+  locked?: boolean; // an absolute template is imposed: nothing to choose
   templates: PickableTemplate[];
   selectedId: string | null;
   onChange: (id: string | null) => void;
@@ -40,6 +42,22 @@ export function TemplatePicker({
   function selectAndClose(id: string | null) {
     onChange(id);
     setOpen(false);
+  }
+
+  if (locked) {
+    return (
+      <div>
+        <div className="flex w-full items-center justify-between rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-sm">
+          <span>{selected ? selected.name : "—"}</span>
+          <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+            🔒 Plantilla obligatoria
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          Esta plantilla se aplica siempre que coincide y no se puede cambiar.
+        </p>
+      </div>
+    );
   }
 
   return (

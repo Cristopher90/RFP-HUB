@@ -20,6 +20,7 @@ import {
   splitConditionalTemplates,
   resolveAppliedTemplates,
   pickByPriority,
+  forcedTemplate,
   ancestorChain,
   type TemplatePriceCondition,
 } from "@/lib/templateMatch";
@@ -57,6 +58,7 @@ export type TemplateData = {
   documentRequirements?: unknown;
   defaultDeadlineDays?: number | null;
   priority?: number;
+  priorityAbsolute?: boolean;
   items: {
     id: string;
     section: string | null;
@@ -609,6 +611,9 @@ export function RfpForm({
       ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
+    // An absolute template wins and can't be changed.
+    const forced = forcedTemplate(conditional);
+    if (forced) return forced.id;
     if (conditional.length === 1) return conditional[0].id;
     // A choice still among the matches stays; otherwise the lowest priority number wins.
     return conditional.some((t) => t.id === selectedTemplateId)
@@ -1546,6 +1551,7 @@ export function RfpForm({
                   description: t.description,
                   priority: t.priority ?? 100,
                 }))}
+              locked={Boolean(forcedTemplate(matchingNow.conditional))}
               selectedId={selectedTemplateId}
               onChange={(id) => handleTemplateSelectionChange(id ?? "")}
             />

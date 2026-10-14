@@ -207,6 +207,7 @@ export function TemplateForm({
     minSuppliers: number | null;
     defaultDeadlineDays?: number | null;
     priority?: number;
+    priorityAbsolute?: boolean;
     items: TemplateItemInput[];
     questions: TemplateQuestionInput[];
   };
@@ -247,6 +248,7 @@ export function TemplateForm({
     initial?.minSuppliers != null ? String(initial.minSuppliers) : "",
   );
   const [priority, setPriority] = useState(String(initial?.priority ?? 100));
+  const [priorityAbsolute, setPriorityAbsolute] = useState(initial?.priorityAbsolute ?? false);
   const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(
     initial?.defaultDeadlineDays != null ? String(initial.defaultDeadlineDays) : "",
   );
@@ -602,6 +604,7 @@ export function TemplateForm({
       minSuppliers,
       defaultDeadlineDays,
       priority,
+      priorityAbsolute,
       items,
       questions: [...questions, ...internalQuestions],
     };
@@ -783,18 +786,31 @@ export function TemplateForm({
             >
               {t("templateForm.priorityLabel")}
             </label>
-            <input
-              id={`${idBase}-priority`}
-              type="number"
-              min={1}
-              max={9999}
-              step={1}
-              className={inputClass()}
-              style={{ maxWidth: "10rem" }}
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <input
+                id={`${idBase}-priority`}
+                type="number"
+                min={1}
+                max={9999}
+                step={1}
+                className={inputClass()}
+                style={{ maxWidth: "10rem" }}
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={priorityAbsolute}
+                  onChange={(e) => setPriorityAbsolute(e.target.checked)}
+                />
+                {t("templateForm.priorityAbsoluteLabel")}
+              </label>
+            </div>
             <p className="mt-1 text-xs text-slate-400">{t("templateForm.priorityHelp")}</p>
+            {priorityAbsolute && (
+              <p className="mt-1 text-xs text-violet-700">{t("templateForm.priorityAbsoluteHelp")}</p>
+            )}
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">

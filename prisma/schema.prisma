@@ -464,6 +464,7 @@ model RfpTemplate {
   hideResponsesUntilClosed Boolean @default(false) // oculta montos/respuestas al comprador mientras la RFP está Abierta
   matchCustom              Json? // condiciones sobre campos personalizados de cabecera: [{ "fieldKey": "...", "value": "..." }]
   minSuppliers             Int? // cantidad mínima de proveedores a invitar para poder publicar una RFP con esta plantilla
+  priorityAbsolute         Boolean @default(false) // si coincide, se aplica esta plantilla aunque coincidan otras y el comprador no puede cambiarla
   priority                 Int     @default(100) // si varias plantillas condicionadas aplican a una RFP se elige la de número más bajo
   defaultDeadlineDays      Int? // días por defecto hasta la fecha límite al crear una RFP con esta plantilla
 

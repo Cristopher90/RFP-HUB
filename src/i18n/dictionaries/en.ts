@@ -365,6 +365,8 @@ export const en: Dictionary = {
     close: "Close",
   },
   templateForm: {
+    priorityAbsoluteLabel: "Absolute priority",
+    priorityAbsoluteHelp: "If this template matches while creating an RFP, it is applied even if others match (even with a better priority number) and the buyer will not be able to change the template. If several absolute ones match, the lowest number wins.",
     priorityLabel: "Priority",
     priorityHelp: "Whole number (1 = highest priority). When two or more conditional templates apply while creating an RFP, the one with the lowest number is chosen first; the buyer can still change it. Templates without conditions always apply.",
     additionalTitle: "Additional settings",

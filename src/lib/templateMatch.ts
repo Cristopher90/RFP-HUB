@@ -154,21 +154,31 @@ export function splitConditionalTemplates<T extends MatchableTemplate>(
 // match — either the explicitly selected one, or the sole match when there
 // is exactly one (nothing to choose). An out-of-date selection (no longer
 // among the current matches) is dropped rather than kept.
-export function resolveAppliedTemplates<T extends MatchableTemplate & { id: string; priority?: number; name?: string }>(
+type Prioritized = { id: string; priority?: number; name?: string; priorityAbsolute?: boolean };
+
+export function resolveAppliedTemplates<T extends MatchableTemplate & Prioritized>(
   matching: T[],
   selectedTemplateId: string | null,
 ): T[] {
   const { always, conditional } = splitConditionalTemplates(matching);
+  const forced = forcedTemplate(conditional);
   const selected =
-    conditional.length === 1
+    forced ??
+    (conditional.length === 1
       ? conditional[0]
-      : (conditional.find((t) => t.id === selectedTemplateId) ?? pickByPriority(conditional));
+      : (conditional.find((t) => t.id === selectedTemplateId) ?? pickByPriority(conditional)));
   return selected ? [...always, selected] : always;
+}
+
+// A matching template marked "absolute" is applied no matter what else matches
+// and the buyer can't change it (several absolute ones: the lowest priority number).
+export function forcedTemplate<T extends Prioritized>(conditional: T[]): T | null {
+  return pickByPriority(conditional.filter((t) => t.priorityAbsolute));
 }
 
 // When several conditional templates match and none was chosen, the one with
 // the lowest priority number goes first (ties: by name, then id, so it's stable).
-export function pickByPriority<T extends { id: string; priority?: number; name?: string }>(list: T[]): T | null {
+export function pickByPriority<T extends Prioritized>(list: T[]): T | null {
   return (
     [...list].sort(
       (a, b) =>

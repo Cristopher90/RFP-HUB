@@ -87,6 +87,7 @@ export type SaveTemplateInput = {
   minSuppliers: string;
   defaultDeadlineDays: string;
   priority: string;
+  priorityAbsolute: boolean;
   items: TemplateItemInput[];
   questions: TemplateQuestionInput[];
 };
@@ -283,6 +284,7 @@ export async function saveTemplate(
     minSuppliers,
     defaultDeadlineDays,
     priority,
+    priorityAbsolute: Boolean(input.priorityAbsolute),
   };
 
   const template = templateId
