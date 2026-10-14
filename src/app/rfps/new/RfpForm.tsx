@@ -26,9 +26,8 @@ import {
 } from "@/lib/templateMatch";
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { extractTags } from "@/lib/tags";
-import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
+import { buyerAnswersMessage, missingBuyerAnswers, questionShown } from "@/lib/buyerAnswers";
 import { BuyerFileAnswer } from "./BuyerFileAnswer";
-import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
@@ -93,6 +92,7 @@ export type TemplateData = {
     scoringConfig: Record<string, number> | null;
     lockRoles: UserRole[];
     dependsOnHeaderField?: string | null;
+    dependsOnQuestionId?: string | null; // another template question (e.g. an internal one) this depends on
     dependsOnValue?: string | null;
     sectionCondition?: TemplateCondition | null;
   }[];
@@ -560,6 +560,7 @@ export function RfpForm({
           numberMax: tq.numberMax,
           scoringConfig: tq.scoringConfig,
           dependsOnQuestionKey: null,
+          dependsOnTemplateQuestionId: tq.dependsOnQuestionId ?? null,
           // The template's header condition travels with the question.
           dependsOnHeaderField: tq.dependsOnHeaderField ?? null,
           dependsOnValue: tq.dependsOnValue ?? "",
@@ -1096,28 +1097,40 @@ export function RfpForm({
     downloadRfpExcel(filename, items, [...questions, ...internalQuestions]);
   }
 
-  // A question that came from a template with a condition (a header value or another
-  // buyer answer) only shows up, and is only part of the RFP, when the condition is met.
-  // Questions the buyer added by hand always show (they would vanish while typing).
-  const buyerAnswersByKey: Record<string, string> = Object.fromEntries(
-    [...questions, ...internalQuestions]
-      .filter((q) => q.respondedBy === "BUYER")
-      .map((q) => [q.clientKey, q.buyerAnswerValue]),
-  );
-  const questionShown = (q: NewQuestionInput) =>
-    !q.sourceTemplateQuestionId ||
-    isQuestionConditionMet(
-      { dependsOnQuestionId: q.dependsOnQuestionKey, dependsOnHeaderField: q.dependsOnHeaderField, dependsOnValue: q.dependsOnValue },
-      { commodity, region, custom: headCustom },
-      buyerAnswersByKey,
-    );
+  // A template question with a condition only shows up, and is only part of the RFP,
+  // when the condition is met: a header value, or the answer to an internal question
+  // (see questionShown). Questions the buyer added by hand always show.
+  const allQuestions = [...questions, ...internalQuestions];
+  // The question a template question depends on, found by its key or by its template id.
+  const parentKeyOf = (q: NewQuestionInput) =>
+    q.dependsOnQuestionKey ??
+    (q.dependsOnTemplateQuestionId
+      ? (allQuestions.find((p) => p.sourceTemplateQuestionId === q.dependsOnTemplateQuestionId)?.clientKey ?? "__missing__")
+      : null);
+  const shownLike = (q: NewQuestionInput) => ({
+    key: q.clientKey,
+    fromTemplate: Boolean(q.sourceTemplateQuestionId),
+    respondedBy: q.respondedBy,
+    buyerAnswerValue: q.buyerAnswerValue,
+    dependsOnKey: parentKeyOf(q),
+    dependsOnHeaderField: q.dependsOnHeaderField,
+    dependsOnValue: q.dependsOnValue,
+  });
+  const shownByKey = new Map(allQuestions.map((q) => [q.clientKey, shownLike(q)]));
+  const questionShownHere = (q: NewQuestionInput) =>
+    questionShown(shownLike(q), shownByKey, { commodity, region, custom: headCustom });
+  // What goes to the server: only the shown ones, each pointing at its parent question.
+  const withParentKey = (q: NewQuestionInput): NewQuestionInput => ({
+    ...q,
+    dependsOnQuestionKey: q.dependsOnQuestionKey ?? (parentKeyOf(q) === "__missing__" ? null : parentKeyOf(q)),
+  });
 
   // Sections with only the questions that are shown, numbered without gaps.
   function shownGroups(list: NewQuestionInput[]) {
     let flat = 0;
     let sectionNo = 0;
     return groupBySection(list)
-      .map((g) => ({ ...g, entries: g.entries.filter((e) => questionShown(e.item)) }))
+      .map((g) => ({ ...g, entries: g.entries.filter((e) => questionShownHere(e.item)) }))
       .filter((g) => g.entries.length > 0)
       .map((g) => {
         if (g.name !== null) sectionNo += 1;
@@ -1137,7 +1150,7 @@ export function RfpForm({
     // Publishing needs the buyer's required questions answered (a draft doesn't).
     if (!saveAsDraft) {
       const missing = missingBuyerAnswers(
-        [...questions.filter(questionShown), ...internalQuestions.filter(questionShown)].map((q) => ({
+        [...questions.filter(questionShownHere), ...internalQuestions.filter(questionShownHere)].map(withParentKey).map((q) => ({
           key: q.clientKey,
           text: q.text,
           type: q.type,
@@ -1181,7 +1194,7 @@ export function RfpForm({
         customValues: headCustom,
         items,
         // A template question whose condition isn't met is not part of the RFP.
-        questions: [...questions.filter(questionShown), ...internalQuestions.filter(questionShown)],
+        questions: [...questions.filter(questionShownHere), ...internalQuestions.filter(questionShownHere)].map(withParentKey),
         suppliers,
       };
       const result =

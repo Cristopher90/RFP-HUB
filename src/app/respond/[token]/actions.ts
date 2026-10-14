@@ -66,10 +66,22 @@ export async function submitResponse(token: string, formData: FormData) {
   const uploadsDir = path.join(process.cwd(), "public", "uploads");
   const answers: { questionId: string; value: string; score: number | null }[] = [];
 
+  // The buyer's own answers count for the conditions of the supplier's questions.
+  const conditionValues: Record<string, string> = { ...rawValues };
+  for (const q of invitation.rfp.questions) {
+    if (q.respondedBy === "BUYER") conditionValues[q.id] = q.buyerAnswerValue ?? "";
+  }
+  const byId = new Map(invitation.rfp.questions.map((q) => [q.id, q]));
+  const conditionMet = (q: (typeof invitation.rfp.questions)[number]): boolean => {
+    const parent = q.dependsOnQuestionId ? byId.get(q.dependsOnQuestionId) : undefined;
+    if (parent && parent.respondedBy === "BUYER" && !conditionMet(parent)) return false;
+    return isQuestionConditionMet(q, header, conditionValues);
+  };
+
   for (const question of invitation.rfp.questions) {
     if (question.visibility === "INTERNAL" || question.respondedBy === "BUYER")
       continue;
-    if (!isQuestionConditionMet(question, header, rawValues)) continue;
+    if (!conditionMet(question)) continue;
 
     if (question.isPrerequisite) {
       const raw = formData.get(`question-${question.id}`);

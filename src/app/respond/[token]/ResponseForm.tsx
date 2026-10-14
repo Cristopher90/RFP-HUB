@@ -74,11 +74,22 @@ export function ResponseForm({
   );
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
-  function isVisible(q: Question) {
+  // Questions the buyer answered (internal ones included in the RFP) count as answers
+  // for the conditions of the others; the supplier's own answers override while typing.
+  const buyerValues = Object.fromEntries(
+    questions.filter((x) => x.respondedBy === "BUYER").map((x) => [x.id, x.buyerAnswerValue ?? ""]),
+  );
+  function isVisible(q: Question): boolean {
+    const parent = q.dependsOnQuestionId ? questions.find((x) => x.id === q.dependsOnQuestionId) : undefined;
+    // Depends on a question the supplier is not shown (an internal one the buyer answered
+    // while creating the RFP): that condition was already met when it entered the RFP.
+    if (q.dependsOnQuestionId && !parent) return true;
+    // A question that depends on a buyer question that is itself hidden stays hidden.
+    if (parent && parent.respondedBy === "BUYER" && !isVisible(parent)) return false;
     return isQuestionConditionMet(
       q,
       { commodity: rfpCommodity, region: rfpRegion, custom: rfpCustom },
-      answers,
+      { ...buyerValues, ...answers },
     );
   }
 

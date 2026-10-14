@@ -19,8 +19,7 @@ import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approval
 import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { extractTags } from "@/lib/tags";
-import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
-import { isQuestionConditionMet } from "@/lib/questionCondition";
+import { buyerAnswersMessage, missingBuyerAnswers, questionShown } from "@/lib/buyerAnswers";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
@@ -90,6 +89,7 @@ export type NewQuestionInput = {
   dependsOnQuestionKey: string | null;
   dependsOnHeaderField: string | null; // "commodity" | "region" | "custom:<clave>"
   dependsOnValue: string;
+  dependsOnTemplateQuestionId?: string | null; // template question this one depends on (resolved to a key by the form)
   buyerAnswerValue: string;
   sourceTemplateQuestionId?: string | null;
   sourceTemplateId?: string | null;
@@ -481,17 +481,26 @@ export async function validateAndShapeRfp(
 
   // A template question (internal or for suppliers) whose condition (header value /
   // another buyer answer) isn't met is not part of the RFP; manual ones always stay.
-  const buyerAnswerByKey: Record<string, string> = Object.fromEntries(
-    questions.filter((q) => q.respondedBy === "BUYER").map((q) => [q.clientKey, q.buyerAnswerValue ?? ""]),
+  const shownByKey = new Map(
+    questions.map((q) => [
+      q.clientKey,
+      {
+        key: q.clientKey,
+        fromTemplate: Boolean(q.sourceTemplateQuestionId),
+        respondedBy: q.respondedBy,
+        buyerAnswerValue: q.buyerAnswerValue,
+        dependsOnKey: q.dependsOnQuestionKey,
+        dependsOnHeaderField: q.dependsOnHeaderField,
+        dependsOnValue: q.dependsOnValue,
+      },
+    ]),
   );
-  const keptQuestions = questions.filter(
-    (q) =>
-      !q.sourceTemplateQuestionId ||
-      isQuestionConditionMet(
-        { dependsOnQuestionId: q.dependsOnQuestionKey, dependsOnHeaderField: q.dependsOnHeaderField, dependsOnValue: q.dependsOnValue },
-        { commodity: input.commodity, region: input.region, custom: conditionHeader.custom },
-        buyerAnswerByKey,
-      ),
+  const keptQuestions = questions.filter((q) =>
+    questionShown(shownByKey.get(q.clientKey)!, shownByKey, {
+      commodity: input.commodity,
+      region: input.region,
+      custom: conditionHeader.custom,
+    }),
   );
 
   // Required questions the buyer answers themself must be answered before publishing.

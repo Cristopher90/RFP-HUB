@@ -110,9 +110,13 @@ export default async function ComparePage({
   };
   const internalNotesByInvitation = new Map(
     responded.map((inv) => {
-      const answerValues = Object.fromEntries(
-        inv.response!.answers.map((a) => [a.questionId, a.value]),
-      );
+      // The buyer's own answers count too for the conditions of internal questions.
+      const answerValues = {
+        ...Object.fromEntries(
+          rfp.questions.filter((q) => q.respondedBy === "BUYER").map((q) => [q.id, q.buyerAnswerValue ?? ""]),
+        ),
+        ...Object.fromEntries(inv.response!.answers.map((a) => [a.questionId, a.value])),
+      };
       const relevant = internalQuestions.filter((q) =>
         isQuestionConditionMet(q, header, answerValues),
       );

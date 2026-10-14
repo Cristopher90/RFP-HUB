@@ -351,6 +351,7 @@ export default async function NewRfpPage({
                 : null,
               lockRoles: q.lockRoles,
               dependsOnHeaderField: q.dependsOnHeaderField,
+              dependsOnQuestionId: q.dependsOnQuestionId,
               dependsOnValue: q.dependsOnValue,
               sectionCondition: parseTemplateCondition(q.sectionCondition),
             })),

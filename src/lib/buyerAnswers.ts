@@ -70,3 +70,48 @@ export function missingBuyerAnswers(
     )
     .map((q) => ({ text: q.text, attachment: q.type === "ATTACHMENT" }));
 }
+
+// Whether a template question is part of the RFP being built. One conditioned on a
+// header value shows when it matches; one conditioned on a question the buyer answers
+// themself (an internal question) shows only once that question is itself shown and
+// answered with the required value, and otherwise it doesn't appear at all. A question
+// conditioned on a supplier's answer can't be known while creating, so it stays.
+// Questions the buyer added by hand always stay (they'd vanish while typing).
+export type ShownQuestionLike = {
+  key: string;
+  fromTemplate: boolean;
+  respondedBy: string;
+  buyerAnswerValue: string | null | undefined;
+  dependsOnKey: string | null | undefined;
+  dependsOnHeaderField: string | null | undefined;
+  dependsOnValue: string | null | undefined;
+};
+
+export function questionShown(
+  q: ShownQuestionLike,
+  byKey: Map<string, ShownQuestionLike>,
+  header: { commodity: string | null | undefined; region: string | null | undefined; custom: Record<string, string> },
+  depth = 0,
+): boolean {
+  if (!q.fromTemplate) return true;
+  if (q.dependsOnHeaderField) {
+    const field = q.dependsOnHeaderField;
+    const current = field.startsWith("custom:")
+      ? header.custom[field.slice("custom:".length)]
+      : field === "commodity"
+        ? header.commodity
+        : field === "region"
+          ? header.region
+          : "";
+    return norm(current) === norm(q.dependsOnValue);
+  }
+  if (q.dependsOnKey) {
+    const parent = byKey.get(q.dependsOnKey);
+    if (!parent || depth > 6) return false;
+    // A question under one that is itself hidden stays hidden.
+    if (!questionShown(parent, byKey, header, depth + 1)) return false;
+    if (parent.respondedBy !== "BUYER") return true;
+    return norm(parent.buyerAnswerValue) === norm(q.dependsOnValue);
+  }
+  return true;
+}
