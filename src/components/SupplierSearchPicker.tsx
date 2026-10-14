@@ -18,6 +18,7 @@ export type SupplierDirectoryEntry = {
   contacts?: SupplierContact[];
   blocked?: boolean;
   docIssue?: boolean; // lacks the valid documentation the RFP's templates require
+  docDetail?: string; // which document is missing / expired
   rating?: { avg: number; count: number } | null;
 };
 
@@ -99,7 +100,11 @@ export function SupplierSearchPicker({
     if (dir.blocked) reasons.push(t("suppliersScreen.blocked"));
     // A blocked supplier has its contacts hidden, so "no contact" would only repeat the block.
     if (!dir.blocked && (dir.contacts?.length ?? 0) === 0) reasons.push(t("supplierSearchPicker.noContactUser"));
-    if (dir.docIssue) reasons.push(t("supplierDocs.pickerMissing"));
+    if (dir.docIssue) {
+      reasons.push(
+        dir.docDetail ? `${t("supplierDocs.pickerMissing")}: ${dir.docDetail}` : t("supplierDocs.pickerMissing"),
+      );
+    }
     return reasons;
   }
 

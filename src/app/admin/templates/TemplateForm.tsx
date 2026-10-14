@@ -206,6 +206,7 @@ export function TemplateForm({
     hideResponsesUntilClosed: boolean;
     minSuppliers: number | null;
     defaultDeadlineDays?: number | null;
+    priority?: number;
     items: TemplateItemInput[];
     questions: TemplateQuestionInput[];
   };
@@ -245,6 +246,7 @@ export function TemplateForm({
   const [minSuppliers, setMinSuppliers] = useState(
     initial?.minSuppliers != null ? String(initial.minSuppliers) : "",
   );
+  const [priority, setPriority] = useState(String(initial?.priority ?? 100));
   const [defaultDeadlineDays, setDefaultDeadlineDays] = useState(
     initial?.defaultDeadlineDays != null ? String(initial.defaultDeadlineDays) : "",
   );
@@ -599,6 +601,7 @@ export function TemplateForm({
       hideResponsesUntilClosed,
       minSuppliers,
       defaultDeadlineDays,
+      priority,
       items,
       questions: [...questions, ...internalQuestions],
     };
@@ -772,6 +775,26 @@ export function TemplateForm({
                 />
               )}
             </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-priority`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("templateForm.priorityLabel")}
+            </label>
+            <input
+              id={`${idBase}-priority`}
+              type="number"
+              min={1}
+              max={9999}
+              step={1}
+              className={inputClass()}
+              style={{ maxWidth: "10rem" }}
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-400">{t("templateForm.priorityHelp")}</p>
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">

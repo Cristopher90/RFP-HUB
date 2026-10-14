@@ -2,7 +2,7 @@
 
 import { Prisma } from "@/generated/prisma/client";
 import { validViewGroupIds } from "@/lib/viewGroupsServer";
-import { CUSTOM_COND_PREFIX, STD_COND_FIELDS, type TemplateCondition } from "@/lib/templateConditions";
+import { CUSTOM_COND_PREFIX, STD_COND_FIELDS, PRICE_COND_FIELD, type TemplateCondition } from "@/lib/templateConditions";
 import { loadCustomFields } from "@/lib/customFields";
 import { coerceValue } from "@/lib/customFieldsShared";
 import { revalidatePath } from "next/cache";
@@ -86,6 +86,7 @@ export type SaveTemplateInput = {
   hideResponsesUntilClosed: boolean;
   minSuppliers: string;
   defaultDeadlineDays: string;
+  priority: string;
   items: TemplateItemInput[];
   questions: TemplateQuestionInput[];
 };
@@ -126,10 +127,15 @@ export async function saveTemplate(
     (await loadCustomFields(clientId, "RFP_HEAD")).map((f) => `${CUSTOM_COND_PREFIX}${f.key}`),
   );
   const validCondField = (field: string) =>
-    (STD_COND_FIELDS as readonly string[]).includes(field) || headerFieldKeys.has(field);
+    (STD_COND_FIELDS as readonly string[]).includes(field) || field === PRICE_COND_FIELD || headerFieldKeys.has(field);
   const cleanCondition = (c: TemplateCondition | null | undefined): TemplateCondition | null => {
     const value = (c?.value ?? "").trim();
-    return c && validCondField(c.field) && value !== "" ? { field: c.field, value } : null;
+    if (!c || !validCondField(c.field) || value === "") return null;
+    // The amount condition is "greater / less than" a number.
+    if (c.field === PRICE_COND_FIELD) {
+      return Number.isFinite(Number(value)) ? { field: c.field, value: String(Number(value)), op: c.op === "lt" ? "lt" : "gt" } : null;
+    }
+    return { field: c.field, value };
   };
   const json = (c: TemplateCondition | null) => (c ? (c as object) : Prisma.DbNull);
 
@@ -216,6 +222,11 @@ export async function saveTemplate(
     return { error: dictionary.templatesActions.minSuppliersInvalid };
   }
 
+  const priorityRaw = (input.priority ?? "").trim();
+  const priority = priorityRaw ? Number(priorityRaw) : 100;
+  if (!Number.isInteger(priority) || priority < 1 || priority > 9999) {
+    return { error: dictionary.templatesActions.priorityInvalid };
+  }
   const deadlineDaysRaw = (input.defaultDeadlineDays ?? "").trim();
   const defaultDeadlineDays = deadlineDaysRaw ? Number(deadlineDaysRaw) : null;
   if (
@@ -271,6 +282,7 @@ export async function saveTemplate(
     hideResponsesUntilClosed: input.hideResponsesUntilClosed,
     minSuppliers,
     defaultDeadlineDays,
+    priority,
   };
 
   const template = templateId

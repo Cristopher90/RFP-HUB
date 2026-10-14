@@ -8,8 +8,8 @@ import { Chart, ChartToggle, type ChartType } from "@/components/charts/ChartKit
 import { StarRating } from "@/components/StarRating";
 import type { ReportData } from "@/lib/reportsData";
 
-type TabKey = "summary" | "spend" | "suppliers" | "supplierRatings" | "areas" | "buyers" | "times" | "noResponse" | "prices";
-const TABS: TabKey[] = ["summary", "spend", "suppliers", "supplierRatings", "areas", "buyers", "times", "noResponse", "prices"];
+type TabKey = "summary" | "spend" | "suppliers" | "supplierRatings" | "supplierDocs" | "areas" | "buyers" | "times" | "noResponse" | "prices";
+const TABS: TabKey[] = ["summary", "spend", "suppliers", "supplierRatings", "supplierDocs", "areas", "buyers", "times", "noResponse", "prices"];
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 const avg = (values: number[]) => (values.length ? sum(values) / values.length : 0);
@@ -122,6 +122,17 @@ export function ReportsView({ data }: { data: ReportData }) {
     () => false,
   );
   const [tab, setTab] = useState<TabKey>("summary");
+  const [docWindow, setDocWindow] = useState<"30" | "60" | "90" | "180">("30");
+  const [docState, setDocState] = useState<"all" | "expired" | "expiring">("all");
+  // A supplier's name links to its page in the Suppliers screen.
+  const supplierLink = (id: string | null, name: string) =>
+    id ? (
+      <Link href={`/suppliers?id=${id}&clientId=${data.clientId}`} className="text-violet-700 hover:underline">
+        {name}
+      </Link>
+    ) : (
+      name
+    );
   const money = (v: number) => formatCurrency(v, data.currency);
   // Short amounts for chart labels and KPI cards: $12.1k, $3.4M.
   const currencySymbol =
@@ -361,7 +372,7 @@ export function ReportsView({ data }: { data: ReportData }) {
         <Chart type={supplierChart} data={ordered.map((r) => ({ label: r.name, value: round1(valueOf(r)) }))} format={isPct ? pct : undefined} />
         <Table
           columns={[t("reportsPage.gSupplier"), t("reportsPage.mInvited"), t("reportsPage.mResponded"), t("reportsPage.mResponseRate"), t("reportsPage.mAwarded"), t("reportsPage.mWinRate")]}
-          rows={ordered.map((r) => [r.name, r.invited, r.responded, pct(r.responseRate), r.awarded, pct(r.winRate)])}
+          rows={ordered.map((r) => [supplierLink(r.directoryId, r.name), r.invited, r.responded, pct(r.responseRate), r.awarded, pct(r.winRate)])}
         />
       </Card>
     );
@@ -395,7 +406,7 @@ export function ReportsView({ data }: { data: ReportData }) {
         <Table
           columns={[t("reportsPage.gSupplier"), t("reportsPage.ratingsCode"), t("reportsPage.ratingsStars"), t("reportsPage.ratingsCount"), t("reportsPage.ratingsBlocked")]}
           rows={ordered.map((s) => [
-            s.name,
+            supplierLink(s.id, s.name),
             s.code,
             s.avg === null ? "—" : (
               <span className="inline-flex items-center justify-end gap-1.5">
@@ -407,6 +418,65 @@ export function ReportsView({ data }: { data: ReportData }) {
             s.blocked ? t("customFields.yes") : "",
           ])}
         />
+      </Card>
+    );
+  }
+
+  // Suppliers whose documents are expired or expire within the chosen window.
+  function supplierDocsTab() {
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const windowDays = Number(docWindow);
+    const all = data.supplierDocs.map((d) => {
+      const days = Math.round((new Date(d.endDate).getTime() - today) / 86_400_000);
+      return { ...d, days, state: days < 0 ? ("expired" as const) : days <= windowDays ? ("expiring" as const) : ("ok" as const) };
+    });
+    const flagged = all.filter((d) => d.state !== "ok");
+    const rows = flagged.filter((d) => docState === "all" || d.state === docState).sort((a, b) => a.days - b.days);
+    const expiredCount = flagged.filter((d) => d.state === "expired").length;
+    const expiringCount = flagged.length - expiredCount;
+    const byType = [...groupBy(rows, (r) => r.type).entries()]
+      .map(([label, list]) => ({ label, value: list.length }))
+      .sort((a, b) => b.value - a.value);
+    return (
+      <Card
+        title={t("reportsPage.docsTitle")}
+        hint={t("reportsPage.docsHint")}
+        controls={
+          <>
+            <Select label={t("reportsPage.docsWindow")} value={docWindow} onChange={setDocWindow} options={[
+              { value: "30", label: t("reportsPage.docsDays").replace("{n}", "30") }, { value: "60", label: t("reportsPage.docsDays").replace("{n}", "60") },
+              { value: "90", label: t("reportsPage.docsDays").replace("{n}", "90") }, { value: "180", label: t("reportsPage.docsDays").replace("{n}", "180") }]} />
+            <Select label={t("reportsPage.docsShow")} value={docState} onChange={setDocState} options={[
+              { value: "all", label: t("reportsPage.docsAll") }, { value: "expired", label: t("reportsPage.docsExpired") }, { value: "expiring", label: t("reportsPage.docsExpiring") }]} />
+          </>
+        }
+      >
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Kpi label={t("reportsPage.docsKpiExpired")} value={String(expiredCount)} tone={expiredCount > 0 ? "bad" : undefined} />
+          <Kpi label={t("reportsPage.docsKpiExpiring")} value={String(expiringCount)} sub={t("reportsPage.docsDays").replace("{n}", String(windowDays))} />
+          <Kpi label={t("reportsPage.docsKpiSuppliers")} value={String(new Set(flagged.map((d) => d.supplierId)).size)} />
+        </div>
+        {rows.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">{t("reportsPage.docsNone")}</p>
+        ) : (
+          <>
+            <Chart type="column" data={byType} />
+            <Table
+              columns={[t("reportsPage.gSupplier"), t("reportsPage.ratingsCode"), t("reportsPage.docsType"), t("reportsPage.docsValidUntil"), t("reportsPage.docsRemaining"), t("reportsPage.docsStatus")]}
+              rows={rows.map((r) => [
+                supplierLink(r.supplierId, r.supplier),
+                r.code,
+                r.type,
+                new Intl.DateTimeFormat(locale, { timeZone: "UTC" }).format(new Date(r.endDate)),
+                r.days < 0 ? t("reportsPage.docsOverdueBy").replace("{n}", String(-r.days)) : t("reportsPage.docsDueIn").replace("{n}", String(r.days)),
+                <span key="s" className={`rounded-full px-2 py-0.5 text-xs font-medium ${r.state === "expired" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
+                  {r.state === "expired" ? t("reportsPage.docsExpired") : t("reportsPage.docsExpiring")}
+                </span>,
+              ])}
+            />
+          </>
+        )}
       </Card>
     );
   }
@@ -634,6 +704,7 @@ export function ReportsView({ data }: { data: ReportData }) {
     spend: spendTab,
     suppliers: suppliersTab,
     supplierRatings: supplierRatingsTab,
+    supplierDocs: supplierDocsTab,
     areas: areasTab,
     buyers: buyersTab,
     times: timesTab,

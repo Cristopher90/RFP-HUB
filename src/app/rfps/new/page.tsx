@@ -12,7 +12,7 @@ import { loadCustomFields, readCustomValues } from "@/lib/customFields";
 import { parseTemplateCondition } from "@/lib/templateConditions";
 import { loadRatingSummaries, toPickerEntries } from "@/lib/suppliers";
 import { loadRfpTags } from "@/lib/rfpTags";
-import { validDocTypesBySupplier } from "@/lib/supplierDocsServer";
+import { loadDocContext } from "@/lib/supplierDocsServer";
 import { filterByVisibleCommodity, filterTreeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { CUSTOM_TARGET_PREFIX, applyViewGroupsToFields, coerceValue } from "@/lib/customFieldsShared";
 
@@ -112,11 +112,7 @@ export default async function NewRfpPage({
   }
 
   const ratingSummaries = user.clientId ? await loadRatingSummaries(user.clientId) : new Map();
-  const supplierValidDocs = Object.fromEntries(
-    user.clientId
-      ? [...(await validDocTypesBySupplier(user.clientId)).entries()].map(([id, set]) => [id, [...set]])
-      : [],
-  );
+  const docContext = user.clientId ? await loadDocContext(user.clientId) : { states: {}, names: {} };
 
   // View groups: a user with groups only sees the commodities / regions that
   // share one (administrators and users without groups see everything).
@@ -294,7 +290,8 @@ export default async function NewRfpPage({
             lastPrice: i.lastPrice,
           }))}
           allowFreeTextItems={user.allowFreeTextItems}
-          supplierValidDocs={supplierValidDocs}
+          supplierDocStates={docContext.states}
+          docTypeNames={docContext.names}
           existingTags={await loadRfpTags(scope.where)}
           initial={initial}
           purchaseRequestId={purchaseRequestId}
@@ -315,6 +312,7 @@ export default async function NewRfpPage({
             matchCustom: t.matchCustom,
             documentRequirements: t.documentRequirements,
             defaultDeadlineDays: t.defaultDeadlineDays,
+            priority: t.priority,
             items: t.items.map((i) => ({
               id: i.id,
               section: i.section,

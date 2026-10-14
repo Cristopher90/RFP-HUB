@@ -6,6 +6,7 @@ export type PickableTemplate = {
   id: string;
   name: string;
   description: string | null;
+  priority?: number;
 };
 
 // Same popup pattern as TreePickerField/SupplierSearchPicker: a trigger
@@ -71,16 +72,10 @@ export function TemplatePicker({
               <p className="text-sm font-medium text-slate-700">
                 Plantillas que coinciden
               </p>
-              <button
-                type="button"
-                onClick={() => selectAndClose(null)}
-                className="shrink-0 text-sm font-medium whitespace-nowrap text-violet-600 hover:text-violet-700"
-              >
-                — Ninguna —
-              </button>
+              <span className="text-xs text-slate-400">Se aplica por defecto la de menor prioridad</span>
             </div>
             <div className="max-h-96 overflow-y-auto p-2">
-              {templates.map((t) => {
+              {templates.map((t, index) => {
                 const isSelected = t.id === selectedId;
                 return (
                   <button
@@ -97,6 +92,16 @@ export function TemplatePicker({
                       }`}
                     >
                       {t.name}
+                      {t.priority !== undefined && (
+                        <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                          Prioridad {t.priority}
+                        </span>
+                      )}
+                      {index === 0 && templates.length > 1 && (
+                        <span className="ml-1.5 rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                          Por defecto
+                        </span>
+                      )}
                     </span>
                     {t.description && (
                       <span className="mt-0.5 block text-xs text-slate-500">

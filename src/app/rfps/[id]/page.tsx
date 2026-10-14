@@ -1,6 +1,6 @@
 import { splitTags } from "@/lib/tags";
-import { unmetRequirements } from "@/lib/supplierDocs";
-import { rfpDocumentRequirements, validDocTypesBySupplier } from "@/lib/supplierDocsServer";
+import { describeUnmet } from "@/lib/supplierDocs";
+import { loadDocContext, rfpDocumentRequirements } from "@/lib/supplierDocsServer";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -123,12 +123,20 @@ export default async function RfpDetailPage({
   });
   // Suppliers lacking the valid documentation the RFP's templates demand can't be invited.
   const docRequirements = await rfpDocumentRequirements(rfp.id);
-  const validDocs = docRequirements.length > 0 ? await validDocTypesBySupplier(rfp.clientId) : new Map<string, Set<string>>();
-  const supplierDirectory = toPickerEntries(supplierDirectoryRaw, await loadRatingSummaries(rfp.clientId)).map((s) => ({
-    ...s,
-    docIssue:
-      docRequirements.length > 0 && unmetRequirements(docRequirements, validDocs.get(s.id) ?? new Set()).length > 0,
-  }));
+  const docContext = docRequirements.length > 0 ? await loadDocContext(rfp.clientId) : { states: {}, names: {} };
+  const supplierDirectory = toPickerEntries(supplierDirectoryRaw, await loadRatingSummaries(rfp.clientId)).map((s) => {
+    const sd = dictionary.supplierDocs;
+    const detail =
+      docRequirements.length > 0
+        ? describeUnmet(
+            docRequirements,
+            (docContext.states as Record<string, Record<string, "active" | "expired" | "upcoming">>)[s.id],
+            (id) => (docContext.names as Record<string, string>)[id] ?? id,
+            { missing: sd.stateMissing, expired: sd.stateExpired, upcoming: sd.stateUpcoming, or: sd.or },
+          )
+        : "";
+    return { ...s, docIssue: detail !== "", docDetail: detail };
+  });
 
   const publishLevels =
     rfp.status === "PENDING_PUBLISH_APPROVAL"

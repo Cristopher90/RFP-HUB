@@ -11,7 +11,7 @@ import { TemplatePicker } from "@/components/TemplatePicker";
 import { PreviousRfpPicker } from "@/components/PreviousRfpPicker";
 import { CustomFieldInputs } from "@/components/CustomFieldInputs";
 import { templateConditionHolds, type TemplateCondition } from "@/lib/templateConditions";
-import { applicableRequirements, unmetRequirements } from "@/lib/supplierDocs";
+import { applicableRequirements, describeUnmet, type DocTypeState } from "@/lib/supplierDocs";
 import { headerStdSnapshot, lineStdSnapshot, type CustomFieldDef } from "@/lib/customFieldsShared";
 import { buildItemsFromSourceRfp } from "../rfpActions";
 import { updateRfp } from "../[id]/actions";
@@ -19,6 +19,7 @@ import {
   matchesTemplate,
   splitConditionalTemplates,
   resolveAppliedTemplates,
+  pickByPriority,
   ancestorChain,
   type TemplatePriceCondition,
 } from "@/lib/templateMatch";
@@ -55,6 +56,7 @@ export type TemplateData = {
   matchCustom?: unknown;
   documentRequirements?: unknown;
   defaultDeadlineDays?: number | null;
+  priority?: number;
   items: {
     id: string;
     section: string | null;
@@ -253,7 +255,8 @@ export function RfpForm({
   initial,
   purchaseRequestId,
   seedTemplates = false,
-  supplierValidDocs = {},
+  supplierDocStates = {},
+  docTypeNames = {},
   existingTags = [],
   customFields = [],
   clientCurrency = "USD",
@@ -302,7 +305,8 @@ export function RfpForm({
   seedTemplates?: boolean;
   existingTags?: string[]; // #tags already used on the client's RFPs (offered as quick picks)
   // Document types each directory supplier has valid today (id → type ids).
-  supplierValidDocs?: Record<string, string[]>;
+  supplierDocStates?: Record<string, Record<string, DocTypeState>>; // per supplier and document type
+  docTypeNames?: Record<string, string>;
   customFields?: CustomFieldDef[];
   clientCurrency?: string;
 }) {
@@ -429,7 +433,7 @@ export function RfpForm({
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
     // Template content can carry header conditions (own, its section's and, for
     // ad-hoc fields, per field): only what the header meets enters the RFP.
-    const header = { commodity: newCommodity, region: newRegion, custom };
+    const header = { commodity: newCommodity, region: newRegion, custom, estimatedPrice: newPrice };
     const templateItemById = new Map(templates.flatMap((tpl) => tpl.items.map((i) => [i.id, i] as const)));
     const applies = (ti: (typeof templates)[number]["items"][number]) =>
       templateConditionHolds(ti.condition, header) && templateConditionHolds(ti.sectionCondition, header);
@@ -512,7 +516,7 @@ export function RfpForm({
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
     // A template question whose section has a header condition the RFP no longer
     // meets leaves with the rest of the section.
-    const header = { commodity: newCommodity, region: newRegion, custom };
+    const header = { commodity: newCommodity, region: newRegion, custom, estimatedPrice: newPrice };
     const templateQuestionById = new Map(
       templates.flatMap((tpl) => tpl.questions.map((q) => [q.id, q] as const)),
     );
@@ -606,9 +610,10 @@ export function RfpForm({
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
     if (conditional.length === 1) return conditional[0].id;
+    // A choice still among the matches stays; otherwise the lowest priority number wins.
     return conditional.some((t) => t.id === selectedTemplateId)
       ? selectedTemplateId
-      : null;
+      : (pickByPriority(conditional)?.id ?? null);
   }
 
   function handleCommodityChange(value: string) {
@@ -1180,7 +1185,12 @@ export function RfpForm({
     [...matchingNow.always, ...matchingNow.conditional],
     selectedTemplateId,
   );
-  const docRequirements = applicableRequirements(appliedTemplates, { commodity, region, custom: headCustom });
+  const docRequirements = applicableRequirements(appliedTemplates, {
+    commodity,
+    region,
+    custom: headCustom,
+    estimatedPrice: parsePrice(estimatedPrice),
+  });
   // Default period for the deadline: the longest one among the applied templates.
   const templateDeadline = appliedTemplates.reduce<{ days: number; name: string } | null>(
     (best, tpl) =>
@@ -1195,12 +1205,19 @@ export function RfpForm({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDeadlineAt(defaultDeadline(templateDeadlineDays ?? 14));
   }, [deadlineTouched, templateDeadlineDays]);
-  const pickerSuppliers = supplierDirectory.map((s) => ({
-    ...s,
-    docIssue:
-      docRequirements.length > 0 &&
-      unmetRequirements(docRequirements, new Set(supplierValidDocs[s.id] ?? [])).length > 0,
-  }));
+  // Suppliers that miss the required documentation, with which document is missing or expired.
+  const pickerSuppliers = supplierDirectory.map((s) => {
+    const detail =
+      docRequirements.length > 0
+        ? describeUnmet(docRequirements, supplierDocStates[s.id], (id) => docTypeNames[id] ?? id, {
+            missing: t("supplierDocs.stateMissing"),
+            expired: t("supplierDocs.stateExpired"),
+            upcoming: t("supplierDocs.stateUpcoming"),
+            or: t("supplierDocs.or"),
+          })
+        : "";
+    return { ...s, docIssue: detail !== "", docDetail: detail };
+  });
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
@@ -1521,11 +1538,14 @@ export function RfpForm({
                     headCustom,
                   ),
                 ),
-              ).conditional.map((t) => ({
-                id: t.id,
-                name: t.name,
-                description: t.description,
-              }))}
+              ).conditional
+                .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100) || a.name.localeCompare(b.name))
+                .map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  description: t.description,
+                  priority: t.priority ?? 100,
+                }))}
               selectedId={selectedTemplateId}
               onChange={(id) => handleTemplateSelectionChange(id ?? "")}
             />

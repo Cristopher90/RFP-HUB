@@ -3,6 +3,7 @@
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import {
   CUSTOM_COND_PREFIX,
+  PRICE_COND_FIELD,
   STD_COND_FIELDS,
   type TemplateCondition,
 } from "@/lib/templateConditions";
@@ -29,8 +30,10 @@ export function HeaderConditionEditor({
     ? customFields.find((f) => f.key === field.slice(CUSTOM_COND_PREFIX.length))
     : undefined;
 
+  const isPrice = field === PRICE_COND_FIELD;
+
   function setField(next: string) {
-    onChange(next ? { field: next, value: "" } : null);
+    onChange(next ? { field: next, value: "", ...(next === PRICE_COND_FIELD ? { op: "gt" as const } : {}) } : null);
   }
   function setValue(next: string) {
     if (value) onChange({ ...value, value: next });
@@ -45,13 +48,34 @@ export function HeaderConditionEditor({
             {f === "commodity" ? t("rfpForm.rfpCommodity") : t("rfpForm.rfpRegion")}
           </option>
         ))}
+        <option value={PRICE_COND_FIELD}>{t("rfpForm.rfpAmount")}</option>
         {customFields.map((f) => (
           <option key={f.key} value={`${CUSTOM_COND_PREFIX}${f.key}`}>
             {labelFor(f.labels, language, f.key)}
           </option>
         ))}
       </select>
-      {value && (
+      {value && isPrice && (
+        <>
+          <select
+            className={smallInputClass()}
+            value={value.op ?? "gt"}
+            onChange={(e) => onChange({ ...value, op: e.target.value === "lt" ? "lt" : "gt" })}
+          >
+            <option value="gt">{t("rfpForm.amountGreater")}</option>
+            <option value="lt">{t("rfpForm.amountLess")}</option>
+          </select>
+          <input
+            type="number"
+            step="any"
+            className={`${smallInputClass()} w-32`}
+            placeholder={t("rfpForm.amountValue")}
+            value={value.value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </>
+      )}
+      {value && !isPrice && (
         <>
           <span className="text-xs text-slate-400">=</span>
           {custom && hasOptions(custom.type) ? (

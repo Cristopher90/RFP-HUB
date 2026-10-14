@@ -29,6 +29,7 @@ export function templateInitial(template: TemplateWithContent) {
     hideResponsesUntilClosed: template.hideResponsesUntilClosed,
     minSuppliers: template.minSuppliers,
     defaultDeadlineDays: template.defaultDeadlineDays,
+    priority: template.priority,
     items: template.items.map((i) => ({
       id: i.id,
       section: i.section,

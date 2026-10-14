@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
 import type { Prisma } from "@/generated/prisma/client";
-import { viewGroupWhere } from "@/lib/viewGroups";
+import { canSeeByGroups, viewGroupWhere } from "@/lib/viewGroups";
 import { loadRatingSummaries } from "@/lib/suppliers";
 
 // Everything the Reports screen shows, computed on the server from exactly the
@@ -18,12 +18,17 @@ export type ReportScope = "all" | "mine" | "assigned";
 
 export type ReportData = {
   currency: string;
+  clientId: string; // to link a supplier row to its page
   scope: ReportScope;
   rfpCount: number;
-  suppliers: { name: string; invited: number; responded: number; awarded: number }[];
+  // directoryId: the supplier's entry in the directory (null for free-text invitations).
+  suppliers: { name: string; directoryId: string | null; invited: number; responded: number; awarded: number }[];
   // Every supplier of the client the viewer can see, with the average of the
   // stars buyers gave it (null = not rated yet).
-  supplierRatings: { name: string; code: string; avg: number | null; count: number; blocked: boolean }[];
+  supplierRatings: { id: string; name: string; code: string; avg: number | null; count: number; blocked: boolean }[];
+  // Per supplier and document type (with dates), the latest end date: the base of the
+  // "expired / about to expire" report. Types the viewer can't see are left out.
+  supplierDocs: { supplierId: string; supplier: string; code: string; blocked: boolean; type: string; endDate: string }[];
   approvals: {
     stage: "PUBLISH" | "AWARD";
     approver: string;
@@ -124,12 +129,44 @@ export async function loadReportData(options: {
     loadRatingSummaries(clientId),
   ]);
   const supplierRatings = directory.map((d) => ({
+    id: d.id,
     name: d.companyName,
     code: d.code,
     avg: ratingSummaries.get(d.id)?.avg ?? null,
     count: ratingSummaries.get(d.id)?.count ?? 0,
     blocked: d.blocked,
   }));
+
+  // Documents with dates: the latest end date of each supplier + type (an older
+  // expired one doesn't count when a newer valid one exists; open-ended never expires).
+  const docRows = await prisma.supplierDocument.findMany({
+    where: {
+      clientId,
+      supplierDirectoryId: { in: directory.map((d) => d.id) },
+      type: { active: true, hasDates: true },
+    },
+    select: { supplierDirectoryId: true, typeId: true, endDate: true, type: { select: { name: true, viewGroupIds: true } } },
+  });
+  const latestDoc = new Map<string, { supplierId: string; type: string; end: number | null }>();
+  for (const dd of docRows) {
+    if (!canSeeByGroups({ role: user.role, viewGroupIds: user.viewGroupIds ?? [] }, dd.type.viewGroupIds)) continue;
+    const key = `${dd.supplierDirectoryId}|${dd.typeId}`;
+    const end = dd.endDate ? dd.endDate.getTime() : null;
+    const prev = latestDoc.get(key);
+    if (!prev) latestDoc.set(key, { supplierId: dd.supplierDirectoryId, type: dd.type.name, end });
+    else if (prev.end !== null && (end === null || end > prev.end)) prev.end = end;
+  }
+  const directoryById = new Map(directory.map((d) => [d.id, d]));
+  const supplierDocs = [...latestDoc.values()]
+    .filter((x): x is { supplierId: string; type: string; end: number } => x.end !== null)
+    .map((x) => ({
+      supplierId: x.supplierId,
+      supplier: directoryById.get(x.supplierId)?.companyName ?? "",
+      code: directoryById.get(x.supplierId)?.code ?? "",
+      blocked: directoryById.get(x.supplierId)?.blocked ?? false,
+      type: x.type,
+      endDate: new Date(x.end).toISOString(),
+    }));
 
   const [client, rfps] = await Promise.all([
     prisma.client.findUnique({ where: { id: clientId }, select: { currency: true } }),
@@ -157,7 +194,7 @@ export async function loadReportData(options: {
     }),
   ]);
 
-  const suppliers = new Map<string, { name: string; invited: number; responded: number; awarded: number }>();
+  const suppliers = new Map<string, { name: string; directoryId: string | null; invited: number; responded: number; awarded: number }>();
   const rfpRows: ReportData["rfps"] = [];
   const itemMap = new Map<string, ReportData["items"][number]>();
   const buyers = new Map<string, ReportData["buyers"][number]>();
@@ -194,6 +231,7 @@ export async function loadReportData(options: {
       const key = inv.supplier.supplierDirectoryId ?? (inv.supplier.company.trim().toLowerCase() || inv.supplier.email.toLowerCase());
       const entry = suppliers.get(key) ?? {
         name: inv.supplier.company.trim() || inv.supplier.name,
+        directoryId: inv.supplier.supplierDirectoryId,
         invited: 0,
         responded: 0,
         awarded: 0,
@@ -333,10 +371,12 @@ export async function loadReportData(options: {
 
   return {
     currency: client?.currency ?? "USD",
+    clientId,
     scope,
     rfpCount: rfps.length,
     suppliers: [...suppliers.values()],
     supplierRatings,
+    supplierDocs,
     approvals,
     rfps: rfpRows,
     noResponse,

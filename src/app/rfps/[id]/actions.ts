@@ -258,6 +258,7 @@ export async function publishRfp(rfpId: string) {
       commodity: rfp.commodity,
       region: rfp.region,
       custom: storedCustom,
+      estimatedPrice: rfp.estimatedPrice,
     }),
     user.language,
   );

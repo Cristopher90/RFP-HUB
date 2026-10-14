@@ -154,7 +154,7 @@ export function splitConditionalTemplates<T extends MatchableTemplate>(
 // match — either the explicitly selected one, or the sole match when there
 // is exactly one (nothing to choose). An out-of-date selection (no longer
 // among the current matches) is dropped rather than kept.
-export function resolveAppliedTemplates<T extends MatchableTemplate & { id: string }>(
+export function resolveAppliedTemplates<T extends MatchableTemplate & { id: string; priority?: number; name?: string }>(
   matching: T[],
   selectedTemplateId: string | null,
 ): T[] {
@@ -162,8 +162,21 @@ export function resolveAppliedTemplates<T extends MatchableTemplate & { id: stri
   const selected =
     conditional.length === 1
       ? conditional[0]
-      : (conditional.find((t) => t.id === selectedTemplateId) ?? null);
+      : (conditional.find((t) => t.id === selectedTemplateId) ?? pickByPriority(conditional));
   return selected ? [...always, selected] : always;
+}
+
+// When several conditional templates match and none was chosen, the one with
+// the lowest priority number goes first (ties: by name, then id, so it's stable).
+export function pickByPriority<T extends { id: string; priority?: number; name?: string }>(list: T[]): T | null {
+  return (
+    [...list].sort(
+      (a, b) =>
+        (a.priority ?? 100) - (b.priority ?? 100) ||
+        (a.name ?? "").localeCompare(b.name ?? "") ||
+        a.id.localeCompare(b.id),
+    )[0] ?? null
+  );
 }
 
 // The strictest minimum-suppliers rule among the applied templates (the one

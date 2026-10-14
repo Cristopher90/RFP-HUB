@@ -372,6 +372,7 @@ export async function validateAndShapeRfp(
     commodity: input.commodity,
     region: input.region,
     custom: "values" in earlyHeader ? earlyHeader.values : {},
+    estimatedPrice: estimatedPrice !== null && Number.isFinite(estimatedPrice) ? estimatedPrice : null,
   };
   for (const template of matchingTemplates) {
     for (const templateItem of template.items) {
