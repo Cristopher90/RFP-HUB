@@ -45,6 +45,7 @@ export default async function CustomFieldsPage({ searchParams }: PageProps<"/adm
           key={client.id}
           client={{ id: client.id, code: client.code, description: client.description }}
           fields={fields}
+          initialEditId={typeof sp.field === "string" ? sp.field : undefined}
           tableName={partitionName(client.id)}
           lookups={lookupRows.map((l) => ({ id: l.id, name: l.name, count: l._count.values }))}
           viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}

@@ -1,11 +1,12 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import * as XLSX from "xlsx";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import {
   CF_SCOPES,
+  CF_SCOPE_KEY,
   CF_TYPES,
   HEADER_STD_FIELDS,
   LINE_STD_FIELDS,
@@ -23,6 +24,7 @@ import {
   type ImportedField,
 } from "@/lib/customFieldsShared";
 import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
+import { loadPref, useSavePref } from "@/lib/userPrefsClient";
 import { deleteCustomField, importCustomFields, saveCustomField, type CustomFieldInput } from "./actions";
 
 function inputClass() {
@@ -31,14 +33,7 @@ function inputClass() {
 const smallBtn =
   "rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50";
 
-const SCOPE_KEY: Record<CfScope, string> = {
-  RFP_HEAD: "scopeRfpHead",
-  RFP_LINE: "scopeRfpLine",
-  USER: "scopeUser",
-  REQUEST_HEAD: "scopeRequestHead",
-  REQUEST_LINE: "scopeRequestLine",
-  SUPPLIER: "scopeSupplier",
-};
+const SCOPE_KEY = CF_SCOPE_KEY;
 const TYPE_KEY: Record<CfType, string> = {
   TREE: "typeTree",
   TEXT: "typeText",
@@ -48,6 +43,10 @@ const TYPE_KEY: Record<CfType, string> = {
   AMOUNT: "typeAmount",
   CHECKBOX: "typeCheckbox",
 };
+
+type GroupBy = "none" | "scope" | "type" | "mandatory" | "active";
+const GROUP_OPTIONS: GroupBy[] = ["scope", "type", "mandatory", "active"];
+const GROUPING_KEY = "custom-fields-grouping";
 
 function emptyInput(): CustomFieldInput {
   return {
@@ -98,7 +97,9 @@ export function CustomFieldsManager({
   tableName,
   lookups,
   viewGroups,
+  initialEditId,
 }: {
+  initialEditId?: string;
   client: { id: string; code: string; description: string };
   fields: CustomFieldDef[];
   tableName: string;
@@ -107,7 +108,30 @@ export function CustomFieldsManager({
 }) {
   const { t, language } = usePreferences();
   const router = useRouter();
-  const [editing, setEditing] = useState<CustomFieldInput | null>(null);
+  // A link from the lookups screen opens that field's editor right away.
+  const [editing, setEditing] = useState<CustomFieldInput | null>(() => {
+    const target = initialEditId ? fields.find((f) => f.id === initialEditId) : undefined;
+    return target ? toInput(target) : null;
+  });
+  const [query, setQuery] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [groupingLoaded, setGroupingLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPref<{ groupBy?: GroupBy }>(GROUPING_KEY).then((saved) => {
+      if (cancelled) return;
+      if (saved?.groupBy && (saved.groupBy === "none" || GROUP_OPTIONS.includes(saved.groupBy))) {
+        setGroupBy(saved.groupBy);
+      }
+      setGroupingLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useSavePref(GROUPING_KEY, { groupBy }, groupingLoaded);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -163,6 +187,117 @@ export function CustomFieldsManager({
     XLSX.writeFile(wb, "campos custom.xlsx");
   }
 
+  function usageText(f: CustomFieldDef) {
+    return [
+      !f.visible && t("customFields.badgeHidden"),
+      f.visible && !f.editable && t("customFields.badgeReadOnly"),
+      f.mappable && t("customFields.badgeMappable"),
+      f.importable && t("customFields.badgeImportable"),
+      f.templateFilter && t("customFields.badgeTemplate"),
+      f.listFilter && t("customFields.badgeList"),
+      f.mapToRfpKey && mapTargetLabel(f.mapToRfpKey),
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  // The search looks in every column of the table.
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return fields;
+    return fields.filter((f) =>
+      [
+        f.key,
+        f.labels.es ?? "",
+        f.labels.en ?? "",
+        t(`customFields.${SCOPE_KEY[f.scope]}`),
+        t(`customFields.${TYPE_KEY[f.type]}`),
+        f.mandatory ? t("customFields.yes") : t("customFields.no"),
+        conditionText(f),
+        usageText(f),
+        f.active ? t("customFields.yes") : t("customFields.no"),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields, query, language]);
+
+  const groupOptionLabel = (g: GroupBy) =>
+    g === "scope"
+      ? t("customFields.colScope")
+      : g === "type"
+        ? t("customFields.colType")
+        : g === "mandatory"
+          ? t("customFields.colMandatory")
+          : t("customFields.colActive");
+
+  // Rows grouped by "Applies to", type, mandatory or active (in a sensible order).
+  const groups = useMemo(() => {
+    if (groupBy === "none") return null;
+    const keyOf = (f: CustomFieldDef) =>
+      groupBy === "scope" ? f.scope : groupBy === "type" ? f.type : groupBy === "mandatory" ? String(f.mandatory) : String(f.active);
+    const labelOf = (k: string) =>
+      groupBy === "scope"
+        ? t(`customFields.${SCOPE_KEY[k as CfScope]}`)
+        : groupBy === "type"
+          ? t(`customFields.${TYPE_KEY[k as CfType]}`)
+          : groupBy === "mandatory"
+            ? k === "true"
+              ? t("customFields.groupMandatory")
+              : t("customFields.groupOptional")
+            : k === "true"
+              ? t("customFields.groupActive")
+              : t("customFields.groupInactive");
+    const order =
+      groupBy === "scope" ? (CF_SCOPES as string[]) : groupBy === "type" ? (CF_TYPES as string[]) : ["true", "false"];
+    const byKey = new Map<string, CustomFieldDef[]>();
+    for (const f of shown) byKey.set(keyOf(f), [...(byKey.get(keyOf(f)) ?? []), f]);
+    return [...byKey.entries()]
+      .sort(([a], [b]) => order.indexOf(a) - order.indexOf(b))
+      .map(([key, rows]) => ({ key, label: labelOf(key), rows }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown, groupBy, language]);
+
+  function renderRow(f: CustomFieldDef) {
+    return (
+      <tr key={f.id} className={f.active ? "" : "opacity-50"}>
+        <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{f.key}</td>
+        <td className="px-4 py-2.5">
+          <div className="font-medium text-slate-900">{labelFor(f.labels, language, f.key)}</div>
+          {f.labels.en && language !== "en" && <div className="text-xs text-slate-400">{f.labels.en}</div>}
+        </td>
+        <td className="px-4 py-2.5">{t(`customFields.${SCOPE_KEY[f.scope]}`)}</td>
+        <td className="px-4 py-2.5">{t(`customFields.${TYPE_KEY[f.type]}`)}</td>
+        <td className="px-4 py-2.5">{f.mandatory ? t("customFields.yes") : t("customFields.no")}</td>
+        <td className="px-4 py-2.5 text-xs text-slate-600">{conditionText(f)}</td>
+        <td className="px-4 py-2.5">
+          <div className="flex flex-wrap gap-1">
+            {!f.visible && <Badge>{t("customFields.badgeHidden")}</Badge>}
+            {f.visible && !f.editable && <Badge>{t("customFields.badgeReadOnly")}</Badge>}
+            {f.mappable && <Badge>{t("customFields.badgeMappable")}</Badge>}
+            {f.importable && <Badge>{t("customFields.badgeImportable")}</Badge>}
+            {f.templateFilter && <Badge>{t("customFields.badgeTemplate")}</Badge>}
+            {f.listFilter && <Badge>{t("customFields.badgeList")}</Badge>}
+            {f.mapToRfpKey && <Badge>→ {mapTargetLabel(f.mapToRfpKey)}</Badge>}
+          </div>
+        </td>
+        <td className="px-4 py-2.5">{f.active ? t("customFields.yes") : t("customFields.no")}</td>
+        <td className="px-4 py-2.5 text-right">
+          <div className="flex justify-end gap-2">
+            <button type="button" className={smallBtn} onClick={() => setEditing(toInput(f))}>
+              {t("customFields.edit")}
+            </button>
+            <button type="button" className={`${smallBtn} text-red-600 hover:bg-red-50`} onClick={() => handleDelete(f)}>
+              {t("customFields.delete")}
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div className="mt-2">
       {message && (
@@ -198,63 +333,92 @@ export function CustomFieldsManager({
           {t("customFields.empty")}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">{t("customFields.colKey")}</th>
-                <th className="px-4 py-3">{t("customFields.colLabel")}</th>
-                <th className="px-4 py-3">{t("customFields.colScope")}</th>
-                <th className="px-4 py-3">{t("customFields.colType")}</th>
-                <th className="px-4 py-3">{t("customFields.colMandatory")}</th>
-                <th className="px-4 py-3">{t("customFields.colCondition")}</th>
-                <th className="px-4 py-3">{t("customFields.colUsage")}</th>
-                <th className="px-4 py-3">{t("customFields.colActive")}</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {fields.map((f) => (
-                <tr key={f.id} className={f.active ? "" : "opacity-50"}>
-                  <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{f.key}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="font-medium text-slate-900">{labelFor(f.labels, language, f.key)}</div>
-                    {f.labels.en && language !== "en" && <div className="text-xs text-slate-400">{f.labels.en}</div>}
-                  </td>
-                  <td className="px-4 py-2.5">{t(`customFields.${SCOPE_KEY[f.scope]}`)}</td>
-                  <td className="px-4 py-2.5">{t(`customFields.${TYPE_KEY[f.type]}`)}</td>
-                  <td className="px-4 py-2.5">{f.mandatory ? t("customFields.yes") : t("customFields.no")}</td>
-                  <td className="px-4 py-2.5 text-xs text-slate-600">{conditionText(f)}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex flex-wrap gap-1">
-                      {!f.visible && <Badge>{t("customFields.badgeHidden")}</Badge>}
-                      {f.visible && !f.editable && <Badge>{t("customFields.badgeReadOnly")}</Badge>}
-                      {f.mappable && <Badge>{t("customFields.badgeMappable")}</Badge>}
-                      {f.importable && <Badge>{t("customFields.badgeImportable")}</Badge>}
-                      {f.templateFilter && <Badge>{t("customFields.badgeTemplate")}</Badge>}
-                      {f.listFilter && <Badge>{t("customFields.badgeList")}</Badge>}
-                      {f.mapToRfpKey && <Badge>→ {mapTargetLabel(f.mapToRfpKey)}</Badge>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">{f.active ? t("customFields.yes") : t("customFields.no")}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button type="button" className={smallBtn} onClick={() => setEditing(toInput(f))}>
-                        {t("customFields.edit")}
-                      </button>
-                      <button
-                        type="button"
-                        className={`${smallBtn} text-red-600 hover:bg-red-50`}
-                        onClick={() => handleDelete(f)}
-                      >
-                        {t("customFields.delete")}
-                      </button>
-                    </div>
-                  </td>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-2">
+            <input
+              type="search"
+              className="w-72 rounded-md border border-slate-300 px-3 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              placeholder={t("customFields.searchPlaceholder")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              <span>{t("customFields.fieldsCount").replace("{count}", String(shown.length))}</span>
+              <label className="flex items-center gap-2">
+                {t("customFields.groupBy")}
+                <select
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                  value={groupBy}
+                  onChange={(e) => {
+                    setGroupBy(e.target.value as GroupBy);
+                    setCollapsed(new Set());
+                  }}
+                >
+                  <option value="none">{t("customFields.noGrouping")}</option>
+                  {GROUP_OPTIONS.map((g) => (
+                    <option key={g} value={g}>
+                      {groupOptionLabel(g)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">{t("customFields.colKey")}</th>
+                  <th className="px-4 py-3">{t("customFields.colLabel")}</th>
+                  <th className="px-4 py-3">{t("customFields.colScope")}</th>
+                  <th className="px-4 py-3">{t("customFields.colType")}</th>
+                  <th className="px-4 py-3">{t("customFields.colMandatory")}</th>
+                  <th className="px-4 py-3">{t("customFields.colCondition")}</th>
+                  <th className="px-4 py-3">{t("customFields.colUsage")}</th>
+                  <th className="px-4 py-3">{t("customFields.colActive")}</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {groups
+                  ? groups.map((g) => {
+                      const isCollapsed = collapsed.has(g.key);
+                      return (
+                        <Fragment key={g.key}>
+                          <tr
+                            onClick={() =>
+                              setCollapsed((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(g.key)) next.delete(g.key);
+                                else next.add(g.key);
+                                return next;
+                              })
+                            }
+                            className="cursor-pointer bg-slate-100/70 hover:bg-slate-100"
+                          >
+                            <td colSpan={9} className="px-4 py-2.5 font-semibold text-slate-700">
+                              <span className="mr-2 inline-block w-3 text-slate-400">{isCollapsed ? "▸" : "▾"}</span>
+                              {g.label}
+                              <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                                {g.rows.length}
+                              </span>
+                            </td>
+                          </tr>
+                          {!isCollapsed && g.rows.map(renderRow)}
+                        </Fragment>
+                      );
+                    })
+                  : shown.map(renderRow)}
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                      {t("customFields.noMatches")}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

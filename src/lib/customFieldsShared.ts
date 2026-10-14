@@ -23,6 +23,16 @@ export const CF_TYPES: CfType[] = [
 ];
 export const CF_SCOPES: CfScope[] = ["RFP_HEAD", "RFP_LINE", "USER", "REQUEST_HEAD", "REQUEST_LINE", "SUPPLIER"];
 
+// Dictionary key (customFields.*) holding each scope's "Applies to" label.
+export const CF_SCOPE_KEY: Record<CfScope, string> = {
+  RFP_HEAD: "scopeRfpHead",
+  RFP_LINE: "scopeRfpLine",
+  USER: "scopeUser",
+  REQUEST_HEAD: "scopeRequestHead",
+  REQUEST_LINE: "scopeRequestLine",
+  SUPPLIER: "scopeSupplier",
+};
+
 export function isRequestScope(scope: CfScope) {
   return scope === "REQUEST_HEAD" || scope === "REQUEST_LINE";
 }

@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useMemo, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import * as XLSX from "xlsx";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { TreePickerField } from "@/components/TreePickerField";
 import { ViewGroupPicker, type ViewGroupOption } from "@/components/ViewGroupPicker";
 import { makeClientKey } from "@/lib/clientKey";
+import { CF_SCOPES, CF_SCOPE_KEY, type CfScope } from "@/lib/customFieldsShared";
 import {
   createLookup,
   deleteLookup,
@@ -15,7 +17,8 @@ import {
   type LookupValueInput,
 } from "./actions";
 
-type LookupItem = { id: string; name: string; count: number; usedBy: string[] };
+type LookupUsage = { fieldId: string; key: string; scope: CfScope; label: string };
+type LookupItem = { id: string; name: string; count: number; usedBy: string[]; usage: LookupUsage[] };
 
 function inputClass() {
   return "w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
@@ -27,12 +30,14 @@ export function LookupsManager({
   clientId,
   lookups,
   selectedId,
+  canOpenFields,
   viewGroups,
   initialValues,
 }: {
   clientId: string;
   lookups: LookupItem[];
   selectedId: string | null;
+  canOpenFields: boolean; // only the Super Administrador can open the custom field screen
   viewGroups: ViewGroupOption[];
   initialValues: LookupValueInput[];
 }) {
@@ -49,6 +54,22 @@ export function LookupsManager({
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
   const selected = lookups.find((l) => l.id === selectedId) ?? null;
+  const [collapsedUse, setCollapsedUse] = useState<Set<string>>(new Set());
+
+  // Lists grouped by where they are used ("Applies to" of the field that uses them);
+  // a list used by fields of several scopes shows up in each, one without fields under "Not used".
+  const usageGroups = useMemo(() => {
+    const byScope = new Map<string, { lookup: LookupItem; field: LookupUsage | null }[]>();
+    for (const l of lookups) {
+      const entries = l.usage.length > 0 ? l.usage.map((u) => ({ lookup: l, field: u as LookupUsage | null })) : [{ lookup: l, field: null }];
+      for (const e of entries) {
+        const key = e.field ? e.field.scope : "NONE";
+        byScope.set(key, [...(byScope.get(key) ?? []), e]);
+      }
+    }
+    const order = [...(CF_SCOPES as string[]), "NONE"];
+    return [...byScope.entries()].sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
+  }, [lookups]);
 
   function go(lookupId: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -221,23 +242,86 @@ export function LookupsManager({
 
       <div className={card}>
         <h2 className="text-base font-semibold text-slate-900">{t("lookups.listTitle")}</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {lookups.length === 0 && <p className="text-sm text-slate-400">{t("lookups.empty")}</p>}
-          {lookups.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => go(l.id)}
-              className={`rounded-full border px-3 py-1.5 text-sm ${
-                l.id === selectedId
-                  ? "border-violet-600 bg-violet-600 text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              {l.name} <span className="opacity-70">({l.count})</span>
-            </button>
-          ))}
-        </div>
+        {lookups.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-400">{t("lookups.empty")}</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-2.5">{t("lookups.colList")}</th>
+                  <th className="px-4 py-2.5">{t("lookups.colValues")}</th>
+                  <th className="px-4 py-2.5">{t("lookups.colUsedIn")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {usageGroups.map(([scopeKey, entries]) => {
+                  const isCollapsed = collapsedUse.has(scopeKey);
+                  return (
+                    <Fragment key={scopeKey}>
+                      <tr
+                        onClick={() =>
+                          setCollapsedUse((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(scopeKey)) next.delete(scopeKey);
+                            else next.add(scopeKey);
+                            return next;
+                          })
+                        }
+                        className="cursor-pointer bg-slate-100/70 hover:bg-slate-100"
+                      >
+                        <td colSpan={3} className="px-4 py-2 font-semibold text-slate-700">
+                          <span className="mr-2 inline-block w-3 text-slate-400">{isCollapsed ? "▸" : "▾"}</span>
+                          {scopeKey === "NONE"
+                            ? t("lookups.notUsed")
+                            : t(`customFields.${CF_SCOPE_KEY[scopeKey as CfScope]}`)}
+                          <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                            {entries.length}
+                          </span>
+                        </td>
+                      </tr>
+                      {!isCollapsed &&
+                        entries.map(({ lookup: l, field }) => (
+                          <tr key={`${l.id}-${field?.fieldId ?? "none"}`} className={l.id === selectedId ? "bg-violet-50" : ""}>
+                            <td className="px-4 py-2">
+                              <button
+                                type="button"
+                                onClick={() => go(l.id)}
+                                className="font-medium text-violet-700 hover:underline"
+                              >
+                                {l.name}
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-slate-600">{l.count}</td>
+                            <td className="px-4 py-2 text-slate-600">
+                              {field ? (
+                                canOpenFields ? (
+                                  <Link
+                                    href={`/admin/custom-fields?clientId=${clientId}&field=${field.fieldId}`}
+                                    className="font-medium text-violet-700 hover:underline"
+                                  >
+                                    {field.label}
+                                    <span className="ml-1.5 font-mono text-xs text-slate-400">{field.key}</span>
+                                  </Link>
+                                ) : (
+                                  <span>
+                                    {field.label}
+                                    <span className="ml-1.5 font-mono text-xs text-slate-400">{field.key}</span>
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <input
             className={`${inputClass()} !w-64`}

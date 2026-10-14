@@ -1,3 +1,4 @@
+import { labelFor } from "@/lib/customFieldsShared";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireMasterDataScope } from "@/lib/masterDataScope";
@@ -15,7 +16,7 @@ export default async function LookupsPage({ searchParams }: PageProps<"/admin/ma
     ? await prisma.lookup.findMany({
         where: { clientId: effectiveClientId },
         orderBy: { name: "asc" },
-        include: { _count: { select: { values: true } }, fields: { select: { key: true } } },
+        include: { _count: { select: { values: true } }, fields: { select: { id: true, key: true, scope: true, labels: true } } },
       })
     : [];
   const selectedId =
@@ -53,8 +54,15 @@ export default async function LookupsPage({ searchParams }: PageProps<"/admin/ma
             name: l.name,
             count: l._count.values,
             usedBy: l.fields.map((f) => f.key),
+            usage: l.fields.map((f) => ({
+              fieldId: f.id,
+              key: f.key,
+              scope: f.scope,
+              label: labelFor((f.labels ?? {}) as Record<string, string>, scope.user.language, f.key),
+            })),
           }))}
           selectedId={selectedId}
+          canOpenFields={scope.isSuperAdmin}
           viewGroups={viewGroups.map((g) => ({ id: g.id, name: g.name }))}
           initialValues={values.map((v) => ({
             clientKey: v.id,
