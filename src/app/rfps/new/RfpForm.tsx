@@ -28,6 +28,7 @@ import { groupBySection, nextSectionName } from "@/lib/sections";
 import { extractTags } from "@/lib/tags";
 import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
 import { BuyerFileAnswer } from "./BuyerFileAnswer";
+import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
@@ -1095,12 +1096,48 @@ export function RfpForm({
     downloadRfpExcel(filename, items, [...questions, ...internalQuestions]);
   }
 
+  // A question that came from a template with a condition (a header value or another
+  // buyer answer) only shows up, and is only part of the RFP, when the condition is met.
+  // Questions the buyer added by hand always show (they would vanish while typing).
+  const buyerAnswersByKey: Record<string, string> = Object.fromEntries(
+    [...questions, ...internalQuestions]
+      .filter((q) => q.respondedBy === "BUYER")
+      .map((q) => [q.clientKey, q.buyerAnswerValue]),
+  );
+  const questionShown = (q: NewQuestionInput) =>
+    !q.sourceTemplateQuestionId ||
+    isQuestionConditionMet(
+      { dependsOnQuestionId: q.dependsOnQuestionKey, dependsOnHeaderField: q.dependsOnHeaderField, dependsOnValue: q.dependsOnValue },
+      { commodity, region, custom: headCustom },
+      buyerAnswersByKey,
+    );
+
+  // Sections with only the questions that are shown, numbered without gaps.
+  function shownGroups(list: NewQuestionInput[]) {
+    let flat = 0;
+    let sectionNo = 0;
+    return groupBySection(list)
+      .map((g) => ({ ...g, entries: g.entries.filter((e) => questionShown(e.item)) }))
+      .filter((g) => g.entries.length > 0)
+      .map((g) => {
+        if (g.name !== null) sectionNo += 1;
+        return {
+          ...g,
+          sectionNumber: g.name !== null ? sectionNo : null,
+          entries: g.entries.map((e, i) => ({
+            ...e,
+            label: g.name !== null ? `${sectionNo}.${i + 1}` : String(++flat),
+          })),
+        };
+      });
+  }
+
   function handleSubmit(saveAsDraft: boolean) {
     setError(null);
     // Publishing needs the buyer's required questions answered (a draft doesn't).
     if (!saveAsDraft) {
       const missing = missingBuyerAnswers(
-        [...questions, ...internalQuestions].map((q) => ({
+        [...questions.filter(questionShown), ...internalQuestions.filter(questionShown)].map((q) => ({
           key: q.clientKey,
           text: q.text,
           type: q.type,
@@ -1143,7 +1180,8 @@ export function RfpForm({
         saveAsDraft,
         customValues: headCustom,
         items,
-        questions: [...questions, ...internalQuestions],
+        // A template question whose condition isn't met is not part of the RFP.
+        questions: [...questions.filter(questionShown), ...internalQuestions.filter(questionShown)],
         suppliers,
       };
       const result =
@@ -1711,7 +1749,7 @@ export function RfpForm({
         }
       >
         <div className="space-y-4">
-          {groupBySection(internalQuestions).map((group, groupIdx) => (
+          {shownGroups(internalQuestions).map((group, groupIdx) => (
             <div key={groupIdx}>
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">
@@ -2047,7 +2085,7 @@ export function RfpForm({
         }
       >
         <div className="space-y-4">
-          {groupBySection(questions).map((group, groupIdx) => (
+          {shownGroups(questions).map((group, groupIdx) => (
             <div key={groupIdx}>
               {group.name !== null && (
                 <div className="mb-2 flex items-center gap-2">

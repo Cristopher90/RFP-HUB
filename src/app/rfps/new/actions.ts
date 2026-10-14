@@ -20,6 +20,7 @@ import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { extractTags } from "@/lib/tags";
 import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
+import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { sendPendingInvitations } from "@/lib/notifications";
@@ -478,10 +479,25 @@ export async function validateAndShapeRfp(
     }
   }
 
+  // A template question (internal or for suppliers) whose condition (header value /
+  // another buyer answer) isn't met is not part of the RFP; manual ones always stay.
+  const buyerAnswerByKey: Record<string, string> = Object.fromEntries(
+    questions.filter((q) => q.respondedBy === "BUYER").map((q) => [q.clientKey, q.buyerAnswerValue ?? ""]),
+  );
+  const keptQuestions = questions.filter(
+    (q) =>
+      !q.sourceTemplateQuestionId ||
+      isQuestionConditionMet(
+        { dependsOnQuestionId: q.dependsOnQuestionKey, dependsOnHeaderField: q.dependsOnHeaderField, dependsOnValue: q.dependsOnValue },
+        { commodity: input.commodity, region: input.region, custom: conditionHeader.custom },
+        buyerAnswerByKey,
+      ),
+  );
+
   // Required questions the buyer answers themself must be answered before publishing.
   if (!input.saveAsDraft) {
     const missing = missingBuyerAnswers(
-      questions.map((q) => ({
+      keptQuestions.map((q) => ({
         key: q.clientKey,
         text: q.text,
         type: q.type,
@@ -499,7 +515,7 @@ export async function validateAndShapeRfp(
 
   return {
     items: itemsWithCustom,
-    questions,
+    questions: keptQuestions,
     suppliers,
     matchingTemplates,
     estimatedPrice,
