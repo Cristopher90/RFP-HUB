@@ -2403,6 +2403,7 @@ export const es = {
     },
   },
   suppliersScreen: {
+    sortCreated: "Fecha de creación (más recientes)",
     filterStatus: "Estado",
     filterDocStatus: "Documentación (estado)",
     filterDocType: "Tipo de documento",

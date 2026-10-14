@@ -2399,6 +2399,7 @@ export const en: Dictionary = {
     },
   },
   suppliersScreen: {
+    sortCreated: "Creation date (newest first)",
     filterStatus: "Status",
     filterDocStatus: "Documents (status)",
     filterDocType: "Document type",

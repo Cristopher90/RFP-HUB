@@ -118,8 +118,6 @@ export function SupplierFilters({
   setQuery,
   values,
   setValues,
-  sort,
-  setSort,
   docTypes,
   extras,
   creators,
@@ -128,8 +126,6 @@ export function SupplierFilters({
   setQuery: (q: string) => void;
   values: SupplierFilterValues;
   setValues: (v: SupplierFilterValues) => void;
-  sort: "name" | "rating";
-  setSort: (s: "name" | "rating") => void;
   docTypes: DocTypeOption[];
   extras: SupplierExtras;
   creators: { id: string; name: string }[];
@@ -281,7 +277,7 @@ export function SupplierFilters({
         return <CustomFilter key={key} field={f} value={values.custom[f.key] ?? ""} onChange={(v) => setCustom(f.key, v)} />;
       })}
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-3">
         <FilterPicker filters={available} visible={visible} onToggle={toggleFilter} />
         {hasActiveFilters(values) && (
@@ -294,15 +290,6 @@ export function SupplierFilters({
           </button>
         )}
       </div>
-      <select
-        value={sort}
-        onChange={(e) => setSort(e.target.value as "name" | "rating")}
-        className={`${selectClass} !w-52`}
-        aria-label={t("suppliersScreen.sortLabel")}
-      >
-        <option value="name">{t("suppliersScreen.sortName")}</option>
-        <option value="rating">{t("suppliersScreen.sortRating")}</option>
-      </select>
     </div>
     </div>
   );

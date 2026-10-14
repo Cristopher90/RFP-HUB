@@ -112,7 +112,7 @@ export type SupplierDetail = {
   }[];
 };
 
-type Sort = "name" | "rating";
+type Sort = "name" | "rating" | "created";
 
 // Order of the status groups in "my processes".
 const STATUS_ORDER = ["OPEN", "AWAITING_START", "PENDING_PUBLISH_APPROVAL", "DRAFT", "CLOSED"];
@@ -183,6 +183,10 @@ export function SuppliersView({
     const q = query.trim().toLowerCase();
     const ctx = { commodities, regions, customFields, timeZone };
     const rows = list.filter((s) => (!q || s.searchText.includes(q)) && matchesFilters(s, filters, ctx));
+    if (sort === "created") {
+      // Newest first.
+      return [...rows].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
     if (sort === "rating") {
       return [...rows].sort(
         (a, b) => (b.ratingAvg ?? -1) - (a.ratingAvg ?? -1) || b.ratingCount - a.ratingCount,
@@ -204,8 +208,6 @@ export function SuppliersView({
       setQuery={setQuery}
       values={filters}
       setValues={setFilters}
-      sort={sort}
-      setSort={setSort}
       docTypes={docTypes}
       extras={extras}
       creators={creators}
@@ -222,6 +224,16 @@ export function SuppliersView({
               + {t("suppliersScreen.newSupplier")}
             </button>
           )}
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as Sort)}
+            aria-label={t("suppliersScreen.sortLabel")}
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600"
+          >
+            <option value="name">{t("suppliersScreen.sortName")}</option>
+            <option value="rating">{t("suppliersScreen.sortRating")}</option>
+            <option value="created">{t("suppliersScreen.sortCreated")}</option>
+          </select>
         </div>
         <ul className="divide-y divide-slate-100 lg:max-h-[calc(100vh-24rem)] lg:overflow-y-auto">
           {visible.length === 0 && (
