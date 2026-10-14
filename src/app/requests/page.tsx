@@ -256,6 +256,7 @@ export default async function RequestsPage({ searchParams }: PageProps<"/request
 
       <RequestsTable
         rows={rows}
+        initialOpenId={param("open")}
         currency={currency}
         lineCustomColumns={lineCustomFields.map((f) => ({
           key: f.key,

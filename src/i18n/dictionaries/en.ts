@@ -683,6 +683,12 @@ export const en: Dictionary = {
     globalNews: "News",
   },
   homeNotes: {
+    mentionHint: "Type @ and an id to mention an RFP (RFP-123), a document or a supplier: it becomes a link in the note.",
+    mentionSearching: "Searching…",
+    mentionNone: "No results.",
+    mentionKind_RFP: "RFP",
+    mentionKind_DOC: "Document",
+    mentionKind_PRV: "Supplier",
     viewMore: "View more",
     close: "Close",
     filterRead: "Read",

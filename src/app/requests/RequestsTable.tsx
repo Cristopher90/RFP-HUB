@@ -47,6 +47,7 @@ type Option = { id: string; name: string };
 
 export function RequestsTable({
   rows,
+  initialOpenId = "",
   currency,
   canAssign,
   buyers,
@@ -54,6 +55,7 @@ export function RequestsTable({
   lineCustomColumns = [],
 }: {
   rows: RequestRow[];
+  initialOpenId?: string; // opens this request's detail on load (links from notes)
   lineCustomColumns?: { key: string; label: string }[];
   currency: string;
   canAssign: boolean;
@@ -61,7 +63,7 @@ export function RequestsTable({
   groups: Option[];
 }) {
   const { t, formatCurrency } = usePreferences();
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(initialOpenId || null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const open = rows.find((r) => r.id === openId) ?? null;

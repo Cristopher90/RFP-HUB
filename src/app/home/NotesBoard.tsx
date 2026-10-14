@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { UserMultiPicker, type PickableUser } from "@/components/UserMultiPicker";
 import { utcToZonedTime } from "@/lib/timezone";
+import { mentionKey, splitMentions, type Mention } from "@/lib/mentionsShared";
+import { MentionTextarea } from "./MentionTextarea";
 import { deleteNote, saveNote, setNoteRead } from "./actions";
 
 export type NoteView = {
@@ -48,6 +51,29 @@ function ImportanceDots({ weight, title }: { weight: number; title: string }) {
   );
 }
 
+// Note text with its @mentions turned into links (only the ones this viewer can open).
+function NoteBody({ body, mentions }: { body: string; mentions: Record<string, Mention> }) {
+  return (
+    <>
+      {splitMentions(body).map((seg, i) => {
+        if (seg.type === "text") return <span key={i}>{seg.text}</span>;
+        const target = mentions[mentionKey(seg.kind, seg.id)];
+        if (!target) return <span key={i}>{seg.raw}</span>;
+        return (
+          <Link
+            key={i}
+            href={target.href}
+            title={target.title}
+            className="rounded bg-white/60 px-1 font-semibold underline decoration-dotted underline-offset-2 hover:bg-white"
+          >
+            {seg.raw}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
 function inputClass() {
   return "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500";
 }
@@ -65,11 +91,13 @@ type Draft = {
 
 export function NotesBoard({
   notes,
+  mentions,
   rights,
   users,
   clients,
 }: {
   notes: NoteView[];
+  mentions: Record<string, Mention>;
   rights: { own: boolean; targeted: boolean; all: boolean; anyClient: boolean };
   users: PickableUser[];
   clients: { id: string; label: string }[];
@@ -208,7 +236,7 @@ export function NotesBoard({
               <p
                 className={`flex-1 whitespace-pre-wrap break-words text-sm leading-snug ${isLong(n.body) ? "line-clamp-4" : ""}`}
               >
-                {n.body}
+                <NoteBody body={n.body} mentions={mentions} />
               </p>
               {isLong(n.body) && (
                 <button type="button" onClick={() => setViewing(n)} className="mt-1 self-start text-xs font-semibold underline">
@@ -308,7 +336,9 @@ export function NotesBoard({
               <ImportanceDots weight={viewing.weight} title={t("homeNotes.importance")} />
               <span>{scopeLabel(viewing.scope)}</span>
             </div>
-            <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed">{viewing.body}</p>
+            <p className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed">
+              <NoteBody body={viewing.body} mentions={mentions} />
+            </p>
             <div className="mt-4 space-y-0.5 text-xs opacity-80">
               <p>
                 {viewing.isMine ? t("homeNotes.byMe") : viewing.authorName}
@@ -341,12 +371,12 @@ export function NotesBoard({
               {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">{t("homeNotes.text")}</label>
-                <textarea
+                <MentionTextarea
                   className={inputClass()}
                   rows={4}
                   maxLength={1000}
                   value={draft.body}
-                  onChange={(e) => patch({ body: e.target.value })}
+                  onChange={(body) => patch({ body })}
                 />
               </div>
               <div>

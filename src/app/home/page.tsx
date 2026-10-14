@@ -4,6 +4,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
 import { sweepAwaitingStart } from "@/lib/rfpStatus";
 import { canManageNote, noteRights, visibleNotesWhere } from "@/lib/notes";
+import { resolveMentions } from "@/lib/mentions";
 import { PendingApprovalsBox } from "../PendingApprovalsBox";
 import { WeekCalendar } from "./WeekCalendar";
 import { StatusSummary } from "./StatusSummary";
@@ -99,6 +100,8 @@ export default async function HomePage() {
     state: n.startsAt && n.startsAt > now ? "scheduled" : n.endsAt && n.endsAt < now ? "expired" : "active",
   }));
 
+  const mentions = await resolveMentions(scope, notes.map((n) => n.body));
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">{d.title}</h1>
@@ -123,6 +126,7 @@ export default async function HomePage() {
         <h2 className="mb-4 text-base font-semibold text-slate-900">{d.notesTitle}</h2>
         <NotesBoard
           notes={notes}
+          mentions={mentions}
           rights={noteRights(user)}
           users={users.map((u) => ({ id: u.id, name: u.name, lastName: u.lastName ?? "", email: u.email }))}
           clients={clients.map((c) => ({ id: c.id, label: c.description }))}

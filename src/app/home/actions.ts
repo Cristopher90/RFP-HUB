@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { requireClientScope } from "@/lib/clientScope";
+import { searchMentionTargets, type MentionSuggestion } from "@/lib/mentions";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { getDictionary } from "@/i18n/getDictionary";
 import { canManageNote, noteRights, visibleNotesWhere } from "@/lib/notes";
@@ -117,4 +119,10 @@ export async function setNoteRead(noteId: string, read: boolean): Promise<{ erro
   }
   revalidatePath("/home");
   return { success: true };
+}
+
+// Autocomplete for "@" in a note: RFPs, requests and suppliers the user can open.
+export async function searchMentions(query: string): Promise<MentionSuggestion[]> {
+  const scope = await requireClientScope();
+  return searchMentionTargets(scope, query);
 }

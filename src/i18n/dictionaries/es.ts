@@ -684,6 +684,12 @@ export const es = {
     globalNews: "Novedad",
   },
   homeNotes: {
+    mentionHint: "Escribe @ y un id para mencionar una RFP (RFP-123), un documento o un proveedor: quedará como enlace en la nota.",
+    mentionSearching: "Buscando…",
+    mentionNone: "Sin resultados.",
+    mentionKind_RFP: "RFP",
+    mentionKind_DOC: "Documento",
+    mentionKind_PRV: "Proveedor",
     viewMore: "Ver más",
     close: "Cerrar",
     filterRead: "Leídas",
