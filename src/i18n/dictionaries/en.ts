@@ -234,6 +234,10 @@ export const en: Dictionary = {
     alreadyMember: "That person is already on the team.",
   },
   rfpForm: {
+    removeFile: "Remove file",
+    uploadingFile: "Uploading…",
+    attachmentMissing: "Choose a file.",
+    attachmentTooBig: "The file is larger than 8 MB.",
     rfpAmount: "RFP amount",
     amountGreater: "greater than",
     amountLess: "less than",
@@ -1595,7 +1599,6 @@ export const en: Dictionary = {
   },
   rfpActions: {
     buyerAnswersRequired: "Answer the buyer's required questions before publishing: {list}.",
-    buyerAttachmentHint: "Questions with an attachment are answered from the draft's page: save it as a draft, attach the file and publish it from there.",
     cannotRemoveRequiredItem: 'You can\'t remove the required item "{item}" (template: {template}).',
     cannotRemoveRequiredQuestion: 'You can\'t remove the required question "{question}" (template: {template}).',
     addAtLeastOneItem: "Add at least one item to the RFP.",

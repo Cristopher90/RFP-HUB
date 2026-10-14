@@ -47,11 +47,10 @@ function applies(q: BuyerQuestionLike, all: Map<string, BuyerQuestionLike>, head
 
 // Error text listing the required buyer questions left unanswered.
 export function buyerAnswersMessage(
-  dictionary: { rfpActions: { buyerAnswersRequired: string; buyerAttachmentHint: string } },
-  missing: { text: string; attachment: boolean }[],
+  dictionary: { rfpActions: { buyerAnswersRequired: string } },
+  missing: { text: string }[],
 ) {
-  const base = dictionary.rfpActions.buyerAnswersRequired.replace("{list}", missing.map((m) => m.text).join(" · "));
-  return missing.some((m) => m.attachment) ? `${base} ${dictionary.rfpActions.buyerAttachmentHint}` : base;
+  return dictionary.rfpActions.buyerAnswersRequired.replace("{list}", missing.map((m) => m.text).join(" · "));
 }
 
 // Required buyer questions still without an answer (INFO blocks never need one).

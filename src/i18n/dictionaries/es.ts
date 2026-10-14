@@ -235,6 +235,10 @@ export const es = {
     alreadyMember: "Esa persona ya está en el equipo.",
   },
   rfpForm: {
+    removeFile: "Quitar archivo",
+    uploadingFile: "Subiendo…",
+    attachmentMissing: "Elige un archivo.",
+    attachmentTooBig: "El archivo supera los 8 MB.",
     rfpAmount: "Monto de la RFP",
     amountGreater: "mayor que",
     amountLess: "menor que",
@@ -1599,7 +1603,6 @@ export const es = {
   // translated (a name, an email, a code entered by the user).
   rfpActions: {
     buyerAnswersRequired: "Responde las preguntas obligatorias del comprador antes de publicar: {list}.",
-    buyerAttachmentHint: "Las preguntas con adjunto se responden desde el detalle del borrador: guárdalo como borrador, adjunta el archivo y publícalo desde allí.",
     cannotRemoveRequiredItem: 'No puedes quitar el artículo obligatorio "{item}" (plantilla: {template}).',
     cannotRemoveRequiredQuestion: 'No puedes quitar la pregunta obligatoria "{question}" (plantilla: {template}).',
     addAtLeastOneItem: "Agrega al menos un artículo a la RFP.",

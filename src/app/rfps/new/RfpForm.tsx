@@ -27,6 +27,7 @@ import {
 import { groupBySection, nextSectionName } from "@/lib/sections";
 import { extractTags } from "@/lib/tags";
 import { buyerAnswersMessage, missingBuyerAnswers } from "@/lib/buyerAnswers";
+import { BuyerFileAnswer } from "./BuyerFileAnswer";
 import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
@@ -1021,11 +1022,7 @@ export function RfpForm({
     onChange: (value: string) => void,
   ) {
     if (q.type === "ATTACHMENT") {
-      return (
-        <p className="text-xs text-slate-400">
-          {t("rfpForm.attachmentHint")}
-        </p>
-      );
+      return <BuyerFileAnswer value={q.buyerAnswerValue} onChange={onChange} />;
     }
     if (q.type === "SELECT") {
       return (
@@ -1740,6 +1737,43 @@ export function RfpForm({
                     key={q.clientKey}
                     className="rounded-lg border border-slate-100 bg-slate-50 p-3"
                   >
+                    {q.sourceTemplateQuestionId ? (
+                      // A question that came from a template can't be changed: only its answer.
+                      <div className="flex items-start gap-3">
+                        <span className="w-9 shrink-0 pt-0.5 text-right text-xs font-medium text-slate-400">{label}</span>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={
+                              q.type === "INFO"
+                                ? "whitespace-pre-line text-sm text-slate-600"
+                                : "text-sm font-medium text-slate-800"
+                            }
+                          >
+                            {q.text}
+                          </p>
+                          {q.type !== "INFO" && (
+                            <div className="mt-2">
+                              <label className="mb-1 block text-xs font-medium text-slate-500">
+                                {t("rfpForm.answerLabel")}
+                                {q.required && <span className="text-red-500"> *</span>}
+                              </label>
+                              {answerField(q, (value) => updateInternalQuestion(index, { buyerAnswerValue: value }))}
+                            </div>
+                          )}
+                        </div>
+                        {/* Removable only if the user's profile and the template allow it. */}
+                        {!q.locked && (
+                          <button
+                            type="button"
+                            onClick={() => removeInternalQuestionAt(index, q.clientKey)}
+                            className="shrink-0 text-sm text-slate-400 hover:text-red-600"
+                          >
+                            {t("rfpForm.remove")}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-start">
                       <div className="sm:col-span-5">
                         <div className="flex items-center gap-2">
@@ -1833,7 +1867,10 @@ export function RfpForm({
                       </div>
                     )}
 
-                    {expandedInternalQuestions.has(index) && (
+                      </>
+                    )}
+
+                    {!q.sourceTemplateQuestionId && expandedInternalQuestions.has(index) && (
                       <div className="mt-3 grid grid-cols-1 gap-3 border-t border-slate-200 pt-3 sm:grid-cols-12">
                         {q.type === "SELECT" && (
                           <div className="sm:col-span-12">
