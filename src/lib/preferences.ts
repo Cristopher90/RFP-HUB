@@ -38,8 +38,7 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: user.currency,
       theme: isTheme(user.theme) ? user.theme : DEFAULT_THEME,
       colorMode: isColorMode(user.colorMode) ? user.colorMode : DEFAULT_COLOR_MODE,
-      // The other styles are for the Super Administrador only.
-      uiStyle: user.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
+      uiStyle: isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
       uiGlass: normalizeGlass(user.uiGlass),
       uiBackground: isGlassBackground(user.uiBackground) ? user.uiBackground : DEFAULT_GLASS_BACKGROUND,
     };
@@ -52,9 +51,9 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: supplierUser.currency,
       theme: isTheme(supplierUser.theme) ? supplierUser.theme : DEFAULT_THEME,
       colorMode: isColorMode(supplierUser.colorMode) ? supplierUser.colorMode : DEFAULT_COLOR_MODE,
-      uiStyle: "standard",
-      uiGlass: DEFAULT_GLASS,
-      uiBackground: DEFAULT_GLASS_BACKGROUND,
+      uiStyle: isUiStyle(supplierUser.uiStyle) ? supplierUser.uiStyle : "standard",
+      uiGlass: normalizeGlass(supplierUser.uiGlass),
+      uiBackground: isGlassBackground(supplierUser.uiBackground) ? supplierUser.uiBackground : DEFAULT_GLASS_BACKGROUND,
     };
   }
   return DEFAULT_PREFERENCES;

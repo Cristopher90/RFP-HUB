@@ -167,7 +167,7 @@ model User {
   language           String    @default("es") // idioma de la interfaz ("es" o "en")
   theme              String    @default("violet") // color principal de la interfaz
   colorMode          String    @default("light") // "light", "dark" o "system"
-  uiStyle            String    @default("standard") // estilo visual: "standard", "pizarra", "cristal" o "panel"; solo lo puede elegir el Super Administrador
+  uiStyle            String    @default("standard") // estilo visual: "standard", "pizarra", "cristal" o "panel"
   uiGlass            Int       @default(17) // estilo Cristal: opacidad de los paneles (0 a 100)
   uiBackground       String    @default("aurora") // estilo Cristal: fondo ("aurora", "oceano", ... o "custom:#rrggbb,#rrggbb")
 
@@ -372,6 +372,9 @@ model SupplierUser {
   language            String             @default("es") // idioma de la interfaz ("es" o "en")
   theme               String             @default("violet") // color principal de la interfaz
   colorMode           String             @default("light") // "light", "dark" o "system"
+  uiStyle             String             @default("standard") // estilo visual de la interfaz
+  uiGlass             Int                @default(17) // estilo Cristal: opacidad de los paneles (0 a 100)
+  uiBackground        String             @default("aurora") // estilo Cristal: fondo
   links               SupplierUserLink[]
 }
 

@@ -28,11 +28,10 @@ export default async function ProfilePage() {
             currency: activeSession.currency,
             theme: activeSession.theme,
             colorMode: activeSession.colorMode,
-            uiStyle: user?.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
-            uiGlass: user ? normalizeGlass(user.uiGlass) : undefined,
-            uiBackground: user && isGlassBackground(user.uiBackground) ? user.uiBackground : DEFAULT_GLASS_BACKGROUND,
+            uiStyle: isUiStyle(activeSession.uiStyle) ? activeSession.uiStyle : "standard",
+            uiGlass: normalizeGlass(activeSession.uiGlass),
+            uiBackground: isGlassBackground(activeSession.uiBackground) ? activeSession.uiBackground : DEFAULT_GLASS_BACKGROUND,
           }}
-          canChooseUiStyle={user?.role === "ADMIN"}
           timezones={timezones}
           currencies={CURRENCIES}
         />

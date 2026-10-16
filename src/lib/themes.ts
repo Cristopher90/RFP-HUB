@@ -41,8 +41,8 @@ export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
 
 // Visual style of the whole interface. "standard" is the current look; "pizarra"
 // (slate and teal, square and flat), "cristal" (dark translucent glass) and "panel"
-// (solid blue menu, light colorful cards) are offered to the Super Administrador
-// only. They change looks, never behaviour.
+// (solid blue menu, light colorful cards) are offered to every user (internal and
+// supplier). They change looks, never behaviour.
 export const UI_STYLES = ["standard", "pizarra", "cristal", "panel"] as const;
 export type UiStyle = (typeof UI_STYLES)[number];
 
@@ -73,7 +73,7 @@ export function isColorMode(value: string): value is ColorMode {
 }
 
 // ---------- Cristal: panel transparency and background ----------
-// The glass style lets the Super Administrador tune how see-through the panels
+// The glass style lets the user tune how see-through the panels
 // are (0 to 100, more is more opaque) and pick the background gradient: a preset
 // or two custom colors ("custom:#rrggbb,#rrggbb").
 export const DEFAULT_GLASS = 17;
@@ -116,10 +116,10 @@ function rgba(hex: string, alpha: number, darken = 1): string {
 }
 
 // Tint of the panels: 17 (the default) is the classic 7%; the top of the scale
-// stops near 21% so the text stays legible over the glass.
+// stops near 13% so the panels stay glassy and the text legible.
 export function glassAlpha(glass: number): number {
   const v = normalizeGlass(glass);
-  const alpha = v <= 17 ? 0.02 + v * 0.003 : 0.071 + (v - 17) * 0.0017;
+  const alpha = v <= 17 ? 0.02 + v * 0.003 : 0.071 + (v - 17) * 0.0007;
   return Math.round(alpha * 1000) / 1000;
 }
 

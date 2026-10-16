@@ -17,13 +17,40 @@ const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
   { value: "en", label: "English" },
 ];
 
+// A collapsible group: the title and the current choice show when closed.
+function Fold({ title, current, children }: { title: string; current: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-lg border border-slate-200">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
+        <span className="font-medium text-slate-700">{title}</span>
+        <span className="flex items-center gap-2 text-slate-500">
+          {current}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="transition-transform group-open:rotate-180"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </summary>
+      <div className="border-t border-slate-200 px-4 py-4">{children}</div>
+    </details>
+  );
+}
+
 export function ProfileForm({
   initial,
   timezones,
   currencies,
-  canChooseUiStyle = false,
 }: {
-  canChooseUiStyle?: boolean;
   initial: ProfileFormInput;
   timezones: string[];
   currencies: string[];
@@ -98,37 +125,10 @@ export function ProfileForm({
       <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-slate-700">{t("profile.appearance")}</h2>
         <div className="space-y-4">
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.theme")}</p>
-            <div className="flex flex-wrap gap-3">
-              {THEMES.map((theme) => (
-                <label
-                  key={theme.value}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                    form.theme === theme.value
-                      ? "border-violet-500 ring-1 ring-violet-500"
-                      : "border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="theme"
-                    className="sr-only"
-                    checked={form.theme === theme.value}
-                    onChange={() => update({ theme: theme.value })}
-                  />
-                  <span
-                    className="inline-block h-4 w-4 rounded-full"
-                    style={{ backgroundColor: theme.swatch }}
-                  />
-                  {t(`profile.theme_${theme.value}`)}
-                </label>
-              ))}
-            </div>
-          </div>
-          {canChooseUiStyle && (
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.uiStyle")}</p>
+          <Fold
+            title={t("profile.uiStyle")}
+            current={t(`profile.uiStyle_${form.uiStyle ?? "standard"}`)}
+          >
               <div className="flex flex-wrap gap-3">
                 {UI_STYLES.map((style) => (
                   <label
@@ -231,16 +231,13 @@ export function ProfileForm({
                   </div>
                 </div>
               )}
-            </div>
-          )}
-          <div>
-            <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.colorMode")}</p>
-            {modeLocked && (
-              <p className="mb-2 text-xs text-slate-500">
-                {t(forcedUiMode(form.uiStyle ?? "standard") === "dark" ? "profile.colorModeLockedDark" : "profile.colorModeLockedLight")}
-              </p>
-            )}
-            <div className={`flex flex-wrap gap-3 ${modeLocked ? "pointer-events-none opacity-50" : ""}`}>
+          </Fold>
+          {!modeLocked && (
+            <Fold
+              title={t("profile.colorMode")}
+              current={t(`profile.mode_${form.colorMode}`)}
+            >
+            <div className="flex flex-wrap gap-3">
               {COLOR_MODES.map((mode) => (
                 <label
                   key={mode}
@@ -254,7 +251,6 @@ export function ProfileForm({
                     type="radio"
                     name="colorMode"
                     className="sr-only"
-                    disabled={modeLocked}
                     checked={form.colorMode === mode}
                     onChange={() => update({ colorMode: mode })}
                   />
@@ -269,7 +265,46 @@ export function ProfileForm({
                 </label>
               ))}
             </div>
-          </div>
+            </Fold>
+          )}
+          <Fold
+            title={t("profile.theme")}
+            current={
+              <span className="flex items-center gap-2">
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full"
+                  style={{ backgroundColor: THEMES.find((x) => x.value === form.theme)?.swatch }}
+                />
+                {t(`profile.theme_${form.theme}`)}
+              </span>
+            }
+          >
+            <div className="flex flex-wrap gap-3">
+              {THEMES.map((theme) => (
+                <label
+                  key={theme.value}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                    form.theme === theme.value
+                      ? "border-violet-500 ring-1 ring-violet-500"
+                      : "border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    className="sr-only"
+                    checked={form.theme === theme.value}
+                    onChange={() => update({ theme: theme.value })}
+                  />
+                  <span
+                    className="inline-block h-4 w-4 rounded-full"
+                    style={{ backgroundColor: theme.swatch }}
+                  />
+                  {t(`profile.theme_${theme.value}`)}
+                </label>
+              ))}
+            </div>
+          </Fold>
         </div>
       </section>
 
