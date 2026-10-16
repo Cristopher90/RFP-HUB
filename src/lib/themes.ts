@@ -40,15 +40,18 @@ export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
 };
 
 // Visual style of the whole interface. "standard" is the current look; "pizarra"
-// (slate and teal, square and flat), "grafito" (dark frame, orange accent), "cristal"
-// (dark translucent glass) and "panel" (solid blue menu, light cards) are offered
-// to the Super Administrador only. They change looks, never behaviour.
-export const UI_STYLES = ["standard", "pizarra", "grafito", "cristal", "panel"] as const;
+// (slate and teal, square and flat), "cristal" (dark translucent glass) and "panel"
+// (solid blue menu, light colorful cards) are offered to the Super Administrador
+// only. They change looks, never behaviour.
+export const UI_STYLES = ["standard", "pizarra", "cristal", "panel"] as const;
 export type UiStyle = (typeof UI_STYLES)[number];
 
-// Styles that are dark by nature: they force the dark base whatever the color mode.
-export function isDarkUiStyle(value: string): boolean {
-  return value === "cristal";
+// Styles with a fixed appearance: "cristal" is always dark and "panel" always
+// light, whatever color mode is chosen (the mode is ignored while they are on).
+export function forcedUiMode(value: string): "dark" | "light" | null {
+  if (value === "cristal") return "dark";
+  if (value === "panel") return "light";
+  return null;
 }
 
 export function isUiStyle(value: string): value is UiStyle {

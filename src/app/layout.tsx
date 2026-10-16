@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Manrope, Plus_Jakarta_Sans, Public_Sans, Sora } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans, Public_Sans, Sora } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
@@ -11,7 +11,7 @@ import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { PreferencesProvider } from "@/i18n/PreferencesProvider";
-import { DARK_COLOR_MODES, PALETTE_MODES, isDarkUiStyle } from "@/lib/themes";
+import { DARK_COLOR_MODES, PALETTE_MODES, forcedUiMode } from "@/lib/themes";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,7 +21,6 @@ const geistSans = Geist({
 
 // Fonts of the alternative interface styles; they only load when a style uses them.
 const publicSans = Public_Sans({ variable: "--font-public-sans", subsets: ["latin"], preload: false });
-const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], preload: false });
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"], preload: false });
 const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"], preload: false });
 
@@ -65,19 +64,25 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang={preferences.language}
       data-theme={preferences.theme}
-      data-mode={DARK_COLOR_MODES.includes(preferences.colorMode) || isDarkUiStyle(preferences.uiStyle) ? "dark" : "light"}
-      data-palette={PALETTE_MODES.includes(preferences.colorMode) ? preferences.colorMode : undefined}
+      data-mode={
+        forcedUiMode(preferences.uiStyle) ?? (DARK_COLOR_MODES.includes(preferences.colorMode) ? "dark" : "light")
+      }
+      data-palette={
+        !forcedUiMode(preferences.uiStyle) && PALETTE_MODES.includes(preferences.colorMode)
+          ? preferences.colorMode
+          : undefined
+      }
       data-color-mode={preferences.colorMode}
       data-ui={preferences.uiStyle}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${manrope.variable} ${sora.variable} ${jakarta.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${sora.variable} ${jakarta.variable} h-full antialiased`}
     >
       <head>
         {/* "System" mode: follow the OS before first paint (and while it changes). */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){var d=document.documentElement;if(d.dataset.colorMode!=='system'||d.dataset.ui==='cristal')return;var m=window.matchMedia('(prefers-color-scheme: dark)');function a(){d.dataset.mode=m.matches?'dark':'light'}a();m.addEventListener('change',a)})()",
+              "(function(){var d=document.documentElement;if(d.dataset.colorMode!=='system'||d.dataset.ui==='cristal'||d.dataset.ui==='panel')return;var m=window.matchMedia('(prefers-color-scheme: dark)');function a(){d.dataset.mode=m.matches?'dark':'light'}a();m.addEventListener('change',a)})()",
           }}
         />
       </head>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, isDarkUiStyle } from "@/lib/themes";
+import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, forcedUiMode } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -34,16 +34,20 @@ export function ProfileForm({
   // Previews the chosen appearance straight away; it only persists on save.
   function previewAppearance(theme: string, colorMode: string, uiStyle: string) {
     const root = document.documentElement;
+    const forced = forcedUiMode(uiStyle);
     const dark =
-      DARK_COLOR_MODES.includes(colorMode) ||
-      isDarkUiStyle(uiStyle) ||
-      (colorMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      forced !== null
+        ? forced === "dark"
+        : DARK_COLOR_MODES.includes(colorMode) ||
+          (colorMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.setAttribute("data-theme", theme);
     root.setAttribute("data-color-mode", colorMode);
     root.setAttribute("data-mode", dark ? "dark" : "light");
-    if (PALETTE_MODES.includes(colorMode)) root.setAttribute("data-palette", colorMode);
+    if (forced === null && PALETTE_MODES.includes(colorMode)) root.setAttribute("data-palette", colorMode);
     else root.removeAttribute("data-palette");
   }
+
+  const modeLocked = forcedUiMode(form.uiStyle ?? "standard") !== null;
 
   function update(patch: Partial<ProfileFormInput>) {
     const next = { ...form, ...patch };
@@ -143,7 +147,12 @@ export function ProfileForm({
           )}
           <div>
             <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.colorMode")}</p>
-            <div className="flex flex-wrap gap-3">
+            {modeLocked && (
+              <p className="mb-2 text-xs text-slate-500">
+                {t(forcedUiMode(form.uiStyle ?? "standard") === "dark" ? "profile.colorModeLockedDark" : "profile.colorModeLockedLight")}
+              </p>
+            )}
+            <div className={`flex flex-wrap gap-3 ${modeLocked ? "pointer-events-none opacity-50" : ""}`}>
               {COLOR_MODES.map((mode) => (
                 <label
                   key={mode}
@@ -157,6 +166,7 @@ export function ProfileForm({
                     type="radio"
                     name="colorMode"
                     className="sr-only"
+                    disabled={modeLocked}
                     checked={form.colorMode === mode}
                     onChange={() => update({ colorMode: mode })}
                   />

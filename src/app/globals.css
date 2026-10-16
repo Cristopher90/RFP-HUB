@@ -299,6 +299,19 @@ html[data-mode="dark"] .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background-color: #64748b;
 }
 
+/* Dark modes: solid slate-900 buttons and tooltips (white text) would turn
+   near-white when the slate scale inverts, hiding their text; keep them dark.
+   Modal scrims (slate-900 at 40%) stay dark too. */
+html[data-mode="dark"] .bg-slate-900 {
+  background-color: #34406b;
+}
+html[data-mode="dark"] .hover\:bg-slate-800:hover {
+  background-color: #424f82;
+}
+html[data-mode="dark"] .bg-slate-900\/40 {
+  background-color: rgba(3, 6, 20, 0.6);
+}
+
 /* ---------- Color palettes (Mi perfil → Modo) ---------- */
 /* Each palette builds on the light or dark base (data-mode) and remaps the
    neutral scale; the accent color (theme) is chosen separately. */
@@ -406,7 +419,6 @@ input[type="file"]:disabled {
 
 /* Shared: table headers in sentence case, a touch smaller. */
 html[data-ui="pizarra"] table thead,
-html[data-ui="grafito"] table thead,
 html[data-ui="cristal"] table thead,
 html[data-ui="panel"] table thead {
   text-transform: none;
@@ -452,72 +464,6 @@ html[data-ui="pizarra"] textarea {
 html[data-ui="pizarra"] :is(.rounded-2xl, .rounded-xl) { border-radius: 8px; }
 html[data-ui="pizarra"] :is(.rounded-lg, .rounded-md) { border-radius: 6px; }
 html[data-ui="pizarra"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl) { box-shadow: none; }
-
-/* ===== Grafito: dark frame, orange accent, medium corners, buttons with relief ===== */
-html[data-ui="grafito"] {
-  --color-violet-50: #fff3ea;
-  --color-violet-100: #fde6d7;
-  --color-violet-200: #facdb0;
-  --color-violet-300: #f6ae80;
-  --color-violet-400: #f28a4a;
-  --color-violet-500: #eb6e24;
-  --color-violet-600: #dc520c;
-  --color-violet-700: #b8420a;
-  --color-violet-800: #923409;
-  --color-violet-900: #742808;
-  --color-violet-950: #3f1403;
-  --color-indigo-500: #eb6e24;
-  --color-indigo-600: #dc520c;
-}
-html[data-ui="grafito"]:not([data-mode="dark"]) {
-  --color-slate-50: #f3f4f2;
-  --color-slate-100: #eaebe8;
-  --color-slate-200: #e1e2de;
-  --color-slate-300: #cfd1cb;
-  --color-slate-400: #9a9f97;
-  --color-slate-500: #6b7077;
-  --color-slate-600: #52575d;
-  --color-slate-700: #3d4247;
-  --color-slate-800: #2a2e33;
-  --color-slate-900: #1f2328;
-  --color-slate-950: #14171a;
-}
-html[data-ui="grafito"] body,
-html[data-ui="grafito"] button,
-html[data-ui="grafito"] input,
-html[data-ui="grafito"] select,
-html[data-ui="grafito"] textarea {
-  font-family: var(--font-manrope), system-ui, sans-serif;
-}
-html[data-ui="grafito"] :is(.rounded-2xl, .rounded-xl) { border-radius: 10px; }
-html[data-ui="grafito"] :is(.rounded-lg, .rounded-md) { border-radius: 8px; }
-html[data-ui="grafito"] :is(.shadow-sm, .shadow) { box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08); }
-/* Solid accent buttons get a small bevel. */
-html[data-ui="grafito"] :is(button, a).bg-violet-600 {
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-/* The top bar and the side menu are dark: inside them the neutral and accent
-   scales are re-pointed, so every text, border and hover class adapts. */
-html[data-ui="grafito"] body > header,
-html[data-ui="grafito"] [data-app-sidebar] {
-  --color-slate-50: #242a30;
-  --color-slate-100: #2a2f35;
-  --color-slate-200: #2e343b;
-  --color-slate-300: #4a5159;
-  --color-slate-400: #8a9099;
-  --color-slate-500: #a5abb3;
-  --color-slate-600: #b8bec6;
-  --color-slate-700: #c9ced4;
-  --color-slate-800: #e6e9ec;
-  --color-slate-900: #f1f3f5;
-  --color-violet-50: #343a42;
-  --color-violet-100: #343a42;
-  --color-violet-600: #f0701f;
-  --color-violet-700: #ffffff;
-  background-color: #1f2328;
-  border-color: #2e343b;
-  color: #f1f3f5;
-}
 
 /* ===== Panel azul: bluish neutrals, blue accent, rounded soft cards, solid blue menu ===== */
 html[data-ui="panel"] {
@@ -582,6 +528,62 @@ html[data-ui="panel"] [data-app-sidebar] a[aria-current="page"] {
   font-weight: 700;
 }
 html[data-ui="panel"] [data-app-sidebar] a { border-radius: 14px; }
+
+/* Panel azul, more color: gradient primary buttons, tinted secondary buttons,
+   colored shadows for semantic buttons, soft cards, a tinted top bar and menu
+   icons in colored chips. */
+html[data-ui="panel"] :is(button, a).bg-violet-600 {
+  background-image: linear-gradient(115deg, #1f47c8 0%, #2d68ee 100%);
+}
+html[data-ui="panel"] :is(button, a).bg-emerald-600 { box-shadow: 0 14px 24px -14px rgba(14, 138, 95, 0.9); font-weight: 700; }
+html[data-ui="panel"] :is(button, a):is(.bg-red-600, .bg-rose-600) { box-shadow: 0 14px 24px -14px rgba(196, 43, 85, 0.9); font-weight: 700; }
+html[data-ui="panel"] :is(button, a):is(.bg-amber-500, .bg-amber-600) { box-shadow: 0 14px 24px -14px rgba(184, 110, 0, 0.9); font-weight: 700; }
+html[data-ui="panel"] :is(button, a):is(.bg-sky-600, .bg-blue-600) { box-shadow: 0 14px 24px -14px rgba(14, 120, 190, 0.9); font-weight: 700; }
+html[data-ui="panel"] :is(button, a).bg-slate-900 {
+  background-image: linear-gradient(115deg, #5b3fd0 0%, #7c5cf0 100%);
+  box-shadow: 0 14px 24px -14px rgba(91, 63, 208, 0.9);
+  font-weight: 700;
+}
+/* Outline buttons become soft blue. */
+html[data-ui="panel"] :is(button, a):is(.rounded-md, .rounded-lg).border.bg-white {
+  background-color: #eef3ff;
+  border-color: #c9d9ff;
+  color: #1b3fa8;
+}
+html[data-ui="panel"] :is(button, a):is(.rounded-md, .rounded-lg).border.bg-white:hover {
+  background-color: #e0e9ff;
+}
+html[data-ui="panel"] .bg-white:is(.rounded-xl, .rounded-2xl) {
+  background-image: linear-gradient(180deg, #ffffff 0%, #f6f8ff 100%);
+  border-color: #dfe7f7;
+}
+html[data-ui="panel"] .bg-slate-50:is(.rounded-lg, .rounded-xl) {
+  background-color: #eef3ff;
+}
+html[data-ui="panel"] table thead { background-color: #eef3ff; }
+html[data-ui="panel"] table thead :is(th, td) { color: #2f4aa0; }
+html[data-ui="panel"] body > header {
+  background-image: linear-gradient(90deg, #ffffff 0%, #eef3ff 55%, #e0e9ff 100%);
+  border-color: #d9e3f8;
+}
+html[data-ui="panel"] [data-app-sidebar] a > span:first-child {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  color: #ffffff;
+  background-color: #14a8b8;
+}
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 2) > span:first-child { background-color: #e08a0b; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 3) > span:first-child { background-color: #7c5cf0; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 4) > span:first-child { background-color: #16a870; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 5) > span:first-child { background-color: #e0527a; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 6) > span:first-child { background-color: #0ea5e9; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 7) > span:first-child { background-color: #f97316; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 8) > span:first-child { background-color: #8b5cf6; }
+html[data-ui="panel"] [data-app-sidebar] a:nth-child(9n + 9) > span:first-child { background-color: #10b981; }
 
 /* ===== Cristal: dark translucent glass over a violet and teal gradient ===== */
 /* Dark by nature (the layout forces the dark base). The doubled attribute
@@ -664,6 +666,13 @@ html[data-ui="cristal"] :is(button, a).bg-violet-600 {
   color: #ffffff;
 }
 html[data-ui="cristal"] :is(button, a).bg-violet-600:hover {
+  filter: brightness(1.12);
+}
+html[data-ui="cristal"] :is(button, a).bg-slate-900 {
+  background-image: linear-gradient(135deg, #3d86f5, #7a5cf0);
+  color: #ffffff;
+}
+html[data-ui="cristal"] :is(button, a).bg-slate-900:hover {
   filter: brightness(1.12);
 }
 /* Active menu entry: a soft gradient with a thin edge. */
