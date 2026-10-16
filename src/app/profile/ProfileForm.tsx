@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, forcedUiMode } from "@/lib/themes";
+import {
+  COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, forcedUiMode,
+  DEFAULT_CUSTOM_COLORS, DEFAULT_GLASS, DEFAULT_GLASS_BACKGROUND, GLASS_BACKGROUNDS, customBackground, glassCssVars, parseCustomBackground,
+} from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -55,6 +58,11 @@ export function ProfileForm({
     setSaved(false);
     if (patch.uiStyle !== undefined) {
       document.documentElement.setAttribute("data-ui", patch.uiStyle);
+    }
+    if (patch.uiGlass !== undefined || patch.uiBackground !== undefined || patch.uiStyle === "cristal") {
+      for (const [k, v] of Object.entries(glassCssVars(next.uiGlass ?? DEFAULT_GLASS, next.uiBackground ?? DEFAULT_GLASS_BACKGROUND))) {
+        document.documentElement.style.setProperty(k, v);
+      }
     }
     if (patch.theme !== undefined || patch.colorMode !== undefined || patch.uiStyle !== undefined) {
       previewAppearance(next.theme, next.colorMode, next.uiStyle ?? "standard");
@@ -143,6 +151,86 @@ export function ProfileForm({
                 ))}
               </div>
               <p className="mt-1.5 text-xs text-slate-500">{t("profile.uiStyleHint")}</p>
+              {(form.uiStyle ?? "standard") === "cristal" && (
+                <div className="mt-4 space-y-4 rounded-lg border border-slate-200 p-4">
+                  <div>
+                    <label htmlFor="uiGlass" className="mb-1 block text-sm font-medium text-slate-700">
+                      {t("profile.glassOpacity")}
+                    </label>
+                    <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <span>{t("profile.glassLess")}</span>
+                      <input
+                        id="uiGlass"
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={form.uiGlass ?? DEFAULT_GLASS}
+                        onChange={(e) => update({ uiGlass: Number(e.target.value) })}
+                        className="flex-1 accent-violet-600"
+                      />
+                      <span>{t("profile.glassMore")}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-sm font-medium text-slate-700">{t("profile.glassBackground")}</p>
+                    <div className="flex flex-wrap gap-3">
+                      {(Object.keys(GLASS_BACKGROUNDS) as (keyof typeof GLASS_BACKGROUNDS)[]).map((name) => {
+                        const bg = GLASS_BACKGROUNDS[name];
+                        const on = (form.uiBackground ?? DEFAULT_GLASS_BACKGROUND) === name;
+                        return (
+                          <label
+                            key={name}
+                            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                              on ? "border-violet-500 ring-1 ring-violet-500" : "border-slate-300 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="uiBackground"
+                              className="sr-only"
+                              checked={on}
+                              onChange={() => update({ uiBackground: name })}
+                            />
+                            <span
+                              aria-hidden
+                              className="inline-block h-4 w-4 rounded-full ring-1 ring-slate-300"
+                              style={{ background: `linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]})` }}
+                            />
+                            {t(`profile.glassBg_${name}`)}
+                          </label>
+                        );
+                      })}
+                      {(() => {
+                        const custom = parseCustomBackground(form.uiBackground ?? "");
+                        const colors = custom ?? DEFAULT_CUSTOM_COLORS;
+                        return (
+                          <div
+                            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                              custom ? "border-violet-500 ring-1 ring-violet-500" : "border-slate-300"
+                            }`}
+                          >
+                            <span>{t("profile.glassBg_custom")}</span>
+                            {[0, 1].map((i) => (
+                              <input
+                                key={i}
+                                type="color"
+                                aria-label={`${t("profile.glassBg_custom")} ${i + 1}`}
+                                value={colors[i]}
+                                onChange={(e) => {
+                                  const next: [string, string] = [colors[0], colors[1]];
+                                  next[i] = e.target.value;
+                                  update({ uiBackground: customBackground(next[0], next[1]) });
+                                }}
+                                className="h-6 w-8 cursor-pointer rounded border border-slate-300 bg-transparent p-0"
+                              />
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div>

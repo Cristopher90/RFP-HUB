@@ -71,3 +71,69 @@ export function isTheme(value: string): value is ThemeName {
 export function isColorMode(value: string): value is ColorMode {
   return (COLOR_MODES as readonly string[]).includes(value);
 }
+
+// ---------- Cristal: panel transparency and background ----------
+// The glass style lets the Super Administrador tune how see-through the panels
+// are (0 to 100, more is more opaque) and pick the background gradient: a preset
+// or two custom colors ("custom:#rrggbb,#rrggbb").
+export const DEFAULT_GLASS = 17;
+export const DEFAULT_GLASS_BACKGROUND = "aurora";
+export const DEFAULT_CUSTOM_COLORS: [string, string] = ["#5c46e6", "#1296aa"];
+
+export const GLASS_BACKGROUNDS = {
+  aurora: { base: "#090d22", colors: ["#5c46e6", "#1296aa", "#9634aa"] },
+  oceano: { base: "#06121f", colors: ["#145ac8", "#0aaabe", "#1e3ca0"] },
+  atardecer: { base: "#1a0b1f", colors: ["#be326e", "#eb7832", "#6e32be"] },
+  bosque: { base: "#07140f", colors: ["#148c5a", "#0e7882", "#3c8228"] },
+  grafito: { base: "#0d0f14", colors: ["#5a6482", "#3c465a", "#6e6e8c"] },
+} as const;
+export type GlassBackgroundName = keyof typeof GLASS_BACKGROUNDS;
+
+const CUSTOM_BACKGROUND = /^custom:(#[0-9a-f]{6}),(#[0-9a-f]{6})$/;
+
+export function isGlassBackground(value: string): boolean {
+  return value in GLASS_BACKGROUNDS || CUSTOM_BACKGROUND.test(value);
+}
+
+export function normalizeGlass(value: number): number {
+  return Number.isFinite(value) ? Math.min(100, Math.max(0, Math.round(value))) : DEFAULT_GLASS;
+}
+
+// "custom:#aabbcc,#112233" -> the two colors, or null for a preset.
+export function parseCustomBackground(value: string): [string, string] | null {
+  const m = CUSTOM_BACKGROUND.exec(value);
+  return m ? [m[1], m[2]] : null;
+}
+
+export function customBackground(a: string, b: string): string {
+  return `custom:${a.toLowerCase()},${b.toLowerCase()}`;
+}
+
+function rgba(hex: string, alpha: number, darken = 1): string {
+  const n = parseInt(hex.slice(1), 16);
+  const c = (v: number) => Math.round(v * darken);
+  return `rgba(${c((n >> 16) & 255)}, ${c((n >> 8) & 255)}, ${c(n & 255)}, ${alpha})`;
+}
+
+// Tint of the panels: 17 (the default) is the classic 7%; the top of the scale
+// stops near 21% so the text stays legible over the glass.
+export function glassAlpha(glass: number): number {
+  const v = normalizeGlass(glass);
+  const alpha = v <= 17 ? 0.02 + v * 0.003 : 0.071 + (v - 17) * 0.0017;
+  return Math.round(alpha * 1000) / 1000;
+}
+
+// CSS variables read by the "cristal" rules in globals.css.
+export function glassCssVars(glass: number, background: string): Record<string, string> {
+  const custom = parseCustomBackground(background);
+  const preset = GLASS_BACKGROUNDS[(background in GLASS_BACKGROUNDS ? background : DEFAULT_GLASS_BACKGROUND) as GlassBackgroundName];
+  const [c1, c2, c3] = custom ? [custom[0], custom[1], custom[1]] : preset.colors;
+  const base = custom ? rgba(custom[0], 1, 0.1) : preset.base;
+  return {
+    "--glass-alpha": String(glassAlpha(glass)),
+    "--bg-base": base,
+    "--bg-a": rgba(c1, 0.7),
+    "--bg-b": rgba(c2, 0.55),
+    "--bg-c": rgba(c3, 0.5),
+  };
+}

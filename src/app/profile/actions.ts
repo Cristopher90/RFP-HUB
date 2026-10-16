@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { CURRENCIES } from "@/lib/profileOptions";
-import { isColorMode, isTheme, isUiStyle } from "@/lib/themes";
+import { isColorMode, isGlassBackground, isTheme, isUiStyle, normalizeGlass } from "@/lib/themes";
 import { getDictionary } from "@/i18n/getDictionary";
 
 export type ProfileFormInput = {
@@ -15,6 +15,8 @@ export type ProfileFormInput = {
   theme: string;
   colorMode: string;
   uiStyle?: string; // only applied for the Super Administrador
+  uiGlass?: number; // glass style: panel opacity, 0 to 100
+  uiBackground?: string; // glass style: background preset or custom colors
 };
 
 const SUPPORTED_LANGUAGES = ["es", "en"];
@@ -54,7 +56,15 @@ export async function updateOwnProfile(
     const uiStyle = user.role === "ADMIN" && input.uiStyle && isUiStyle(input.uiStyle) ? input.uiStyle : undefined;
     await prisma.user.update({
       where: { id: user.id },
-      data: { ...data, ...(uiStyle ? { uiStyle } : {}), modifiedAt: new Date() },
+      data: {
+        ...data,
+        ...(uiStyle ? { uiStyle } : {}),
+        ...(user.role === "ADMIN" && input.uiGlass !== undefined ? { uiGlass: normalizeGlass(input.uiGlass) } : {}),
+        ...(user.role === "ADMIN" && input.uiBackground && isGlassBackground(input.uiBackground)
+          ? { uiBackground: input.uiBackground }
+          : {}),
+        modifiedAt: new Date(),
+      },
     });
   } else {
     await prisma.supplierUser.update({ where: { id: supplierUser!.id }, data });

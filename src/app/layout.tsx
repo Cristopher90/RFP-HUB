@@ -11,7 +11,7 @@ import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { PreferencesProvider } from "@/i18n/PreferencesProvider";
-import { DARK_COLOR_MODES, PALETTE_MODES, forcedUiMode } from "@/lib/themes";
+import { DARK_COLOR_MODES, PALETTE_MODES, forcedUiMode, glassCssVars } from "@/lib/themes";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,6 +74,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       }
       data-color-mode={preferences.colorMode}
       data-ui={preferences.uiStyle}
+      style={
+        preferences.uiStyle === "cristal"
+          ? (glassCssVars(preferences.uiGlass, preferences.uiBackground) as React.CSSProperties)
+          : undefined
+      }
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${sora.variable} ${jakarta.variable} h-full antialiased`}
     >

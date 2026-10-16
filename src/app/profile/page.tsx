@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { getDictionary } from "@/i18n/getDictionary";
 import { CURRENCIES } from "@/lib/profileOptions";
-import { isUiStyle } from "@/lib/themes";
+import { DEFAULT_GLASS_BACKGROUND, isGlassBackground, isUiStyle, normalizeGlass } from "@/lib/themes";
 import { ProfileForm } from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -29,6 +29,8 @@ export default async function ProfilePage() {
             theme: activeSession.theme,
             colorMode: activeSession.colorMode,
             uiStyle: user?.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
+            uiGlass: user ? normalizeGlass(user.uiGlass) : undefined,
+            uiBackground: user && isGlassBackground(user.uiBackground) ? user.uiBackground : DEFAULT_GLASS_BACKGROUND,
           }}
           canChooseUiStyle={user?.role === "ADMIN"}
           timezones={timezones}

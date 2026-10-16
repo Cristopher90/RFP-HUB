@@ -1,7 +1,7 @@
 import "server-only";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
-import { DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName, type UiStyle, isUiStyle } from "@/lib/themes";
+import { DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName, type UiStyle, isUiStyle, DEFAULT_GLASS, DEFAULT_GLASS_BACKGROUND, isGlassBackground, normalizeGlass } from "@/lib/themes";
 
 export type ViewerPreferences = {
   language: string;
@@ -10,6 +10,8 @@ export type ViewerPreferences = {
   theme: ThemeName;
   colorMode: ColorMode;
   uiStyle: UiStyle;
+  uiGlass: number;
+  uiBackground: string;
 };
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -19,6 +21,8 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
   theme: DEFAULT_THEME,
   colorMode: DEFAULT_COLOR_MODE,
   uiStyle: "standard",
+  uiGlass: DEFAULT_GLASS,
+  uiBackground: DEFAULT_GLASS_BACKGROUND,
 };
 
 // Resolves the CURRENT viewer's formatting preferences, trying the internal
@@ -36,6 +40,8 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       colorMode: isColorMode(user.colorMode) ? user.colorMode : DEFAULT_COLOR_MODE,
       // The other styles are for the Super Administrador only.
       uiStyle: user.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
+      uiGlass: normalizeGlass(user.uiGlass),
+      uiBackground: isGlassBackground(user.uiBackground) ? user.uiBackground : DEFAULT_GLASS_BACKGROUND,
     };
   }
   const supplierUser = await getCurrentSupplierUser();
@@ -47,6 +53,8 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       theme: isTheme(supplierUser.theme) ? supplierUser.theme : DEFAULT_THEME,
       colorMode: isColorMode(supplierUser.colorMode) ? supplierUser.colorMode : DEFAULT_COLOR_MODE,
       uiStyle: "standard",
+      uiGlass: DEFAULT_GLASS,
+      uiBackground: DEFAULT_GLASS_BACKGROUND,
     };
   }
   return DEFAULT_PREFERENCES;
