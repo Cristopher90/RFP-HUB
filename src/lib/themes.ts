@@ -39,6 +39,16 @@ export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
   forest: ["#0a1410", "#eef5f0"],
 };
 
+// Visual style of the whole interface. "standard" is the current look; "pizarra"
+// (slate and teal, square and flat) and "grafito" (dark frame, orange accent) are
+// offered to the Super Administrador only. They change looks, never behaviour.
+export const UI_STYLES = ["standard", "pizarra", "grafito"] as const;
+export type UiStyle = (typeof UI_STYLES)[number];
+
+export function isUiStyle(value: string): value is UiStyle {
+  return (UI_STYLES as readonly string[]).includes(value);
+}
+
 export type ThemeName = (typeof THEMES)[number]["value"];
 export type ColorMode = (typeof COLOR_MODES)[number];
 

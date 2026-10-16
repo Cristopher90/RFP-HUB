@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Manrope, Public_Sans } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
@@ -18,6 +18,10 @@ const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
+
+// Fonts of the alternative interface styles; they only load when a style uses them.
+const publicSans = Public_Sans({ variable: "--font-public-sans", subsets: ["latin"], preload: false });
+const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], preload: false });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -62,8 +66,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       data-mode={DARK_COLOR_MODES.includes(preferences.colorMode) ? "dark" : "light"}
       data-palette={PALETTE_MODES.includes(preferences.colorMode) ? preferences.colorMode : undefined}
       data-color-mode={preferences.colorMode}
+      data-ui={preferences.uiStyle}
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${manrope.variable} h-full antialiased`}
     >
       <head>
         {/* "System" mode: follow the OS before first paint (and while it changes). */}

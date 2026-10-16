@@ -47,6 +47,11 @@ export const es = {
     noSupplierUsers: "Sin usuarios de proveedor",
   },
   profile: {
+    uiStyle: "Estilo de interfaz",
+    uiStyle_standard: "Estándar",
+    uiStyle_pizarra: "Pizarra",
+    uiStyle_grafito: "Grafito",
+    uiStyleHint: "Solo cambia el aspecto (colores, botones y cuadros), no el funcionamiento. Por ahora está disponible solo para el Super Administrador.",
     title: "Mi perfil",
     subtitle: "Preferencias de apariencia, idioma, zona horaria y moneda para tu cuenta.",
     language: "Idioma",

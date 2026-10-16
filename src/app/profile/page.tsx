@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { getDictionary } from "@/i18n/getDictionary";
 import { CURRENCIES } from "@/lib/profileOptions";
+import { isUiStyle } from "@/lib/themes";
 import { ProfileForm } from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -27,7 +28,9 @@ export default async function ProfilePage() {
             currency: activeSession.currency,
             theme: activeSession.theme,
             colorMode: activeSession.colorMode,
+            uiStyle: user?.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
           }}
+          canChooseUiStyle={user?.role === "ADMIN"}
           timezones={timezones}
           currencies={CURRENCIES}
         />

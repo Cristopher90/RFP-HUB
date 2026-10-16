@@ -1,7 +1,7 @@
 import "server-only";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
-import { DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName } from "@/lib/themes";
+import { DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName, type UiStyle, isUiStyle } from "@/lib/themes";
 
 export type ViewerPreferences = {
   language: string;
@@ -9,6 +9,7 @@ export type ViewerPreferences = {
   currency: string;
   theme: ThemeName;
   colorMode: ColorMode;
+  uiStyle: UiStyle;
 };
 
 export const DEFAULT_PREFERENCES: ViewerPreferences = {
@@ -17,6 +18,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
   currency: "USD",
   theme: DEFAULT_THEME,
   colorMode: DEFAULT_COLOR_MODE,
+  uiStyle: "standard",
 };
 
 // Resolves the CURRENT viewer's formatting preferences, trying the internal
@@ -32,6 +34,8 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: user.currency,
       theme: isTheme(user.theme) ? user.theme : DEFAULT_THEME,
       colorMode: isColorMode(user.colorMode) ? user.colorMode : DEFAULT_COLOR_MODE,
+      // The other styles are for the Super Administrador only.
+      uiStyle: user.role === "ADMIN" && isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
     };
   }
   const supplierUser = await getCurrentSupplierUser();
@@ -42,6 +46,7 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: supplierUser.currency,
       theme: isTheme(supplierUser.theme) ? supplierUser.theme : DEFAULT_THEME,
       colorMode: isColorMode(supplierUser.colorMode) ? supplierUser.colorMode : DEFAULT_COLOR_MODE,
+      uiStyle: "standard",
     };
   }
   return DEFAULT_PREFERENCES;

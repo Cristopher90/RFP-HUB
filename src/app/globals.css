@@ -397,3 +397,122 @@ input[type="file"]:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* ---------- Interface styles (Mi perfil → Estilo, Super Administrador) ---------- */
+/* "standard" is the default look and has no rules. The others change colors,
+   buttons and boxes only: they remap the accent (violet) scale and the neutral
+   (slate) scale, and adjust radii, shadows, fonts and table headers. Neutrals
+   are only remapped in light mode, so the dark modes keep their own. */
+
+/* Shared: table headers in sentence case, a touch smaller. */
+html[data-ui="pizarra"] table thead,
+html[data-ui="grafito"] table thead {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* ===== Pizarra: slate neutrals, teal accent, square and flat ===== */
+html[data-ui="pizarra"] {
+  --color-violet-50: #e8f6f7;
+  --color-violet-100: #ddf1f2;
+  --color-violet-200: #bde3e6;
+  --color-violet-300: #8cc9ce;
+  --color-violet-400: #4fa7af;
+  --color-violet-500: #1f8f99;
+  --color-violet-600: #0e7c86;
+  --color-violet-700: #0a6169;
+  --color-violet-800: #084c52;
+  --color-violet-900: #063a3f;
+  --color-violet-950: #032427;
+  --color-indigo-500: #1f8f99;
+  --color-indigo-600: #0e7c86;
+}
+html[data-ui="pizarra"]:not([data-mode="dark"]) {
+  --color-slate-50: #f2f4f7;
+  --color-slate-100: #e8ecf1;
+  --color-slate-200: #dde2e9;
+  --color-slate-300: #cbd3dd;
+  --color-slate-400: #98a4b3;
+  --color-slate-500: #627084;
+  --color-slate-600: #4c5a6c;
+  --color-slate-700: #3c4858;
+  --color-slate-800: #28323f;
+  --color-slate-900: #1b2430;
+  --color-slate-950: #0f1620;
+}
+html[data-ui="pizarra"] body,
+html[data-ui="pizarra"] button,
+html[data-ui="pizarra"] input,
+html[data-ui="pizarra"] select,
+html[data-ui="pizarra"] textarea {
+  font-family: var(--font-public-sans), system-ui, sans-serif;
+}
+html[data-ui="pizarra"] :is(.rounded-2xl, .rounded-xl) { border-radius: 8px; }
+html[data-ui="pizarra"] :is(.rounded-lg, .rounded-md) { border-radius: 6px; }
+html[data-ui="pizarra"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl) { box-shadow: none; }
+
+/* ===== Grafito: dark frame, orange accent, medium corners, buttons with relief ===== */
+html[data-ui="grafito"] {
+  --color-violet-50: #fff3ea;
+  --color-violet-100: #fde6d7;
+  --color-violet-200: #facdb0;
+  --color-violet-300: #f6ae80;
+  --color-violet-400: #f28a4a;
+  --color-violet-500: #eb6e24;
+  --color-violet-600: #dc520c;
+  --color-violet-700: #b8420a;
+  --color-violet-800: #923409;
+  --color-violet-900: #742808;
+  --color-violet-950: #3f1403;
+  --color-indigo-500: #eb6e24;
+  --color-indigo-600: #dc520c;
+}
+html[data-ui="grafito"]:not([data-mode="dark"]) {
+  --color-slate-50: #f3f4f2;
+  --color-slate-100: #eaebe8;
+  --color-slate-200: #e1e2de;
+  --color-slate-300: #cfd1cb;
+  --color-slate-400: #9a9f97;
+  --color-slate-500: #6b7077;
+  --color-slate-600: #52575d;
+  --color-slate-700: #3d4247;
+  --color-slate-800: #2a2e33;
+  --color-slate-900: #1f2328;
+  --color-slate-950: #14171a;
+}
+html[data-ui="grafito"] body,
+html[data-ui="grafito"] button,
+html[data-ui="grafito"] input,
+html[data-ui="grafito"] select,
+html[data-ui="grafito"] textarea {
+  font-family: var(--font-manrope), system-ui, sans-serif;
+}
+html[data-ui="grafito"] :is(.rounded-2xl, .rounded-xl) { border-radius: 10px; }
+html[data-ui="grafito"] :is(.rounded-lg, .rounded-md) { border-radius: 8px; }
+html[data-ui="grafito"] :is(.shadow-sm, .shadow) { box-shadow: 0 1px 2px rgba(31, 35, 40, 0.08); }
+/* Solid accent buttons get a small bevel. */
+html[data-ui="grafito"] :is(button, a).bg-violet-600 {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+/* The top bar and the side menu are dark: inside them the neutral and accent
+   scales are re-pointed, so every text, border and hover class adapts. */
+html[data-ui="grafito"] body > header,
+html[data-ui="grafito"] [data-app-sidebar] {
+  --color-slate-50: #242a30;
+  --color-slate-100: #2a2f35;
+  --color-slate-200: #2e343b;
+  --color-slate-300: #4a5159;
+  --color-slate-400: #8a9099;
+  --color-slate-500: #a5abb3;
+  --color-slate-600: #b8bec6;
+  --color-slate-700: #c9ced4;
+  --color-slate-800: #e6e9ec;
+  --color-slate-900: #f1f3f5;
+  --color-violet-50: #343a42;
+  --color-violet-100: #343a42;
+  --color-violet-600: #f0701f;
+  --color-violet-700: #ffffff;
+  background-color: #1f2328;
+  border-color: #2e343b;
+  color: #f1f3f5;
+}

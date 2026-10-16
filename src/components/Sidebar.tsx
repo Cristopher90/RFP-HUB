@@ -35,7 +35,7 @@ export async function Sidebar() {
   ];
 
   return (
-    <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white/60 sm:block">
+    <aside data-app-sidebar className="hidden w-56 shrink-0 border-r border-slate-200 bg-white/60 sm:block">
       <SidebarNav items={items} />
     </aside>
   );
