@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES } from "@/lib/themes";
+import { COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, isDarkUiStyle } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { updateOwnProfile, type ProfileFormInput } from "./actions";
 
@@ -32,10 +32,11 @@ export function ProfileForm({
   const [pending, startTransition] = useTransition();
 
   // Previews the chosen appearance straight away; it only persists on save.
-  function previewAppearance(theme: string, colorMode: string) {
+  function previewAppearance(theme: string, colorMode: string, uiStyle: string) {
     const root = document.documentElement;
     const dark =
       DARK_COLOR_MODES.includes(colorMode) ||
+      isDarkUiStyle(uiStyle) ||
       (colorMode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.setAttribute("data-theme", theme);
     root.setAttribute("data-color-mode", colorMode);
@@ -48,11 +49,11 @@ export function ProfileForm({
     const next = { ...form, ...patch };
     setForm(next);
     setSaved(false);
-    if (patch.theme !== undefined || patch.colorMode !== undefined) {
-      previewAppearance(next.theme, next.colorMode);
-    }
     if (patch.uiStyle !== undefined) {
       document.documentElement.setAttribute("data-ui", patch.uiStyle);
+    }
+    if (patch.theme !== undefined || patch.colorMode !== undefined || patch.uiStyle !== undefined) {
+      previewAppearance(next.theme, next.colorMode, next.uiStyle ?? "standard");
     }
   }
 

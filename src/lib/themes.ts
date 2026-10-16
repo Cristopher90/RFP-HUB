@@ -40,10 +40,16 @@ export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
 };
 
 // Visual style of the whole interface. "standard" is the current look; "pizarra"
-// (slate and teal, square and flat) and "grafito" (dark frame, orange accent) are
-// offered to the Super Administrador only. They change looks, never behaviour.
-export const UI_STYLES = ["standard", "pizarra", "grafito"] as const;
+// (slate and teal, square and flat), "grafito" (dark frame, orange accent), "cristal"
+// (dark translucent glass) and "panel" (solid blue menu, light cards) are offered
+// to the Super Administrador only. They change looks, never behaviour.
+export const UI_STYLES = ["standard", "pizarra", "grafito", "cristal", "panel"] as const;
 export type UiStyle = (typeof UI_STYLES)[number];
+
+// Styles that are dark by nature: they force the dark base whatever the color mode.
+export function isDarkUiStyle(value: string): boolean {
+  return value === "cristal";
+}
 
 export function isUiStyle(value: string): value is UiStyle {
   return (UI_STYLES as readonly string[]).includes(value);

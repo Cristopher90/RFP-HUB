@@ -50,6 +50,8 @@ export const en: Dictionary = {
     uiStyle_standard: "Standard",
     uiStyle_pizarra: "Slate",
     uiStyle_grafito: "Graphite",
+    uiStyle_cristal: "Glass",
+    uiStyle_panel: "Blue panel",
     uiStyleHint: "Only changes the look (colors, buttons and boxes), not how it works. For now it is available only to the Super Administrator.",
     title: "My profile",
     subtitle: "Appearance, language, time zone and currency preferences for your account.",

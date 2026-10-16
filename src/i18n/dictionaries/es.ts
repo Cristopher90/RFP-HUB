@@ -51,6 +51,8 @@ export const es = {
     uiStyle_standard: "Estándar",
     uiStyle_pizarra: "Pizarra",
     uiStyle_grafito: "Grafito",
+    uiStyle_cristal: "Cristal",
+    uiStyle_panel: "Panel azul",
     uiStyleHint: "Solo cambia el aspecto (colores, botones y cuadros), no el funcionamiento. Por ahora está disponible solo para el Super Administrador.",
     title: "Mi perfil",
     subtitle: "Preferencias de apariencia, idioma, zona horaria y moneda para tu cuenta.",

@@ -406,7 +406,9 @@ input[type="file"]:disabled {
 
 /* Shared: table headers in sentence case, a touch smaller. */
 html[data-ui="pizarra"] table thead,
-html[data-ui="grafito"] table thead {
+html[data-ui="grafito"] table thead,
+html[data-ui="cristal"] table thead,
+html[data-ui="panel"] table thead {
   text-transform: none;
   letter-spacing: normal;
 }
@@ -516,3 +518,160 @@ html[data-ui="grafito"] [data-app-sidebar] {
   border-color: #2e343b;
   color: #f1f3f5;
 }
+
+/* ===== Panel azul: bluish neutrals, blue accent, rounded soft cards, solid blue menu ===== */
+html[data-ui="panel"] {
+  --color-violet-50: #eef3ff;
+  --color-violet-100: #e4ecff;
+  --color-violet-200: #c9d9ff;
+  --color-violet-300: #9db9fb;
+  --color-violet-400: #6b90f3;
+  --color-violet-500: #3f6be6;
+  --color-violet-600: #2350d8;
+  --color-violet-700: #1b3fa8;
+  --color-violet-800: #173385;
+  --color-violet-900: #142a68;
+  --color-violet-950: #0c1a42;
+  --color-indigo-500: #3f6be6;
+  --color-indigo-600: #2350d8;
+}
+html[data-ui="panel"]:not([data-mode="dark"]) {
+  --color-slate-50: #f1f4fb;
+  --color-slate-100: #e9eef8;
+  --color-slate-200: #e1e8f6;
+  --color-slate-300: #d0daef;
+  --color-slate-400: #94a3c4;
+  --color-slate-500: #5f6e8c;
+  --color-slate-600: #44526f;
+  --color-slate-700: #33415e;
+  --color-slate-800: #1e2b4a;
+  --color-slate-900: #14203b;
+  --color-slate-950: #0b1530;
+}
+html[data-ui="panel"] body,
+html[data-ui="panel"] button,
+html[data-ui="panel"] input,
+html[data-ui="panel"] select,
+html[data-ui="panel"] textarea {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+html[data-ui="panel"] :is(.rounded-2xl, .rounded-xl) { border-radius: 18px; }
+html[data-ui="panel"] :is(.rounded-lg, .rounded-md) { border-radius: 12px; }
+html[data-ui="panel"] :is(.shadow-sm, .shadow, .shadow-md) {
+  box-shadow: 0 14px 30px -22px rgba(35, 80, 216, 0.4);
+}
+html[data-ui="panel"] :is(button, a).bg-violet-600 {
+  box-shadow: 0 14px 24px -14px rgba(35, 80, 216, 0.9);
+  font-weight: 700;
+}
+/* The side menu is solid blue; the active entry is a white pill. */
+html[data-ui="panel"] [data-app-sidebar] {
+  --color-slate-100: rgba(255, 255, 255, 0.14);
+  --color-slate-600: #ffffff;
+  --color-slate-900: #ffffff;
+  --color-violet-50: #ffffff;
+  --color-violet-500: #dce6ff;
+  --color-violet-600: #2350d8;
+  --color-violet-700: #2350d8;
+  background-color: #2350d8;
+  border-color: transparent;
+}
+html[data-ui="panel"] [data-app-sidebar] a[aria-current="page"] {
+  border-radius: 14px;
+  box-shadow: 0 10px 20px -10px rgba(10, 30, 100, 0.6);
+  font-weight: 700;
+}
+html[data-ui="panel"] [data-app-sidebar] a { border-radius: 14px; }
+
+/* ===== Cristal: dark translucent glass over a violet and teal gradient ===== */
+/* Dark by nature (the layout forces the dark base). The doubled attribute
+   selector outranks the dark-mode, theme and palette rules above. */
+html[data-ui="cristal"][data-theme] {
+  color-scheme: dark;
+  --surface: #181e44;
+  --color-slate-50: rgba(255, 255, 255, 0.04);
+  --color-slate-100: rgba(255, 255, 255, 0.08);
+  --color-slate-200: rgba(255, 255, 255, 0.14);
+  --color-slate-300: rgba(255, 255, 255, 0.22);
+  --color-slate-400: #8393c8;
+  --color-slate-500: #9fb0e6;
+  --color-slate-600: #b4c1ef;
+  --color-slate-700: #c9d3f5;
+  --color-slate-800: #e0e7ff;
+  --color-slate-900: #eef2ff;
+  --color-slate-950: #ffffff;
+  --color-violet-50: rgba(94, 162, 255, 0.16);
+  --color-violet-100: rgba(94, 162, 255, 0.22);
+  --color-violet-200: rgba(94, 162, 255, 0.32);
+  --color-violet-300: #5a79c9;
+  --color-violet-400: #6f93f5;
+  --color-violet-500: #7da0ff;
+  --color-violet-600: #7da0ff;
+  --color-violet-700: #a9c0ff;
+  --color-violet-800: #c4d3ff;
+  --color-violet-900: #dbe4ff;
+  --color-violet-950: #eef2ff;
+  --color-indigo-500: #8b6cff;
+  --color-indigo-600: #7a5cf0;
+}
+html[data-ui="cristal"] body {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  color: #eaf0ff;
+  background:
+    radial-gradient(900px 620px at 12% 6%, rgba(92, 70, 230, 0.7), transparent 62%),
+    radial-gradient(760px 560px at 92% 12%, rgba(18, 150, 170, 0.55), transparent 60%),
+    radial-gradient(700px 640px at 60% 104%, rgba(150, 52, 170, 0.5), transparent 62%),
+    #090d22;
+  background-attachment: fixed;
+}
+html[data-ui="cristal"] button,
+html[data-ui="cristal"] input,
+html[data-ui="cristal"] select,
+html[data-ui="cristal"] textarea {
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
+html[data-ui="cristal"] :is(.rounded-2xl, .rounded-xl) { border-radius: 20px; }
+html[data-ui="cristal"] :is(.rounded-lg, .rounded-md) { border-radius: 14px; }
+/* Glass: cards translucent and blurred; anything floating stays solid so it reads. */
+html[data-ui="cristal"] .bg-white {
+  background-color: rgba(24, 30, 68, 0.9);
+}
+html[data-ui="cristal"] .bg-white:is(.rounded-xl, .rounded-2xl) {
+  background-color: rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+html[data-ui="cristal"] .bg-white:is(.absolute, .fixed, .sticky) {
+  background-color: #181e44;
+}
+html[data-ui="cristal"] :is(input, select, textarea).bg-white {
+  background-color: rgba(255, 255, 255, 0.07);
+}
+html[data-ui="cristal"] .bg-white\/80,
+html[data-ui="cristal"] .bg-white\/60 {
+  background-color: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(22px);
+}
+html[data-ui="cristal"] :is(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl) {
+  box-shadow: 0 20px 40px -26px rgba(0, 0, 0, 0.6);
+}
+/* Gradient buttons. */
+html[data-ui="cristal"] :is(button, a).bg-violet-600 {
+  background-image: linear-gradient(135deg, #3d86f5, #7a5cf0);
+  box-shadow: 0 12px 26px -12px rgba(110, 120, 255, 0.9);
+  color: #ffffff;
+}
+html[data-ui="cristal"] :is(button, a).bg-violet-600:hover {
+  filter: brightness(1.12);
+}
+/* Active menu entry: a soft gradient with a thin edge. */
+html[data-ui="cristal"] [data-app-sidebar] a[aria-current="page"] {
+  background-image: linear-gradient(90deg, rgba(94, 162, 255, 0.38), rgba(139, 108, 255, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+html[data-ui="cristal"] [data-app-sidebar] { border-color: rgba(255, 255, 255, 0.12); }
+html[data-ui="cristal"] body > header { border-color: rgba(255, 255, 255, 0.12); }
+html[data-ui="cristal"] ::placeholder { color: #8393c8; }
