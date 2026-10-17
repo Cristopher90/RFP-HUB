@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
 
-export type ApproverMode = "USERS" | "GROUP";
+export type ApproverMode = "USERS" | "GROUP" | "SUPERIOR";
 export type ApprovalStageKind = "PUBLISH" | "AWARD";
 
 export type ApprovalLevelInput = {
@@ -14,13 +14,15 @@ export type ApprovalLevelInput = {
   mode: ApproverMode;
   userIds: string[]; // mode = USERS
   approvalGroupId: string; // mode = GROUP
-  cumulative: boolean; // mode = GROUP
+  cumulative: boolean; // mode = GROUP o SUPERIOR
 };
 
 export type ApprovalWorkflowInput = {
   name: string;
   description: string;
   active: boolean;
+  sequence: number; // 0 a 999: orden en que se recorren los procesos que aplican a una RFP
+  appliesToAll: boolean; // aplica a todas las RFPs, sin depender de la plantilla
   levels: ApprovalLevelInput[]; // order within each stage = array order
   templateIds: string[];
 };
@@ -45,9 +47,13 @@ function shapeLevels(
       mode: l.mode,
       userIds: l.mode === "USERS" ? JSON.stringify(l.userIds) : null,
       approvalGroupId: l.mode === "GROUP" ? l.approvalGroupId : null,
-      cumulative: l.mode === "GROUP" ? l.cumulative : false,
+      cumulative: l.mode === "GROUP" || l.mode === "SUPERIOR" ? l.cumulative : false,
     })),
   );
+}
+
+function validSequence(value: number) {
+  return Number.isInteger(value) && value >= 0 && value <= 999;
 }
 
 async function requireApprovalsScope() {
@@ -65,6 +71,7 @@ export async function createApprovalWorkflow(
   const scope = await requireApprovalsScope();
   const dictionary = getDictionary(scope.user.language);
   if (!input.name.trim()) return { error: dictionary.approvalsActions.nameRequired };
+  if (!validSequence(input.sequence)) return { error: dictionary.approvalsActions.sequenceInvalid };
   const clientId = scope.isSuperAdmin ? targetClientId : scope.user.clientId;
   if (!clientId) return { error: dictionary.approvalsActions.selectClientForWorkflow };
 
@@ -74,6 +81,8 @@ export async function createApprovalWorkflow(
       name: input.name.trim(),
       description: input.description.trim() || null,
       active: input.active,
+      sequence: input.sequence,
+      appliesToAll: input.appliesToAll,
     },
   });
   await prisma.approvalLevel.createMany({
@@ -94,6 +103,7 @@ export async function updateApprovalWorkflow(
   const scope = await requireApprovalsScope();
   const dictionary = getDictionary(scope.user.language);
   if (!input.name.trim()) return { error: dictionary.approvalsActions.nameRequired };
+  if (!validSequence(input.sequence)) return { error: dictionary.approvalsActions.sequenceInvalid };
 
   const existing = await prisma.approvalWorkflow.findUnique({ where: { id } });
   if (!existing) return { error: dictionary.approvalsActions.workflowNotFound };
@@ -108,6 +118,8 @@ export async function updateApprovalWorkflow(
       name: input.name.trim(),
       description: input.description.trim() || null,
       active: input.active,
+      sequence: input.sequence,
+      appliesToAll: input.appliesToAll,
     },
   });
   // Niveles: reemplazo total (mismo patrón que artículos/preguntas de plantilla).

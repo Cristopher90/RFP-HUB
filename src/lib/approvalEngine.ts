@@ -11,6 +11,11 @@ export type LevelConfig = {
   userIds: string | null; // JSON string[]
   approvalGroupId: string | null;
   cumulative: boolean;
+  // Where the level comes from (kept on the RfpApproval snapshot so the flow
+  // can be drawn grouped by process).
+  workflowId?: string | null;
+  workflowName?: string | null;
+  viaSuperior?: boolean;
 };
 
 type ApprovalRow = {
@@ -51,20 +56,126 @@ async function loadDeciderUser(userId: string): Promise<DeciderUser | null> {
   };
 }
 
-// Picks the first matched template (in match order — same "first match
-// wins" convention already used for item/question application via
-// matchesTemplate) that has an active approval workflow assigned.
-export function pickApprovalWorkflow<
-  T extends {
-    approvalWorkflow:
-      | { active: boolean; levels: { stage: ApprovalStageKind; order: number }[] }
-      | null;
-  },
->(matchingTemplates: T[]): NonNullable<T["approvalWorkflow"]> | null {
-  for (const t of matchingTemplates) {
-    if (t.approvalWorkflow?.active) return t.approvalWorkflow;
+type WorkflowForStage = {
+  id: string;
+  name: string;
+  active: boolean;
+  sequence: number;
+  levels: {
+    stage: ApprovalStageKind;
+    order: number;
+    mode: ApproverMode;
+    userIds: string | null;
+    approvalGroupId: string | null;
+    cumulative: boolean;
+  }[];
+};
+
+function fullName(u: { name: string; lastName?: string | null }) {
+  return `${u.name} ${u.lastName ?? ""}`.trim();
+}
+
+// The requester's chain of superiors, nearest first (cycles and absurdly long
+// chains are cut).
+async function superiorChain(requesterId: string) {
+  const chain: { id: string; name: string; limit: number | null }[] = [];
+  const seen = new Set([requesterId]);
+  let current = requesterId;
+  for (let i = 0; i < 20; i++) {
+    const u = await prisma.user.findUnique({
+      where: { id: current },
+      select: {
+        supervisor: { select: { id: true, name: true, lastName: true, approvalLimit: true } },
+      },
+    });
+    const s = u?.supervisor;
+    if (!s || seen.has(s.id)) break;
+    seen.add(s.id);
+    chain.push({ id: s.id, name: fullName(s), limit: s.approvalLimit });
+    current = s.id;
   }
-  return null;
+  return chain;
+}
+
+// Expands a "por superior" level into plain single-person levels: the first
+// superior whose approval limit covers the value, or — when "acumulativo" is on —
+// every superior in the chain up to and including that one. If nobody up the
+// chain covers the value, the whole chain (or its top) signs.
+function superiorLevels(
+  chain: { id: string; limit: number | null }[],
+  cumulative: boolean,
+  value: number,
+): LevelConfig[] {
+  const coverIndex = chain.findIndex((c) => (c.limit ?? -1) >= value);
+  const picked = cumulative
+    ? coverIndex === -1
+      ? chain
+      : chain.slice(0, coverIndex + 1)
+    : [chain[coverIndex === -1 ? chain.length - 1 : coverIndex]];
+  return picked.map((c) => ({
+    mode: "USERS" as const,
+    userIds: JSON.stringify([c.id]),
+    approvalGroupId: null,
+    cumulative: false,
+    viaSuperior: true,
+  }));
+}
+
+// Builds the ordered approval levels of a stage for an RFP:
+// - every active process that applies (assigned to a matching template, or marked
+//   "all templates") takes part, walked from the lowest to the highest order number;
+// - a requester whose own approval limit covers the value needs no approval;
+// - "por superior" levels are resolved to the requester's actual superiors now,
+//   so editing users later never changes an RFP in progress.
+export async function resolveStageLevels(params: {
+  clientId: string;
+  matchingTemplates: { approvalWorkflow: WorkflowForStage | null }[];
+  stage: ApprovalStageKind;
+  value: number;
+  requesterId: string;
+  language: string;
+}): Promise<{ levels: LevelConfig[]; workflowId: string | null } | { error: string }> {
+  const { clientId, matchingTemplates, stage, value, requesterId, language } = params;
+
+  const byId = new Map<string, WorkflowForStage>();
+  for (const t of matchingTemplates) {
+    if (t.approvalWorkflow?.active) byId.set(t.approvalWorkflow.id, t.approvalWorkflow);
+  }
+  const everywhere = await prisma.approvalWorkflow.findMany({
+    where: { clientId, active: true, appliesToAll: true },
+    include: { levels: true },
+  });
+  for (const w of everywhere) byId.set(w.id, w);
+  const workflows = [...byId.values()]
+    .filter((w) => w.levels.some((l) => l.stage === stage))
+    .sort((a, b) => a.sequence - b.sequence || a.name.localeCompare(b.name));
+  if (workflows.length === 0) return { levels: [], workflowId: null };
+
+  const requester = await prisma.user.findUnique({
+    where: { id: requesterId },
+    select: { approvalLimit: true },
+  });
+  if (requester?.approvalLimit != null && requester.approvalLimit >= value) {
+    return { levels: [], workflowId: workflows[0].id };
+  }
+
+  let chain: Awaited<ReturnType<typeof superiorChain>> | null = null;
+  const levels: LevelConfig[] = [];
+  for (const wf of workflows) {
+    for (const level of levelsForStage(wf, stage)) {
+      const tag = { workflowId: wf.id, workflowName: wf.name };
+      if (level.mode !== "SUPERIOR") {
+        levels.push({ ...level, ...tag });
+        continue;
+      }
+      chain ??= await superiorChain(requesterId);
+      if (chain.length === 0) {
+        return { error: getDictionary(language).approvalEngineErrors.noSupervisor };
+      }
+      for (const l of superiorLevels(chain, level.cumulative, value)) levels.push({ ...l, ...tag });
+    }
+  }
+  return { levels, workflowId: workflows[0].id };
 }
 
 export function levelsForStage(
@@ -262,6 +373,9 @@ export async function startStage(params: {
       userIds: lvl.userIds,
       approvalGroupId: lvl.approvalGroupId,
       cumulative: lvl.cumulative,
+      workflowId: lvl.workflowId ?? null,
+      workflowName: lvl.workflowName ?? null,
+      viaSuperior: lvl.viaSuperior ?? false,
       requiredValue,
       activatedAt: order === 0 ? now : null,
     })),
@@ -475,6 +589,11 @@ export type ApprovalLevelView = {
   pendingSince: string | null;
   lastReminderAt: string | null;
   eligibleApprovers: { id: string; name: string; limit: number | null }[];
+  kind: "users" | "superior" | "group";
+  groupName: string | null;
+  workflowName: string | null;
+  // Everyone who takes part in this step, with where they stand.
+  people: { id: string; name: string; state: "approved" | "rejected" | "pending" | "waiting"; limit: number | null }[];
 };
 
 // Builds the display data for the header approval-flow chips: one row per
@@ -513,7 +632,7 @@ export async function describeApprovals(
   >();
   for (const m of memberships) {
     const arr = membersByGroupId.get(m.approvalGroupId) ?? [];
-    arr.push({ id: m.userId, name: m.user.name, limit: m.limit });
+    arr.push({ id: m.userId, name: fullName(m.user), limit: m.limit });
     membersByGroupId.set(m.approvalGroupId, arr);
   }
 
@@ -525,7 +644,7 @@ export async function describeApprovals(
   const users = allUserIds.length
     ? await prisma.user.findMany({ where: { id: { in: allUserIds } } })
     : [];
-  const userNameById = new Map(users.map((u) => [u.id, u.name]));
+  const userNameById = new Map(users.map((u) => [u.id, fullName(u)]));
 
   const rejectedStage = approvals.some((a) => a.status === "REJECTED");
   let blocked = false;
@@ -535,7 +654,11 @@ export async function describeApprovals(
       a.decisions.filter((d) => d.decision === "APPROVED").map((d) => d.userId),
     );
     const label =
-      a.mode === "USERS"
+      a.mode === "USERS" && a.viaSuperior
+        ? `${(a.userIds ? (JSON.parse(a.userIds) as string[]) : [])
+            .map((id) => userNameById.get(id) ?? "?")
+            .join(", ")}`
+        : a.mode === "USERS"
         ? (a.userIds ? (JSON.parse(a.userIds) as string[]) : [])
             .map((id) => userNameById.get(id) ?? "?")
             .join(", ")
@@ -563,7 +686,7 @@ export async function describeApprovals(
               const nextLimit = Math.min(...remaining.map((m) => m.limit ?? Infinity));
               return remaining.filter((m) => m.limit === nextLimit);
             })()
-          : groupMembers;
+          : groupMembers.filter((m) => (m.limit ?? 0) >= a.requiredValue);
     return {
       id: a.id,
       order: a.order,
@@ -575,10 +698,32 @@ export async function describeApprovals(
       active,
       approverNames: a.decisions
         .filter((d) => d.decision === "APPROVED")
-        .map((d) => d.user.name),
+        .map((d) => fullName(d.user)),
       pendingSince: a.activatedAt ? a.activatedAt.toISOString() : null,
       lastReminderAt: a.lastReminderAt ? a.lastReminderAt.toISOString() : null,
       eligibleApprovers,
+      kind: a.mode === "GROUP" ? ("group" as const) : a.viaSuperior ? ("superior" as const) : ("users" as const),
+      groupName: a.mode === "GROUP" ? (groupNameById.get(a.approvalGroupId ?? "") ?? null) : null,
+      workflowName: a.workflowName,
+      people: (() => {
+        const decided = a.decisions.map((d) => ({
+          id: d.userId,
+          name: fullName(d.user),
+          state: d.decision === "APPROVED" ? ("approved" as const) : ("rejected" as const),
+          limit: null as number | null,
+        }));
+        if (a.status !== "PENDING") return decided;
+        const decidedIds = new Set(decided.map((d) => d.id));
+        const waiting = eligibleApprovers
+          .filter((e) => !decidedIds.has(e.id))
+          .map((e) => ({
+            id: e.id,
+            name: e.name,
+            state: active ? ("pending" as const) : ("waiting" as const),
+            limit: e.limit,
+          }));
+        return [...decided, ...waiting];
+      })(),
     };
   });
 }

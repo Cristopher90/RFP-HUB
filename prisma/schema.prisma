@@ -22,6 +22,7 @@ enum RfpStatus {
 enum ApproverMode {
   USERS
   GROUP
+  SUPERIOR // la cadena de superiores del usuario que inicia la etapa
 }
 
 enum ApprovalStageKind {
@@ -170,6 +171,10 @@ model User {
   uiStyle            String    @default("standard") // estilo visual: "standard", "pizarra", "cristal" o "panel"
   uiGlass            Int       @default(17) // estilo Cristal: opacidad de los paneles (0 a 100)
   uiBackground       String    @default("aurora") // estilo Cristal: fondo ("aurora", "oceano", ... o "custom:#rrggbb,#rrggbb")
+  supervisorId       String? // supervisor del usuario (para flujos de aprobación "por superior")
+  supervisor         User?     @relation("UserSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  subordinates       User[]    @relation("UserSupervisor")
+  approvalLimit      Float? // límite de aprobación: si el valor de la RFP no lo supera, el usuario no necesita aprobación
 
   // Permisos del módulo de Solicitudes (los administradores tienen todo implícito)
   canImportRequests     Boolean @default(false) // puede importar solicitudes
@@ -486,14 +491,16 @@ model RfpTemplate {
 // Cada nivel (ApprovalLevel) se aprueba en secuencia: el nivel N+1 solo
 // queda activo cuando el nivel N está aprobado.
 model ApprovalWorkflow {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  name        String
-  description String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  name         String
+  description  String?
+  active       Boolean  @default(true)
+  sequence     Int      @default(500) // 0 a 999: si aplican varios procesos a una RFP, se recorren de menor a mayor
+  appliesToAll Boolean  @default(false) // aplica a todas las RFPs, sin depender de la plantilla
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   templates RfpTemplate[]
   rfps      Rfp[]
@@ -657,6 +664,9 @@ model RfpApproval {
   userIds         String? // JSON string[]
   approvalGroupId String?
   cumulative      Boolean      @default(false)
+  workflowId      String? // proceso de aprobación del que viene este nivel
+  workflowName    String?
+  viaSuperior     Boolean      @default(false) // nivel resuelto desde la cadena de superiores
   requiredValue   Float
 
   status         RfpApprovalStatus @default(PENDING)

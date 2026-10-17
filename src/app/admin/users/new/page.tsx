@@ -13,7 +13,7 @@ export default async function NewUserPage() {
     redirect("/");
   }
   const dictionary = getDictionary(scope.user.language);
-  const [groups, buyerGroups, clients] = await Promise.all([
+  const [groups, buyerGroups, clients, clientUsers] = await Promise.all([
     prisma.approvalGroup.findMany({
       where: scope.where,
       orderBy: { description: "asc" },
@@ -22,6 +22,11 @@ export default async function NewUserPage() {
     scope.isSuperAdmin
       ? prisma.client.findMany({ orderBy: { description: "asc" } })
       : Promise.resolve([]),
+    prisma.user.findMany({
+      where: { ...scope.where, role: { not: "ADMIN" } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, lastName: true, clientId: true },
+    }),
   ]);
 
 
@@ -56,6 +61,11 @@ export default async function NewUserPage() {
           actorIsSuperAdmin={scope.isSuperAdmin}
           userFieldsByClient={userFieldsByClient}
           viewGroupsByClient={viewGroupsByClient}
+          supervisorOptions={clientUsers.map((u) => ({
+            id: u.id,
+            name: `${u.name} ${u.lastName ?? ""}`.trim(),
+            clientId: u.clientId,
+          }))}
         />
       </div>
     </div>

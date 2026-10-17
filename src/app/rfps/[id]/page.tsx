@@ -138,10 +138,8 @@ export default async function RfpDetailPage({
     return { ...s, docIssue: detail !== "", docDetail: detail };
   });
 
-  const publishLevels =
-    rfp.status === "PENDING_PUBLISH_APPROVAL"
-      ? await describeApprovals(rfp.id, "PUBLISH", currencyOptions)
-      : [];
+  // The publish flow stays visible after publishing: who took part and who approved.
+  const publishLevels = await describeApprovals(rfp.id, "PUBLISH", currencyOptions);
   const canDecidePublish =
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
     (await canDecideActiveLevel(rfp.id, "PUBLISH", user.id));
@@ -342,11 +340,12 @@ export default async function RfpDetailPage({
         </div>
       </div>
 
-      {rfp.status === "PENDING_PUBLISH_APPROVAL" && (
+      {publishLevels.length > 0 && (
         <PublishApprovalSection
           rfpId={rfp.id}
           levels={publishLevels}
           canDecide={canDecidePublish}
+          awaiting={rfp.status === "PENDING_PUBLISH_APPROVAL"}
         />
       )}
 

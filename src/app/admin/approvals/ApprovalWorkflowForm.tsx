@@ -127,7 +127,30 @@ function LevelListEditor({
                 />
                 {t("approvalWorkflowForm.groupByValue")}
               </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={level.mode === "SUPERIOR"}
+                  onChange={() => update(level.clientKey, { mode: "SUPERIOR" })}
+                />
+                {t("approvalWorkflowForm.bySuperior")}
+              </label>
             </div>
+
+            {level.mode === "SUPERIOR" && (
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-slate-500">{t("approvalWorkflowForm.bySuperiorHint")}</p>
+                <label className="flex items-start gap-2 text-xs text-slate-600">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={level.cumulative}
+                    onChange={(e) => update(level.clientKey, { cumulative: e.target.checked })}
+                  />
+                  <span>{t("approvalWorkflowForm.superiorCumulative")}</span>
+                </label>
+              </div>
+            )}
 
             {level.mode === "USERS" && (
               <div className="mt-2">
@@ -199,6 +222,8 @@ export function ApprovalWorkflowForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
+  const [sequence, setSequence] = useState(String(initial?.sequence ?? 500).padStart(3, "0"));
+  const [appliesToAll, setAppliesToAll] = useState(initial?.appliesToAll ?? false);
   const [publishLevels, setPublishLevels] = useState<LevelRow[]>(
     () =>
       initial?.levels
@@ -226,6 +251,8 @@ export function ApprovalWorkflowForm({
       name,
       description,
       active,
+      sequence: Number(sequence),
+      appliesToAll,
       levels: [
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         ...publishLevels.map(({ clientKey: _clientKey, ...l }) => ({
@@ -296,6 +323,41 @@ export function ApprovalWorkflowForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+          <div>
+            <label
+              htmlFor={`${idBase}-sequence`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("approvalWorkflowForm.sequence")}
+            </label>
+            <input
+              id={`${idBase}-sequence`}
+              type="number"
+              min={0}
+              max={999}
+              step={1}
+              className={inputClass()}
+              value={sequence}
+              onChange={(e) => setSequence(e.target.value)}
+              onBlur={() => setSequence((v) => (v === "" ? "" : String(Math.min(999, Math.max(0, Math.trunc(Number(v) || 0)))).padStart(3, "0")))}
+              required
+            />
+            <p className="mt-1 text-xs text-slate-500">{t("approvalWorkflowForm.sequenceHint")}</p>
+          </div>
+          <div className="flex items-end">
+            <label className="flex items-start gap-2 pb-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={appliesToAll}
+                onChange={(e) => setAppliesToAll(e.target.checked)}
+              />
+              <span>
+                {t("approvalWorkflowForm.appliesToAll")}
+                <span className="block text-xs text-slate-400">{t("approvalWorkflowForm.appliesToAllHint")}</span>
+              </span>
+            </label>
           </div>
           <div className="sm:col-span-2">
             <label className="flex items-center gap-2 text-sm text-slate-600">

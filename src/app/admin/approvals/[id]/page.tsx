@@ -45,6 +45,8 @@ export default async function EditApprovalWorkflowPage({
     name: workflow.name,
     description: workflow.description ?? "",
     active: workflow.active,
+    sequence: workflow.sequence,
+    appliesToAll: workflow.appliesToAll,
     levels: workflow.levels.map(
       (l): ApprovalLevelInput => ({
         stage: l.stage,

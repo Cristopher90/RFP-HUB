@@ -17,7 +17,7 @@ export default async function EditUserPage({
   const dictionary = getDictionary(scope.user.language);
   const { id } = await params;
 
-  const [user, groups, buyerGroups, clients] = await Promise.all([
+  const [user, groups, buyerGroups, clients, clientUsers] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
       include: { approvalGroups: true, buyerGroupMemberships: true },
@@ -30,6 +30,11 @@ export default async function EditUserPage({
     scope.isSuperAdmin
       ? prisma.client.findMany({ orderBy: { description: "asc" } })
       : Promise.resolve([]),
+    prisma.user.findMany({
+      where: { ...scope.where, role: { not: "ADMIN" } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, lastName: true, clientId: true },
+    }),
   ]);
   if (!user) notFound();
   if (!scope.isSuperAdmin && user.clientId !== scope.user.clientId) notFound();
@@ -92,6 +97,8 @@ export default async function EditUserPage({
             seeAllRequests: user.seeAllRequests,
             customValues: userCustomValues,
             buyerGroupIds: user.buyerGroupMemberships.map((m) => m.groupId),
+            supervisorId: user.supervisorId,
+            approvalLimit: user.approvalLimit === null ? "" : String(user.approvalLimit),
             approvalGroups: user.approvalGroups.map((g) => ({
               approvalGroupId: g.approvalGroupId,
               limit: String(g.limit),
@@ -103,6 +110,11 @@ export default async function EditUserPage({
           actorIsSuperAdmin={scope.isSuperAdmin}
           userFieldsByClient={userFieldsByClient}
           viewGroupsByClient={viewGroupsByClient}
+          supervisorOptions={clientUsers.map((u) => ({
+            id: u.id,
+            name: `${u.name} ${u.lastName ?? ""}`.trim(),
+            clientId: u.clientId,
+          }))}
         />
       </div>
     </div>

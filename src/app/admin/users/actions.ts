@@ -48,6 +48,8 @@ export type UserFormInput = {
   canAddSupplierContacts: boolean;
   viewGroupIds: string[]; // grupos de visualización (no aplican a administradores)
   approvalGroups: { approvalGroupId: string; limit: string }[];
+  supervisorId: string | null; // supervisor del usuario (cadena de superiores para aprobaciones)
+  approvalLimit: string; // límite de aprobación propio; vacío = sin límite (siempre necesita aprobación)
   buyerGroupIds: string[]; // grupos de compradores (Configuración → Usuarios) a los que pertenece
   customValues?: Record<string, string>; // campos personalizados a nivel usuario (clave → valor)
 };
@@ -161,6 +163,42 @@ function resolveTargetClientAndRole(
   return { clientId: scope.user.clientId };
 }
 
+// Supervisor must be another user of the same client, and never create a loop
+// in the chain of superiors. Approval limit: empty or a number >= 0.
+async function validApprovalProfile(
+  input: UserFormInput,
+  clientId: string | null,
+  dictionary: ReturnType<typeof getDictionary>,
+  selfId?: string,
+): Promise<{ error: string } | { supervisorId: string | null; approvalLimit: number | null }> {
+  const rawLimit = (input.approvalLimit ?? "").trim();
+  let approvalLimit: number | null = null;
+  if (rawLimit !== "") {
+    approvalLimit = Number(rawLimit);
+    if (!Number.isFinite(approvalLimit) || approvalLimit < 0) {
+      return { error: dictionary.usersActions.approvalLimitInvalid };
+    }
+  }
+  const supervisorId = input.supervisorId || null;
+  if (!supervisorId || input.role === "ADMIN") return { supervisorId: null, approvalLimit };
+  if (supervisorId === selfId) return { error: dictionary.usersActions.supervisorInvalid };
+  const supervisor = await prisma.user.findUnique({ where: { id: supervisorId } });
+  if (!supervisor || !clientId || supervisor.clientId !== clientId) {
+    return { error: dictionary.usersActions.supervisorInvalid };
+  }
+  // Walk up from the chosen supervisor: reaching this user again would close a loop.
+  let current: string | null = supervisor.supervisorId;
+  for (let i = 0; current && i < 50; i++) {
+    if (current === selfId) return { error: dictionary.usersActions.supervisorLoop };
+    const next: { supervisorId: string | null } | null = await prisma.user.findUnique({
+      where: { id: current },
+      select: { supervisorId: true },
+    });
+    current = next?.supervisorId ?? null;
+  }
+  return { supervisorId, approvalLimit };
+}
+
 export async function createUser(
   input: UserFormInput,
 ): Promise<{ error: string } | never> {
@@ -197,6 +235,8 @@ export async function createUser(
       : [];
   const customResult = await validUserCustomValues(input, targetClient.clientId, scope.user.language);
   if ("error" in customResult) return { error: customResult.error };
+  const approvalProfile = await validApprovalProfile(input, targetClient.clientId, dictionary);
+  if ("error" in approvalProfile) return { error: approvalProfile.error };
   const createdUser = await prisma.user.create({
     data: {
       name,
@@ -226,6 +266,8 @@ export async function createUser(
       seeAssignedRequests: input.seeAssignedRequests,
       seeAllRequests: input.seeAllRequests,
       passwordHash: hashPassword(input.password),
+      supervisorId: approvalProfile.supervisorId,
+      approvalLimit: approvalProfile.approvalLimit,
       approvalGroups: { create: approvalGroups },
       buyerGroupMemberships: { create: buyerGroupIds.map((groupId) => ({ groupId })) },
     },
@@ -286,6 +328,8 @@ export async function updateUser(
     target.clientId === targetClient.clientId ? userId : undefined,
   );
   if ("error" in customResult) return { error: customResult.error };
+  const approvalProfile = await validApprovalProfile(input, targetClient.clientId, dictionary, userId);
+  if ("error" in approvalProfile) return { error: approvalProfile.error };
   await prisma.userApprovalGroup.deleteMany({ where: { userId } });
   await prisma.buyerGroupMember.deleteMany({ where: { userId } });
   await prisma.user.update({
@@ -318,6 +362,8 @@ export async function updateUser(
       seeMyRequests: input.seeMyRequests,
       seeAssignedRequests: input.seeAssignedRequests,
       seeAllRequests: input.seeAllRequests,
+      supervisorId: approvalProfile.supervisorId,
+      approvalLimit: approvalProfile.approvalLimit,
       approvalGroups: { create: approvalGroups },
       buyerGroupMemberships: { create: buyerGroupIds.map((groupId) => ({ groupId })) },
       ...(input.password ? { passwordHash: hashPassword(input.password) } : {}),

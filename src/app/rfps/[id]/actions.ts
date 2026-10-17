@@ -12,8 +12,7 @@ import { applicableRequirements } from "@/lib/supplierDocs";
 import { documentationError, rfpDocumentRequirements } from "@/lib/supplierDocsServer";
 import { validateAndShapeRfp, type CreateRfpInput } from "../new/actions";
 import {
-  pickApprovalWorkflow,
-  levelsForStage,
+  resolveStageLevels,
   startStage,
   recordDecision,
   sendReminder,
@@ -283,8 +282,16 @@ export async function publishRfp(rfpId: string) {
   );
   if (docError) return { error: docError };
 
-  const workflow = pickApprovalWorkflow(matchingTemplates);
-  const levels = levelsForStage(workflow, "PUBLISH");
+  const resolved = await resolveStageLevels({
+    clientId: rfp.clientId,
+    matchingTemplates,
+    stage: "PUBLISH",
+    value: rfp.estimatedPrice ?? 0,
+    requesterId: user.id,
+    language: user.language,
+  });
+  if ("error" in resolved) return { error: resolved.error };
+  const levels = resolved.levels;
 
   await prisma.rfp.update({
     where: { id: rfpId },
@@ -294,7 +301,7 @@ export async function publishRfp(rfpId: string) {
       publishedAt: levels.length === 0 ? new Date() : null,
       // No start date: the publication date is used.
       ...(levels.length === 0 && !rfp.startDate ? { startDate: new Date() } : {}),
-      approvalWorkflowId: workflow?.id ?? null,
+      approvalWorkflowId: resolved.workflowId,
     },
   });
 
@@ -352,10 +359,20 @@ export async function updateRfp(
   if ("error" in shaped) return shaped;
   const { items, questions, suppliers, matchingTemplates, estimatedPrice, headerCustom } = shaped;
 
-  const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
-  const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
+  const resolvedPublish = input.saveAsDraft
+    ? { levels: [], workflowId: null }
+    : await resolveStageLevels({
+        clientId,
+        matchingTemplates,
+        stage: "PUBLISH",
+        value: estimatedPriceValue ?? 0,
+        requesterId: user.id,
+        language: user.language,
+      });
+  if ("error" in resolvedPublish) return { error: resolvedPublish.error };
+  const publishLevels = resolvedPublish.levels;
   const internalNotes = (input.internalNotes ?? "").trim().slice(0, 2000);
   const startDateValue = input.startDate
     ? zonedTimeToUtc(input.startDate, user.timezone)
@@ -412,7 +429,7 @@ export async function updateRfp(
       basedOnRfpId: input.basedOnRfpId || null,
       selectedTemplateId: input.selectedTemplateId || null,
       scoringEnabled: input.scoringEnabled,
-      approvalWorkflowId: workflow?.id ?? null,
+      approvalWorkflowId: resolvedPublish.workflowId,
       hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),
       appliedTemplates:
         matchingTemplates.length > 0

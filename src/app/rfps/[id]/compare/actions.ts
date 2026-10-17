@@ -12,8 +12,7 @@ import {
   ancestorChain,
 } from "@/lib/templateMatch";
 import {
-  pickApprovalWorkflow,
-  levelsForStage,
+  resolveStageLevels,
   startStage,
   recordDecision,
   sendReminder,
@@ -81,13 +80,23 @@ export async function awardInvitation(
   const storedCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const matchingTemplates = resolveAppliedTemplates(
     allTemplates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice, storedCustom),
+      matchesTemplate(t, commodityChain, regionChain, awardedValue, storedCustom),
     ),
     rfp.selectedTemplateId,
   );
 
-  const workflow = pickApprovalWorkflow(matchingTemplates);
-  const levels = levelsForStage(workflow, "AWARD");
+  // Award approvals are measured on what is being awarded, not on the RFP's
+  // initial estimate: it drives both the template amount conditions and the limits.
+  const resolved = await resolveStageLevels({
+    clientId: rfp.clientId,
+    matchingTemplates,
+    stage: "AWARD",
+    value: awardedValue,
+    requesterId: user.id,
+    language: user.language,
+  });
+  if ("error" in resolved) return { error: resolved.error };
+  const levels = resolved.levels;
 
   // A rejected earlier proposal may have left AWARD-stage rows behind.
   await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
@@ -98,7 +107,7 @@ export async function awardInvitation(
       pendingAwardInvitationId: invitationId,
       awardCriteria: criteria,
       priceWeightPct,
-      approvalWorkflowId: workflow?.id ?? null,
+      approvalWorkflowId: resolved.workflowId,
     },
   });
 

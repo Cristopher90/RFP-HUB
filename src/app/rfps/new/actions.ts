@@ -15,7 +15,7 @@ import { parseTemplateCondition, templateConditionHolds } from "@/lib/templateCo
 import { applicableRequirements } from "@/lib/supplierDocs";
 import { documentationError } from "@/lib/supplierDocsServer";
 import { nextRfpNumber } from "@/lib/rfpNumber";
-import { pickApprovalWorkflow, levelsForStage, startStage } from "@/lib/approvalEngine";
+import { resolveStageLevels, startStage } from "@/lib/approvalEngine";
 import { serializeScoringConfig } from "@/lib/questionScoring";
 import { resolveOpenStatus } from "@/lib/rfpStatus";
 import { extractTags } from "@/lib/tags";
@@ -578,10 +578,20 @@ export async function createRfp(
   }
 
   // Drafts skip approval entirely — only publishing needs it resolved.
-  const workflow = input.saveAsDraft ? null : pickApprovalWorkflow(matchingTemplates);
-  const publishLevels = input.saveAsDraft ? [] : levelsForStage(workflow, "PUBLISH");
   const estimatedPriceValue =
     estimatedPrice !== null && !Number.isNaN(estimatedPrice) ? estimatedPrice : null;
+  const resolvedPublish = input.saveAsDraft
+    ? { levels: [], workflowId: null }
+    : await resolveStageLevels({
+        clientId,
+        matchingTemplates,
+        stage: "PUBLISH",
+        value: estimatedPriceValue ?? 0,
+        requesterId: user.id,
+        language: user.language,
+      });
+  if ("error" in resolvedPublish) return { error: resolvedPublish.error };
+  const publishLevels = resolvedPublish.levels;
   const internalNotes = (input.internalNotes ?? "").trim().slice(0, 2000);
   const startDateValue = input.startDate
     ? zonedTimeToUtc(input.startDate, user.timezone)
@@ -631,7 +641,7 @@ export async function createRfp(
       roundNumber,
       seriesRootId,
       scoringEnabled: input.scoringEnabled,
-      approvalWorkflowId: workflow?.id ?? null,
+      approvalWorkflowId: resolvedPublish.workflowId,
       hideResponsesUntilClosed: matchingTemplates.some((t) => t.hideResponsesUntilClosed),
       appliedTemplates:
         matchingTemplates.length > 0

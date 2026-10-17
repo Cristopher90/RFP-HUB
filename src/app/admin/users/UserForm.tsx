@@ -38,6 +38,7 @@ export function UserForm({
   actorIsSuperAdmin,
   userFieldsByClient = {},
   viewGroupsByClient = {},
+  supervisorOptions = [],
 }: {
   userId?: string;
   initial?: Omit<UserFormInput, "password">;
@@ -49,12 +50,14 @@ export function UserForm({
   userFieldsByClient?: Record<string, { currency: string; fields: CustomFieldDef[] }>;
   // View groups per client (a client admin only gets their own).
   viewGroupsByClient?: Record<string, ViewGroupOption[]>;
+  // Possible supervisors: users of each client (the page already scopes them).
+  supervisorOptions?: { id: string; name: string; clientId: string | null }[];
 }) {
   const { t, dictionary } = usePreferences();
   const ROLES: UserRole[] = actorIsSuperAdmin
     ? ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN", "ADMIN"]
     : ["APPROVER", "BUYER", "SENIOR_BUYER", "CLIENT_ADMIN"];
-  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups" | "buyerGroupIds" | "viewGroupIds">>({
+  const [form, setForm] = useState<Omit<UserFormInput, "approvalGroups" | "buyerGroupIds" | "viewGroupIds" | "supervisorId" | "approvalLimit">>({
     name: initial?.name ?? "",
     lastName: initial?.lastName ?? "",
     clientId: initial?.clientId ?? null,
@@ -82,6 +85,8 @@ export function UserForm({
     canEditSuppliers: initial?.canEditSuppliers ?? false,
     canAddSupplierContacts: initial?.canAddSupplierContacts ?? false,
   });
+  const [supervisorId, setSupervisorId] = useState<string>(initial?.supervisorId ?? "");
+  const [approvalLimit, setApprovalLimit] = useState<string>(initial?.approvalLimit ?? "");
   const [viewGroupIds, setViewGroupIds] = useState<string[]>(initial?.viewGroupIds ?? []);
   const [approvalGroupRows, setApprovalGroupRows] = useState<ApprovalGroupRow[]>(
     () =>
@@ -108,6 +113,9 @@ export function UserForm({
     clientForGroups === undefined
       ? buyerGroups
       : buyerGroups.filter((g) => g.clientId === clientForGroups);
+  const availableSupervisors = supervisorOptions.filter(
+    (u) => u.id !== userId && (clientForGroups === undefined || u.clientId === clientForGroups),
+  );
   const needsClientFirst = actorIsSuperAdmin && !clientForGroups;
   const isBuyerRole = (BUYER_ROLES as readonly string[]).includes(form.role);
 
@@ -124,6 +132,7 @@ export function UserForm({
       buyerGroups.filter((g) => g.clientId === clientId).map((g) => g.id),
     );
     setBuyerGroupIds((prev) => prev.filter((id) => allowedBuyer.has(id)));
+    setSupervisorId((prev) => (supervisorOptions.some((u) => u.id === prev && u.clientId === clientId) ? prev : ""));
     const allowedView = new Set((clientId ? (viewGroupsByClient[clientId] ?? []) : []).map((g) => g.id));
     setViewGroupIds((prev) => prev.filter((id) => allowedView.has(id)));
   }
@@ -170,6 +179,8 @@ export function UserForm({
         approvalGroupId,
         limit,
       })),
+      supervisorId: supervisorId || null,
+      approvalLimit,
       buyerGroupIds: isBuyerRole ? buyerGroupIds : [],
       viewGroupIds: isAdminRole ? [] : viewGroupIds,
       customValues,
@@ -437,7 +448,40 @@ export function UserForm({
         <p className="mt-1 text-sm text-slate-500">
           {t("userForm.approvalGroupsSubtitle")}
         </p>
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("userForm.supervisor")}</label>
+            <select
+              className={inputClass()}
+              value={supervisorId}
+              onChange={(e) => setSupervisorId(e.target.value)}
+              disabled={needsClientFirst}
+            >
+              <option value="">{t("userForm.noSupervisor")}</option>
+              {availableSupervisors.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">{t("userForm.supervisorHint")}</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">{t("userForm.approvalLimit")}</label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              className={inputClass()}
+              placeholder={t("userForm.amountPlaceholder")}
+              value={approvalLimit}
+              onChange={(e) => setApprovalLimit(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500">{t("userForm.approvalLimitHint")}</p>
+          </div>
+        </div>
+        <h3 className="mt-6 text-sm font-semibold text-slate-800">{t("userForm.approvalGroupsListTitle")}</h3>
+        <div className="mt-2 space-y-2">
           {needsClientFirst && (
             <p className="text-xs text-amber-700">{t("userForm.selectClientForGroups")}</p>
           )}

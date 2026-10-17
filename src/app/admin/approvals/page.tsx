@@ -14,7 +14,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/admin/
   const workflows = effectiveClientId
     ? await prisma.approvalWorkflow.findMany({
         where: { clientId: effectiveClientId },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ sequence: "asc" }, { name: "asc" }],
         include: { templates: true, levels: true },
       })
     : [];
@@ -71,6 +71,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/admin/
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
               <tr>
+                <th className="px-5 py-3">{dictionary.approvalsPage.order}</th>
                 <th className="px-5 py-3">{dictionary.approvalsPage.process}</th>
                 <th className="px-5 py-3">{dictionary.approvalsPage.publish}</th>
                 <th className="px-5 py-3">{dictionary.approvalsPage.award}</th>
@@ -82,6 +83,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/admin/
             <tbody className="divide-y divide-slate-100">
               {workflows.map((w) => (
                 <tr key={w.id} className="hover:bg-slate-50">
+                  <td className="px-5 py-4 font-mono text-slate-500">{String(w.sequence).padStart(3, "0")}</td>
                   <td className="px-5 py-4">
                     <Link
                       href={`/admin/approvals/${w.id}`}
@@ -106,7 +108,7 @@ export default async function ApprovalsPage({ searchParams }: PageProps<"/admin/
                     )}
                   </td>
                   <td className="px-5 py-4 text-slate-600">
-                    {w.templates.length}
+                    {w.appliesToAll ? dictionary.approvalsPage.allTemplates : w.templates.length}
                   </td>
                   <td className="px-5 py-4">
                     <span
