@@ -226,7 +226,7 @@ async function main() {
         "Cargos y preguntas de compliance obligatorias para compras de hardware/IT.",
       matchCommodity: "Hardware / IT",
       active: true,
-      approvalWorkflowId: hardwareApproval.id,
+      approvalWorkflows: { connect: { id: hardwareApproval.id } },
       items: {
         create: [
           {

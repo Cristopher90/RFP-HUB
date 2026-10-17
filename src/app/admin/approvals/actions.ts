@@ -52,6 +52,15 @@ function shapeLevels(
   );
 }
 
+// Only templates of the same client can be assigned.
+async function templatesOfClient(templateIds: string[], clientId: string) {
+  const found = await prisma.rfpTemplate.findMany({
+    where: { id: { in: templateIds }, clientId },
+    select: { id: true },
+  });
+  return found;
+}
+
 function validSequence(value: number) {
   return Number.isInteger(value) && value >= 0 && value <= 999;
 }
@@ -88,9 +97,9 @@ export async function createApprovalWorkflow(
   await prisma.approvalLevel.createMany({
     data: shapeLevels(input.levels, workflow.id, clientId),
   });
-  await prisma.rfpTemplate.updateMany({
-    where: { id: { in: input.templateIds }, clientId },
-    data: { approvalWorkflowId: workflow.id },
+  await prisma.approvalWorkflow.update({
+    where: { id: workflow.id },
+    data: { templates: { set: await templatesOfClient(input.templateIds, clientId) } },
   });
   revalidatePath("/admin/approvals");
   redirect(`/admin/approvals/${workflow.id}`);
@@ -127,14 +136,11 @@ export async function updateApprovalWorkflow(
   await prisma.approvalLevel.createMany({
     data: shapeLevels(input.levels, id, clientId),
   });
-  // Reasignar plantillas: las que ya no están seleccionadas se sueltan.
-  await prisma.rfpTemplate.updateMany({
-    where: { approvalWorkflowId: id },
-    data: { approvalWorkflowId: null },
-  });
-  await prisma.rfpTemplate.updateMany({
-    where: { id: { in: input.templateIds }, clientId },
-    data: { approvalWorkflowId: id },
+  // Plantillas: una plantilla puede tener varios procesos, así que solo se
+  // cambia la lista de este proceso; los demás procesos no se tocan.
+  await prisma.approvalWorkflow.update({
+    where: { id },
+    data: { templates: { set: await templatesOfClient(input.templateIds, clientId) } },
   });
   revalidatePath("/admin/approvals");
   revalidatePath(`/admin/approvals/${id}`);
@@ -148,10 +154,6 @@ export async function deleteApprovalWorkflow(id: string) {
   if (!scope.isSuperAdmin && existing.clientId !== scope.user.clientId) {
     redirect("/admin/approvals");
   }
-  await prisma.rfpTemplate.updateMany({
-    where: { approvalWorkflowId: id },
-    data: { approvalWorkflowId: null },
-  });
   await prisma.approvalWorkflow.delete({ where: { id } });
   revalidatePath("/admin/approvals");
   // A Super Administrador goes back to the same client's list.

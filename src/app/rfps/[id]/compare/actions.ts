@@ -70,7 +70,7 @@ export async function awardInvitation(
   const [allTemplates, commodities, regions] = await Promise.all([
     prisma.rfpTemplate.findMany({
       where: { active: true, clientId: rfp.clientId },
-      include: { approvalWorkflow: { include: { levels: true } } },
+      include: { approvalWorkflows: { include: { levels: true } } },
     }),
     prisma.commodity.findMany({ where: { clientId: rfp.clientId } }),
     prisma.region.findMany({ where: { clientId: rfp.clientId } }),

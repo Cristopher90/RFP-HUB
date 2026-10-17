@@ -165,7 +165,7 @@ async function findMatchingTemplates(
       include: {
         items: true,
         questions: true,
-        approvalWorkflow: { include: { levels: true } },
+        approvalWorkflows: { include: { levels: true } },
       },
     }),
     prisma.commodity.findMany({ where: { clientId } }),

@@ -29,7 +29,7 @@ export default async function EditApprovalWorkflowPage({
     prisma.rfpTemplate.findMany({
       where: { clientId: workflow.clientId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, approvalWorkflowId: true },
+      select: { id: true, name: true, approvalWorkflows: { select: { id: true } } },
     }),
     prisma.user.findMany({
       where: { clientId: workflow.clientId },
@@ -57,7 +57,7 @@ export default async function EditApprovalWorkflowPage({
       }),
     ),
     templateIds: templates
-      .filter((t) => t.approvalWorkflowId === workflow.id)
+      .filter((t) => t.approvalWorkflows.some((w) => w.id === workflow.id))
       .map((t) => t.id),
   };
 

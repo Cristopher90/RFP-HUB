@@ -479,8 +479,7 @@ model RfpTemplate {
   priority                 Int     @default(100) // si varias plantillas condicionadas aplican a una RFP se elige la de número más bajo
   defaultDeadlineDays      Int? // días por defecto hasta la fecha límite al crear una RFP con esta plantilla
 
-  approvalWorkflowId String?
-  approvalWorkflow   ApprovalWorkflow? @relation(fields: [approvalWorkflowId], references: [id], onDelete: SetNull)
+  approvalWorkflows ApprovalWorkflow[] @relation("TemplateWorkflows") // procesos de aprobación que aplican a esta plantilla (puede haber varios)
 
   items     TemplateItem[]
   questions TemplateQuestion[]
@@ -502,7 +501,7 @@ model ApprovalWorkflow {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  templates RfpTemplate[]
+  templates RfpTemplate[]   @relation("TemplateWorkflows")
   rfps      Rfp[]
   levels    ApprovalLevel[]
 }

@@ -129,7 +129,7 @@ function superiorLevels(
 //   so editing users later never changes an RFP in progress.
 export async function resolveStageLevels(params: {
   clientId: string;
-  matchingTemplates: { approvalWorkflow: WorkflowForStage | null }[];
+  matchingTemplates: { approvalWorkflows: WorkflowForStage[] }[];
   stage: ApprovalStageKind;
   value: number;
   requesterId: string;
@@ -139,7 +139,7 @@ export async function resolveStageLevels(params: {
 
   const byId = new Map<string, WorkflowForStage>();
   for (const t of matchingTemplates) {
-    if (t.approvalWorkflow?.active) byId.set(t.approvalWorkflow.id, t.approvalWorkflow);
+    for (const w of t.approvalWorkflows) if (w.active) byId.set(w.id, w);
   }
   const everywhere = await prisma.approvalWorkflow.findMany({
     where: { clientId, active: true, appliesToAll: true },
