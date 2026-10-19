@@ -1,12 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/approvalEngine";
+import { findDecidedRfpIdsForUser, findPendingApprovalsForUser, userInApprovalFlow } from "@/lib/approvalEngine";
 
 // Who can open / change an RFP:
 //  - Super Administrador and Administrador de cliente: everything in their scope.
 //  - The creator, and the people on the RFP's team ("Equipo"): the creator always
 //    edits; a team member edits or only views according to the permission given.
-//  - An approver involved in the RFP (pending or already decided): view only.
+//  - Anyone who takes part in the RFP's approval flow (any role, any step —
+//    waiting, pending or already decided): view only.
 export type RfpAccess = "edit" | "view" | null;
 
 type AccessUser = { id: string; role: string };
@@ -29,6 +30,7 @@ export async function rfpAccess(user: AccessUser, rfp: { id: string; createdByUs
     const [pending, decided] = await Promise.all([findPendingApprovalsForUser(user.id), findDecidedRfpIdsForUser(user.id)]);
     if (pending.some((p) => p.rfpId === rfp.id) || decided.includes(rfp.id)) return "view";
   }
+  if (await userInApprovalFlow(rfp.id, user.id)) return "view";
   return null;
 }
 

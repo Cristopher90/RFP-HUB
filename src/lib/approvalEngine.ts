@@ -576,6 +576,29 @@ export async function findDecidedRfpIdsForUser(userId: string): Promise<string[]
   return [...new Set(decisions.map((d) => d.approval.rfpId))];
 }
 
+// True when the user takes part in any step of this RFP's approval flows
+// (publish or award), whatever the step's state: named in it, a member of its
+// group with a limit that counts, or already decided. Whoever is in the flow
+// can open the RFP to review it, even before their turn.
+export async function userInApprovalFlow(rfpId: string, userId: string): Promise<boolean> {
+  const approvals = await prisma.rfpApproval.findMany({
+    where: { rfpId },
+    include: { decisions: { select: { userId: true } } },
+  });
+  if (approvals.length === 0) return false;
+  const memberships = await prisma.userApprovalGroup.findMany({ where: { userId } });
+  const limitByGroup = new Map(memberships.map((m) => [m.approvalGroupId, m.limit]));
+  return approvals.some((a) => {
+    if (a.decisions.some((d) => d.userId === userId)) return true;
+    if (a.mode === "USERS") {
+      const ids = a.userIds ? (JSON.parse(a.userIds) as string[]) : [];
+      return ids.includes(userId);
+    }
+    const limit = limitByGroup.get(a.approvalGroupId ?? "");
+    return limit !== undefined && (a.cumulative || limit >= a.requiredValue);
+  });
+}
+
 export type ApprovalLevelView = {
   id: string;
   order: number;
