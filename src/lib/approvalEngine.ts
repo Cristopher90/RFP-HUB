@@ -587,6 +587,7 @@ export type ApprovalLevelView = {
   active: boolean;
   approverNames: string[];
   pendingSince: string | null;
+  decidedAt: string | null; // cuándo se resolvió el nivel (aprobado o rechazado)
   lastReminderAt: string | null;
   eligibleApprovers: { id: string; name: string; limit: number | null }[];
   kind: "users" | "superior" | "group";
@@ -700,6 +701,10 @@ export async function describeApprovals(
         .filter((d) => d.decision === "APPROVED")
         .map((d) => fullName(d.user)),
       pendingSince: a.activatedAt ? a.activatedAt.toISOString() : null,
+      decidedAt:
+        a.status === "PENDING" || a.decisions.length === 0
+          ? null
+          : new Date(Math.max(...a.decisions.map((d) => d.decidedAt.getTime()))).toISOString(),
       lastReminderAt: a.lastReminderAt ? a.lastReminderAt.toISOString() : null,
       eligibleApprovers,
       kind: a.mode === "GROUP" ? ("group" as const) : a.viaSuperior ? ("superior" as const) : ("users" as const),
