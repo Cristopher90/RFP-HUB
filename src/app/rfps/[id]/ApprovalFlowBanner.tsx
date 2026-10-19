@@ -6,26 +6,18 @@ import type { ApprovalLevelView } from "@/lib/approvalEngine";
 
 type PersonState = ApprovalLevelView["people"][number]["state"];
 
-// "2d 3h 15m", "3h 15m 08s", "4m 08s": how long a step has been (or was) waiting.
+// Whole hours elapsed ("26 h"): how long a step has been (or was) waiting.
 function formatElapsed(ms: number) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(total / 86400);
-  const h = Math.floor((total % 86400) / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (d > 0) return `${d}d ${h}h ${pad(m)}m`;
-  if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
-  return `${m}m ${pad(s)}s`;
+  return `${Math.floor(Math.max(0, ms) / 3600000)} h`;
 }
 
-// Counts up live from the moment the step became active.
+// Hours since the step became active; refreshed every minute.
 function LiveTimer({ since }: { since: string }) {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     const tick = () => setNow(Date.now());
     const first = setTimeout(tick, 0);
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 60000);
     return () => {
       clearTimeout(first);
       clearInterval(id);
