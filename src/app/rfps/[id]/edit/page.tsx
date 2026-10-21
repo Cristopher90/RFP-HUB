@@ -1,3 +1,4 @@
+import { assistantAccess } from "@/lib/assistant/access";
 import { rfpAccess } from "@/lib/rfpAccess";
 import { loadRfpTags } from "@/lib/rfpTags";
 import { redirect, notFound } from "next/navigation";
@@ -222,6 +223,7 @@ export default async function EditRfpPage({
             user,
           )}
           clientCurrency={customClient?.currency ?? "USD"}
+          assistantEnabled={Boolean(await assistantAccess(user))}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,

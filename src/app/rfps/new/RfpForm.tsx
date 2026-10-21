@@ -32,6 +32,8 @@ import { makeClientKey } from "@/lib/clientKey";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { questionTypeLabel, requiresAnswerLabel } from "@/i18n/labels";
 import type { UserRole } from "@/generated/prisma/enums";
+import { RfpAssistantPanel } from "../RfpAssistantPanel";
+import type { FormChange, FormSnapshot } from "@/lib/assistant/formChanges";
 import { parseRfpExcelFile } from "./excelImport";
 import { downloadRfpExcel } from "./excelExport";
 import {
@@ -265,6 +267,7 @@ export function RfpForm({
   existingTags = [],
   customFields = [],
   clientCurrency = "USD",
+  assistantEnabled = false,
 }: {
   currentUserRole: UserRole;
   currentUserName: string;
@@ -314,6 +317,8 @@ export function RfpForm({
   docTypeNames?: Record<string, string>;
   customFields?: CustomFieldDef[];
   clientCurrency?: string;
+  // The user can use the AI assistant: it shows next to the form to validate data or add to it.
+  assistantEnabled?: boolean;
 }) {
   const { t, dictionary, language } = usePreferences();
   const idBase = useId();
@@ -1293,6 +1298,74 @@ export function RfpForm({
         : "";
     return { ...s, docIssue: detail !== "", docDetail: detail };
   });
+
+  // ----- AI assistant: what it reads, and how its proposals are applied -----
+  function assistantSnapshot(): FormSnapshot {
+    return {
+      title,
+      description,
+      internalNotes,
+      buyerName,
+      deadlineAt,
+      startDate,
+      commodity,
+      region,
+      origin,
+      estimatedPrice,
+      items: items
+        .filter((i) => i.name.trim())
+        .map((i) => ({ name: i.name, code: i.code, quantity: i.quantity, unit: i.unit, historicalPrice: i.historicalPrice, description: i.description })),
+      questions: [
+        ...questions.filter((q) => q.text.trim()).map((q) => ({ text: q.text, type: q.type, options: q.options, required: q.required, audience: "supplier" as const })),
+        ...internalQuestions.filter((q) => q.text.trim()).map((q) => ({ text: q.text, type: q.type, options: q.options, required: q.required, audience: "internal" as const })),
+      ],
+      suppliers: suppliers.filter((s) => s.name.trim() || s.company.trim()).map((s) => ({ name: s.name, company: s.company })),
+    };
+  }
+
+  // Replaces the first blank row if there is one, otherwise appends.
+  function addOrFillBlank<T extends { name?: string; text?: string; locked?: boolean }>(list: T[], row: T, blank: (r: T) => boolean): T[] {
+    const at = list.findIndex((r) => !r.locked && blank(r));
+    if (at === -1) return [...list, row];
+    return list.map((r, i) => (i === at ? { ...row, section: (r as { section?: string | null }).section ?? null } : r));
+  }
+
+  function applyAssistantChange(change: FormChange) {
+    if (change.kind === "field") {
+      if (change.field === "title") setTitle(change.value);
+      else if (change.field === "description") setDescription(change.value);
+      else if (change.field === "internalNotes") setInternalNotes(change.value);
+      else if (change.field === "origin") setOrigin(change.value);
+      else if (change.field === "commodity") handleCommodityChange(change.value);
+      else if (change.field === "region") handleRegionChange(change.value);
+      else if (change.field === "estimatedPrice") handleEstimatedPriceChange(change.value);
+    } else if (change.kind === "item") {
+      setItems((prev) =>
+        addOrFillBlank(
+          prev,
+          {
+            ...emptyItem(),
+            name: change.name,
+            quantity: change.quantity,
+            unit: change.unit,
+            code: change.code,
+            description: change.description,
+            historicalPrice: change.historicalPrice,
+            commodity: commodity || null,
+          },
+          (r) => !r.name.trim(),
+        ),
+      );
+    } else {
+      setQuestions((prev) =>
+        addOrFillBlank(
+          prev,
+          { ...emptySupplierQuestion(), text: change.text, type: change.type, options: change.options, required: change.required },
+          (r) => !r.text.trim(),
+        ),
+      );
+    }
+  }
 
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
@@ -2868,6 +2941,7 @@ export function RfpForm({
       </div>
         </>
       )}
+      {assistantEnabled && <RfpAssistantPanel getSnapshot={assistantSnapshot} onApply={applyAssistantChange} />}
     </form>
   );
 }

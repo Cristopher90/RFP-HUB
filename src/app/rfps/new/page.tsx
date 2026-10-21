@@ -1,3 +1,4 @@
+import { assistantAccess } from "@/lib/assistant/access";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
@@ -298,6 +299,7 @@ export default async function NewRfpPage({
           seedTemplates={hasPrefill && !purchaseRequestId}
           customFields={customFields}
           clientCurrency={customClient?.currency ?? "USD"}
+          assistantEnabled={Boolean(await assistantAccess(user))}
           templates={templates.map((t) => ({
             id: t.id,
             name: t.name,

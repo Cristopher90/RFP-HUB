@@ -1,5 +1,5 @@
 import "server-only";
-import { TOOLS, executeTool, type ToolContext } from "@/lib/assistant/tools";
+import { toolsFor, executeTool, type ToolContext } from "@/lib/assistant/tools";
 
 // Gemini through the REST generateContent endpoint (no SDK): the same tools as
 // the Claude path, translated to function declarations. The model's own
@@ -30,11 +30,13 @@ function toGeminiSchema(schema: unknown): unknown {
   return out;
 }
 
-const FUNCTION_DECLARATIONS = TOOLS.map((tool) => ({
-  name: tool.name,
-  description: tool.description,
-  parameters: toGeminiSchema(tool.input_schema),
-}));
+function functionDeclarations(ctx: ToolContext) {
+  return toolsFor(ctx).map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: toGeminiSchema(tool.input_schema),
+  }));
+}
 
 async function generate(apiKey: string, model: string, body: unknown) {
   const controller = new AbortController();
@@ -95,7 +97,7 @@ export async function runGemini(options: {
     const data = await generate(options.apiKey, options.model, {
       systemInstruction: { parts: [{ text: options.system }] },
       contents,
-      tools: [{ function_declarations: FUNCTION_DECLARATIONS }],
+      tools: [{ function_declarations: functionDeclarations(options.ctx) }],
       generationConfig: { maxOutputTokens: 8192 },
     });
     inputTokens += data.usageMetadata?.promptTokenCount ?? 0;

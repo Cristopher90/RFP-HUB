@@ -7,6 +7,7 @@ import { findDecidedRfpIdsForUser, findPendingApprovalsForUser } from "@/lib/app
 import { loadReportData } from "@/lib/reportsData";
 import { nextRfpNumber } from "@/lib/rfpNumber";
 import { zonedTimeToUtc } from "@/lib/timezone";
+import { FORM_FIELDS, FORM_QUESTION_TYPES, type FormChange, type FormValidationIssue } from "@/lib/assistant/formChanges";
 
 // What the assistant can do. Every data tool is read-only and scoped to the
 // person asking (same visibility as the RFP list); the only write path is
@@ -15,7 +16,10 @@ import { zonedTimeToUtc } from "@/lib/timezone";
 export type Artifact =
   | { type: "chart"; title: string; chartType: "bar" | "column" | "donut" | "line"; format: "number" | "currency" | "percent"; data: { label: string; value: number }[] }
   | { type: "table"; title: string; columns: string[]; rows: (string | number)[][] }
-  | { type: "proposal"; id: string; title: string; summary: DraftSummary };
+  | { type: "proposal"; id: string; title: string; summary: DraftSummary }
+  // Only while someone edits an RFP: findings about the form, and changes the user can apply to it.
+  | { type: "validation"; issues: FormValidationIssue[] }
+  | { type: "formChanges"; id: string; summary: string; changes: FormChange[]; warnings: string[] };
 
 export type DraftSummary = {
   title: string;
@@ -32,6 +36,8 @@ export type ToolContext = {
   user: { id: string; name: string; lastName: string | null; role: string; clientId: string; timezone: string; language: string };
   client: { id: string; currency: string };
   artifacts: Artifact[];
+  // Set when the assistant runs inside the RFP form: the form's current state (JSON).
+  form?: { snapshot: string };
 };
 
 const STATUSES = ["DRAFT", "PENDING_PUBLISH_APPROVAL", "AWAITING_START", "OPEN", "CLOSED"] as const;
@@ -445,6 +451,10 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
     }
     case "propose_rfp_draft":
       return clip(JSON.stringify(await proposeDraft(input, ctx)));
+    case "report_validation":
+      return clip(JSON.stringify(reportValidation(input, ctx)));
+    case "propose_form_changes":
+      return clip(JSON.stringify(await proposeFormChanges(input, ctx)));
     default:
       return JSON.stringify({ error: `Unknown tool ${name}` });
   }
@@ -488,4 +498,166 @@ export async function createDraftFromProposal(proposalId: string, user: ToolCont
   });
   await prisma.assistantProposal.update({ where: { id: proposal.id }, data: { status: "CREATED", rfpId: rfp.id } });
   return { rfpId: rfp.id, number: rfp.number };
+}
+
+
+// ---------- Inside the RFP form ----------
+// While someone edits an RFP the assistant gets the form's state and two extra
+// tools: one to report findings, one to propose changes the user applies.
+
+export const FORM_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "report_validation",
+    description:
+      "Shows the user a short checklist of findings about the RFP being edited (what is missing, inconsistent or risky). Call it once with all findings, most serious first. Use severity error for what would block or break the RFP, warning for what is probably wrong, info for suggestions. Max 12 findings.",
+    input_schema: {
+      type: "object",
+      properties: {
+        issues: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              severity: { type: "string", enum: ["error", "warning", "info"] },
+              field: { type: "string", description: "Where: title, description, deadline, commodity, region, items, questions, suppliers or another field name." },
+              message: { type: "string", description: "One short sentence saying what is wrong and how to fix it." },
+            },
+            required: ["severity", "field", "message"],
+          },
+        },
+      },
+      required: ["issues"],
+    },
+  },
+  {
+    name: "propose_form_changes",
+    description:
+      "Proposes changes to the RFP being edited: set a header field, add an item or add a supplier question. It does NOT change anything: the user sees each change and presses Apply. Use exact commodity/region names from list_master_data. Do not repeat items or questions that already exist in the form. Max 15 changes.",
+    input_schema: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "One sentence on what these changes do." },
+        changes: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              kind: { type: "string", enum: ["field", "item", "question"] },
+              field: { type: "string", enum: [...FORM_FIELDS], description: "kind=field: which header field." },
+              value: { type: "string", description: "kind=field: the new value (estimatedPrice as a plain number)." },
+              name: { type: "string", description: "kind=item: item name." },
+              quantity: { type: "number" },
+              unit: { type: "string" },
+              code: { type: "string" },
+              description: { type: "string" },
+              historical_price: { type: "number", description: "Only when you know a realistic one from the user's own data." },
+              text: { type: "string", description: "kind=question: the question text." },
+              type: { type: "string", enum: [...FORM_QUESTION_TYPES] },
+              options: { type: "array", items: { type: "string" }, description: "type=SELECT: the choices." },
+              required: { type: "boolean" },
+            },
+            required: ["kind"],
+          },
+        },
+      },
+      required: ["summary", "changes"],
+    },
+  },
+];
+
+// Tools for a run: inside the RFP form the draft-creating tool is replaced by the form ones.
+export function toolsFor(ctx: ToolContext): Anthropic.Tool[] {
+  const notInForm = ["propose_rfp_draft", "show_chart", "show_table"];
+  return ctx.form ? [...TOOLS.filter((t) => !notInForm.includes(t.name)), ...FORM_TOOLS] : TOOLS;
+}
+
+function reportValidation(input: Record<string, unknown>, ctx: ToolContext) {
+  if (!ctx.form) return { error: "not available here" };
+  const issues: FormValidationIssue[] = (Array.isArray(input.issues) ? (input.issues as Record<string, unknown>[]) : [])
+    .slice(0, 12)
+    .map((i) => ({
+      severity: (["error", "warning", "info"].includes(String(i.severity)) ? i.severity : "info") as FormValidationIssue["severity"],
+      field: String(i.field ?? "").trim().slice(0, 40),
+      message: String(i.message ?? "").trim().slice(0, 300),
+    }))
+    .filter((i) => i.message);
+  ctx.artifacts.push({ type: "validation", issues });
+  return { shown: issues.length };
+}
+
+async function proposeFormChanges(input: Record<string, unknown>, ctx: ToolContext) {
+  if (!ctx.form) return { error: "not available here" };
+  let snapshot: { items?: { name?: string }[]; questions?: { text?: string }[] } = {};
+  try {
+    snapshot = JSON.parse(ctx.form.snapshot);
+  } catch {
+    /* keep empty */
+  }
+  const haveItems = new Set((snapshot.items ?? []).map((i) => String(i.name ?? "").trim().toLowerCase()).filter(Boolean));
+  const haveQuestions = new Set((snapshot.questions ?? []).map((q) => String(q.text ?? "").trim().toLowerCase()).filter(Boolean));
+  const [commodities, regions] = await Promise.all([
+    prisma.commodity.findMany({ where: { clientId: ctx.client.id }, select: { description: true } }),
+    prisma.region.findMany({ where: { clientId: ctx.client.id }, select: { description: true } }),
+  ]);
+  const warnings: string[] = [];
+  const changes: FormChange[] = [];
+
+  for (const raw of (Array.isArray(input.changes) ? (input.changes as Record<string, unknown>[]) : []).slice(0, 15)) {
+    if (raw.kind === "field") {
+      const field = String(raw.field);
+      if (!(FORM_FIELDS as readonly string[]).includes(field)) continue;
+      let value = String(raw.value ?? "").trim().slice(0, field === "description" || field === "internalNotes" ? 2000 : 200);
+      if (field === "commodity" || field === "region") {
+        const hit = (field === "commodity" ? commodities : regions).find((r) => r.description.trim().toLowerCase() === value.toLowerCase());
+        if (!hit) {
+          warnings.push(`${field} "${value}" is not in the master data: dropped.`);
+          continue;
+        }
+        value = hit.description;
+      }
+      if (field === "estimatedPrice" && !Number.isFinite(Number(value))) {
+        warnings.push("estimatedPrice must be a number: dropped.");
+        continue;
+      }
+      changes.push({ kind: "field", field: field as (typeof FORM_FIELDS)[number], value });
+    } else if (raw.kind === "item") {
+      const name = String(raw.name ?? "").trim().slice(0, 200);
+      const quantity = Number(raw.quantity);
+      if (!name || !Number.isFinite(quantity) || quantity <= 0) continue;
+      if (haveItems.has(name.toLowerCase())) {
+        warnings.push(`Item "${name}" already exists: dropped.`);
+        continue;
+      }
+      haveItems.add(name.toLowerCase());
+      changes.push({
+        kind: "item",
+        name,
+        quantity,
+        unit: String(raw.unit ?? "unidad").trim().slice(0, 30) || "unidad",
+        code: raw.code ? String(raw.code).trim().slice(0, 40) : null,
+        description: String(raw.description ?? "").trim().slice(0, 500),
+        historicalPrice: raw.historical_price !== undefined && Number.isFinite(Number(raw.historical_price)) ? Number(raw.historical_price) : null,
+      });
+    } else if (raw.kind === "question") {
+      const text = String(raw.text ?? "").trim().slice(0, 300);
+      if (!text) continue;
+      if (haveQuestions.has(text.toLowerCase())) {
+        warnings.push(`Question "${text}" already exists: dropped.`);
+        continue;
+      }
+      haveQuestions.add(text.toLowerCase());
+      const type = (FORM_QUESTION_TYPES as readonly string[]).includes(String(raw.type)) ? (String(raw.type) as (typeof FORM_QUESTION_TYPES)[number]) : "TEXT";
+      const options = Array.isArray(raw.options) ? (raw.options as unknown[]).map((o) => String(o).trim()).filter(Boolean).slice(0, 12) : [];
+      changes.push({ kind: "question", text, type: type === "SELECT" && options.length === 0 ? "TEXT" : type, options: type === "SELECT" ? options : [], required: raw.required !== false });
+    }
+  }
+  if (changes.length === 0) return { error: "no valid changes", warnings };
+  ctx.artifacts.push({
+    type: "formChanges",
+    id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    summary: String(input.summary ?? "").trim().slice(0, 300),
+    changes,
+    warnings,
+  });
+  return { status: "PROPOSED_NOT_APPLIED", note: "The user must press Apply for each change. Do not say they were applied.", warnings };
 }

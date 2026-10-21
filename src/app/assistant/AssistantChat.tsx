@@ -84,6 +84,8 @@ export function AssistantChat({ currency }: { currency: string }) {
         </div>
       );
     }
+    // Form artifacts only appear inside the RFP form's own assistant.
+    if (a.type !== "proposal") return null;
     const state = proposals[a.id] ?? { status: "pending" as const };
     const s = a.summary;
     return (
