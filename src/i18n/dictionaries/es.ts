@@ -866,7 +866,6 @@ export const es = {
     companyRequired: "El nombre de la empresa es obligatorio.",
     tooLong: "El texto es demasiado largo.",
     notAllowed: "No tienes permiso para cambiar estos datos.",
-    menu: "Mis datos",
   },
   supplierOverview: {
     expiringTitle: "RFP por vencer",

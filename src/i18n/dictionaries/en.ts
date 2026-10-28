@@ -865,7 +865,6 @@ export const en: Dictionary = {
     companyRequired: "The company name is required.",
     tooLong: "The text is too long.",
     notAllowed: "You don't have permission to change these details.",
-    menu: "My details",
   },
   supplierOverview: {
     expiringTitle: "RFPs about to expire",

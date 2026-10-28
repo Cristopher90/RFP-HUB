@@ -1,23 +1,26 @@
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { acceptedLinks, requireSupplierUser } from "@/lib/supplierAuth";
 import { getDictionary } from "@/i18n/getDictionary";
 import { ContactsManager, type ContactRow } from "./ContactsManager";
+import { CompanyForm, type CompanyContact, type CompanyEntry } from "./CompanyForm";
 
-// Supplier settings (administrators only): the company's contacts, which of
-// its clients each one can take part in, and the clients assigned to it.
+// Supplier settings. Everyone: their own name. Administrators also: the company
+// name (one for all clients), the names of their colleagues, the company's
+// contacts and which of its clients each one can take part in.
 export default async function SupplierSettingsPage() {
   const supplierUser = await requireSupplierUser();
   const dictionary = getDictionary(supplierUser.language);
   const mine = acceptedLinks(supplierUser);
   const administered = mine.filter((l) => l.isAdmin);
-  if (administered.length === 0) redirect("/supplier");
+  const isAdmin = administered.length > 0;
 
-  const links = await prisma.supplierUserLink.findMany({
-    where: { supplierDirectoryId: { in: administered.map((l) => l.supplierDirectoryId) } },
-    include: { supplierUser: true },
-    orderBy: [{ invitedAt: "asc" }],
-  });
+  const links = isAdmin
+    ? await prisma.supplierUserLink.findMany({
+        where: { supplierDirectoryId: { in: administered.map((l) => l.supplierDirectoryId) } },
+        include: { supplierUser: true },
+        orderBy: [{ invitedAt: "asc" }],
+      })
+    : [];
 
   const directories = administered.map((l) => ({
     id: l.supplierDirectoryId,
@@ -45,11 +48,31 @@ export default async function SupplierSettingsPage() {
     byPerson.set(l.supplierUserId, row);
   }
 
+  // The details block: the person themselves, the company name per client and the colleagues' names.
+  const entries: CompanyEntry[] = administered.map((l) => ({
+    clientLabel: `${l.client.icon ? `${l.client.icon} ` : ""}${l.client.description}`,
+    companyName: l.supplierDirectory.companyName,
+  }));
+  const colleagues: CompanyContact[] = [...byPerson.values()]
+    .filter((c) => !c.isMe)
+    .map((c) => {
+      const person = links.find((l) => l.supplierUserId === c.id)!.supplierUser;
+      return { id: person.id, name: person.name, lastName: person.lastName, email: person.email };
+    });
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">{dictionary.supplierContactsPage.title}</h1>
-      <p className="mt-1 text-sm text-slate-500">{dictionary.supplierContactsPage.subtitle}</p>
-      <ContactsManager directories={directories} contacts={[...byPerson.values()]} />
+      <p className="mt-1 text-sm text-slate-500">
+        {isAdmin ? dictionary.supplierContactsPage.subtitle : dictionary.supplierCompany.subtitle}
+      </p>
+      <CompanyForm
+        me={{ id: supplierUser.id, name: supplierUser.name, lastName: supplierUser.lastName, email: supplierUser.email }}
+        isAdmin={isAdmin}
+        entries={entries}
+        contacts={colleagues}
+      />
+      {isAdmin && <ContactsManager directories={directories} contacts={[...byPerson.values()]} />}
     </div>
   );
 }
