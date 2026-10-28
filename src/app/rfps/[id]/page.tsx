@@ -582,7 +582,11 @@ export default async function RfpDetailPage({
       {visibleBuyerQuestions.length > 0 && (
         <CollapsibleSection
           title={dictionary.rfpDetail.buyerQuestionsTitle}
-          subtitle={dictionary.rfpDetail.buyerQuestionsSubtitle}
+          subtitle={
+            rfp.status === "DRAFT"
+              ? dictionary.rfpDetail.buyerQuestionsSubtitle
+              : `${dictionary.rfpDetail.buyerQuestionsSubtitle} ${dictionary.rfpDetail.buyerAnswersLocked}`
+          }
           storageKey="rfp-detail-buyer-questions"
           className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
         >
@@ -590,7 +594,24 @@ export default async function RfpDetailPage({
             {visibleBuyerQuestions.map((q) => (
               <li key={q.id} className="px-6 py-3">
                 <p className="mb-2 text-slate-700">{q.text}</p>
-                {canEdit && <BuyerQuestionForm rfpId={rfp.id} question={q} />}
+                {rfp.status === "DRAFT" ? (
+                  canEdit && <BuyerQuestionForm rfpId={rfp.id} question={q} />
+                ) : q.type === "INFO" ? null : q.buyerAnswerValue ? (
+                  q.type === "ATTACHMENT" ? (
+                    <a
+                      href={q.buyerAnswerValue.split("|")[0]}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-violet-600 underline"
+                    >
+                      {q.buyerAnswerValue.split("|")[1] ?? dictionary.buyerQuestionForm.currentFile}
+                    </a>
+                  ) : (
+                    <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-800">{q.buyerAnswerValue}</p>
+                  )
+                ) : (
+                  <p className="text-xs text-slate-400">{dictionary.rfpDetail.noBuyerAnswer}</p>
+                )}
               </li>
             ))}
           </ul>

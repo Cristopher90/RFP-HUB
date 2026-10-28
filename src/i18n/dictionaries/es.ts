@@ -1278,6 +1278,8 @@ export const es = {
     noActiveSuppliers: "No hay proveedores activos en Configuración → Datos maestros → Proveedores.",
   },
   rfpDetail: {
+    buyerAnswersLocked: "Las respuestas se bloquean al publicar la RFP.",
+    noBuyerAnswer: "Sin respuesta.",
     invitesOnlyInDraft: "Solo se pueden invitar proveedores mientras la RFP está en borrador. Para cambiarlos usa \"Editar\".",
     editPublished: "Editar",
     editPublishedConfirm: "Para editar, la RFP vuelve a borrador y se eliminan las respuestas que los proveedores ya enviaron ({count}). Tendrás que publicarla de nuevo y los proveedores deberán responder otra vez. ¿Continuar?",

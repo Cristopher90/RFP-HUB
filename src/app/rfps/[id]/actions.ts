@@ -136,6 +136,10 @@ export async function setBuyerAnswer(
 ) {
   const user = await requireUser();
   if (await editDenied(user, rfpId, "")) return;
+  // The buyer's own answers are only editable while the RFP is a draft: once it is
+  // published (or waiting for approval) they are locked.
+  const current = await prisma.rfp.findUnique({ where: { id: rfpId }, select: { status: true } });
+  if (!current || current.status !== "DRAFT") return;
 
   const question = await prisma.rfpQuestion.findUnique({
     where: { id: questionId },
