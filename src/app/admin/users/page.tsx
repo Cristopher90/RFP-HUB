@@ -6,6 +6,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { roleLabel } from "@/i18n/labels";
 import { UserListFilter } from "./UserListFilter";
 import { UsersTable } from "./UsersTable";
+import { UsersOrgChart } from "./UsersOrgChart";
 
 export default async function UsersPage({
   searchParams,
@@ -18,6 +19,7 @@ export default async function UsersPage({
   const q =
     (typeof sp.q === "string" ? sp.q : "").trim().toLowerCase();
   const dictionary = getDictionary(scope.user.language);
+  const view = sp.view === "tree" ? "tree" : "list";
 
   const users = await prisma.user.findMany({
     where: scope.where,
@@ -60,26 +62,58 @@ export default async function UsersPage({
         </Link>
       </div>
 
-      <div className="mt-6">
-        <UserListFilter />
+      <div className="mt-6 inline-flex rounded-lg border border-slate-200 bg-white p-1 text-sm">
+        {(["list", "tree"] as const).map((v) => (
+          <Link
+            key={v}
+            href={v === "tree" ? "/admin/users?view=tree" : "/admin/users"}
+            className={`rounded-md px-4 py-1.5 font-medium ${
+              view === v ? "bg-violet-600 text-white" : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {v === "tree" ? dictionary.usersPage.viewTree : dictionary.usersPage.viewList}
+          </Link>
+        ))}
       </div>
 
-      <div className="mt-4">
-        <UsersTable
-          rows={filtered.map((u) => ({
-            id: u.id,
-            name: `${u.name} ${u.lastName ?? ""}`.trim(),
-            client: u.client?.description ?? "",
-            email: u.email,
-            company: u.companyCode ?? "",
-            plant: u.plant ?? "",
-            costCenter: u.costCenter ?? "",
-            group: roleLabel(dictionary, u.role),
-            createdAt: u.createdAt.toISOString(),
-            modifiedAt: u.modifiedAt.toISOString(),
-          }))}
-        />
-      </div>
+      {view === "tree" ? (
+        <div className="mt-6">
+          <UsersOrgChart
+            users={users.map((u) => ({
+              id: u.id,
+              name: `${u.name} ${u.lastName ?? ""}`.trim(),
+              role: roleLabel(dictionary, u.role),
+              supervisorId: u.supervisorId,
+              approvalLimit: u.approvalLimit,
+              currency: u.client?.currency ?? "USD",
+              clientLabel: u.client?.description ?? "",
+            }))}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="mt-6">
+            <UserListFilter />
+          </div>
+
+          <div className="mt-4">
+            <UsersTable
+              rows={filtered.map((u) => ({
+                id: u.id,
+                name: `${u.name} ${u.lastName ?? ""}`.trim(),
+                client: u.client?.description ?? "",
+                email: u.email,
+                company: u.companyCode ?? "",
+                plant: u.plant ?? "",
+                costCenter: u.costCenter ?? "",
+                group: roleLabel(dictionary, u.role),
+                createdAt: u.createdAt.toISOString(),
+                modifiedAt: u.modifiedAt.toISOString(),
+              }))}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

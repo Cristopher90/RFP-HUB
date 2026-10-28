@@ -408,6 +408,7 @@ model SupplierUserLink {
   inviteToken         String             @unique @default(cuid())
   invitedAt           DateTime           @default(now())
   acceptedAt          DateTime?
+  notifiedAt          DateTime? // cuándo se envió el correo de invitación (null si aún no: p. ej. proveedor bloqueado)
 
   @@unique([supplierUserId, supplierDirectoryId])
 }

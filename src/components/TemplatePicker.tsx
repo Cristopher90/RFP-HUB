@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePreferences } from "@/i18n/PreferencesProvider";
 
 export type PickableTemplate = {
   id: string;
@@ -19,23 +20,38 @@ export function TemplatePicker({
   selectedId,
   onChange,
   locked = false,
+  general = [],
 }: {
+  // Templates without any condition: they apply to every RFP, so they are not
+  // chosen here, but the buyer should see that they are in effect.
+  general?: { id: string; name: string }[];
   locked?: boolean; // an absolute template is imposed: nothing to choose
   templates: PickableTemplate[];
   selectedId: string | null;
   onChange: (id: string | null) => void;
 }) {
+  const { t } = usePreferences();
   const [open, setOpen] = useState(false);
   const selected = templates.find((t) => t.id === selectedId) ?? null;
+  const generalNames = general.map((g) => g.name).join(", ");
+  const generalHint =
+    general.length > 0 ? (
+      <p className="mt-1 text-xs text-slate-500">{t("rfpForm.generalTemplatesApply").replace("{names}", generalNames)}</p>
+    ) : null;
 
   if (templates.length === 0) {
     return (
-      <input
-        disabled
-        readOnly
-        value="Ninguna plantilla específica aplica"
-        className="w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-500 shadow-sm"
-      />
+      <div>
+        <input
+          disabled
+          readOnly
+          value={general.length > 0 ? generalNames : t("rfpForm.noSpecificTemplate")}
+          className={`w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm shadow-sm ${
+            general.length > 0 ? "text-slate-700" : "text-slate-500"
+          }`}
+        />
+        {general.length > 0 && <p className="mt-1 text-xs text-slate-500">{t("rfpForm.generalTemplateOnly")}</p>}
+      </div>
     );
   }
 
@@ -56,6 +72,7 @@ export function TemplatePicker({
         <p className="mt-1 text-xs text-slate-400">
           Esta plantilla se aplica siempre que coincide y no se puede cambiar.
         </p>
+        {generalHint}
       </div>
     );
   }
@@ -76,6 +93,7 @@ export function TemplatePicker({
           ▾
         </span>
       </button>
+      {generalHint}
 
       {open && (
         <div

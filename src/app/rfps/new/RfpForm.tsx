@@ -1695,6 +1695,7 @@ export function RfpForm({
                   priority: t.priority ?? 100,
                 }))}
               locked={Boolean(forcedTemplate(matchingNow.conditional))}
+              general={matchingNow.always.map((g) => ({ id: g.id, name: g.name }))}
               selectedId={selectedTemplateId}
               onChange={(id) => handleTemplateSelectionChange(id ?? "")}
             />

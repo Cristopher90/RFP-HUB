@@ -20,7 +20,7 @@ type LinkWithRefs = {
   supplierDirectoryId: string;
   inviteToken: string;
   supplierUser: { id: string; name: string; email: string; language: string; passwordHash: string | null };
-  supplierDirectory: { companyName: string };
+  supplierDirectory: { companyName: string; blocked: boolean };
   client: { description: string };
 };
 
@@ -37,10 +37,10 @@ async function send(
   to: { email: string; language: string },
   vars: Record<string, string>,
   ctaPath: string,
-): Promise<void> {
+): Promise<boolean> {
   const template = await resolveTemplate(clientId, kind, to.language);
   const rendered = renderTemplate(template, vars);
-  await sendEmail(
+  return sendEmail(
     to.email,
     rendered.subject,
     {
@@ -56,22 +56,36 @@ async function send(
 // Emails the person the invitation to accept. A brand-new account gets the
 // "join RFP HUB" email (they set their password on accepting); someone who
 // already has an account gets the "accept a connection with this client" one.
+// While the supplier is blocked nothing is sent: the invitation waits (notifiedAt
+// stays empty) and goes out when the supplier is unblocked.
 async function sendInvitationNow(linkId: string, fallbackLanguage: string): Promise<void> {
   try {
     const link = await loadLink(linkId);
     if (!link) return;
+    if (link.supplierDirectory.blocked) return;
     const person = link.supplierUser;
     const kind: EmailKind = person.passwordHash ? "supplierClientAccess" : "supplierInvite";
-    await send(
+    const sent = await send(
       kind,
       link.clientId,
       { email: person.email, language: person.passwordHash ? person.language : fallbackLanguage },
       { name: person.name, client: link.client.description, company: link.supplierDirectory.companyName },
       `/supplier/accept/${link.inviteToken}`,
     );
+    if (sent) await prisma.supplierUserLink.update({ where: { id: linkId }, data: { notifiedAt: new Date() } });
   } catch (error) {
     console.error("[supplier:invite]", linkId, error);
   }
+}
+
+// The supplier was unblocked: the invitations that were held back go out now (only
+// those never emailed).
+export async function sendHeldInvitations(supplierDirectoryId: string, fallbackLanguage: string): Promise<void> {
+  const held = await prisma.supplierUserLink.findMany({
+    where: { supplierDirectoryId, status: "SENT", notifiedAt: null },
+    select: { id: true },
+  });
+  for (const l of held) sendInvitation(l.id, fallbackLanguage);
 }
 
 export function sendInvitation(linkId: string, fallbackLanguage: string): void {

@@ -12,7 +12,7 @@ import {
   canManageSupplierDocs,
   canRateSuppliers,
 } from "@/lib/supplierAccess";
-import { addContact } from "@/lib/supplierContacts";
+import { addContact, sendHeldInvitations } from "@/lib/supplierContacts";
 import { clientAi, researchSupplier, ResearchError } from "@/lib/supplierResearch";
 import { canSeeByGroups } from "@/lib/viewGroups";
 import { validViewGroupIds } from "@/lib/viewGroupsServer";
@@ -89,6 +89,8 @@ export async function setSupplierBlocked(directoryId: string, blocked: boolean):
   await logSupplierEvent(supplier.id, user.id, blocked ? "BLOCKED" : "UNBLOCKED", {
     wasInitial: supplier.initialBlock,
   });
+  // Contacts added while it was blocked get their invitation now.
+  if (!blocked) await sendHeldInvitations(supplier.id, user.language);
   revalidatePath("/suppliers");
   return { success: true };
 }
