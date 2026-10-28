@@ -4,6 +4,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { canViewRequests } from "@/lib/requestAccess";
 import { assistantAccess } from "@/lib/assistant/access";
 import { SidebarNav, type SidebarItem } from "@/components/SidebarNav";
+import { unreadForBuyer } from "@/lib/rfpMessages";
 
 export async function Sidebar() {
   const user = await getCurrentUser();
@@ -11,10 +12,12 @@ export async function Sidebar() {
   if (!user) return null;
   const dictionary = getDictionary(user.language);
 
+  // Unread supplier messages on the RFPs this user can answer: shown next to "RFPs".
+  const unreadMessages = (await unreadForBuyer(user)).reduce((sum, r) => sum + r.unread, 0);
   const hasAssistant = Boolean(await assistantAccess(user));
   const items: SidebarItem[] = [
     { href: "/home", label: dictionary.nav.home, icon: "home" },
-    { href: "/", label: dictionary.nav.rfps, icon: "rfps" },
+    { href: "/", label: dictionary.nav.rfps, icon: "rfps", badge: unreadMessages },
     ...(canViewRequests(user)
       ? [{ href: "/requests", label: dictionary.nav.requests, icon: "requests" as const }]
       : []),

@@ -12,6 +12,9 @@ import { PendingApprovalsBox } from "./PendingApprovalsBox";
 import { RfpCalendar } from "@/components/RfpCalendar";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 import { getDictionary } from "@/i18n/getDictionary";
+import { unreadForBuyer } from "@/lib/rfpMessages";
+import { formatDateTime, formatRfpNumber } from "@/lib/format";
+import { localeForLanguage } from "@/i18n/locale";
 import { zonedTimeToUtc } from "@/lib/timezone";
 import { readUserPref } from "@/lib/userPrefs";
 import { RFP_FILTERS_PREF_KEY, RFP_FILTER_PARAMS } from "@/lib/prefKeys";
@@ -161,6 +164,9 @@ export default async function Home({
   const assignedRfpIds = [
     ...new Set([...pendingApprovals.map((p) => p.rfpId), ...decidedRfpIds]),
   ];
+
+  // Supplier messages waiting for an answer (for those who can answer them).
+  const inbox = await unreadForBuyer(user);
 
   const where = {
     // Soft-deleted RFPs stay in the DB but never show up in normal
@@ -330,6 +336,55 @@ export default async function Home({
             )}
           </nav>
         </div>
+      )}
+
+      {inbox.length > 0 && (
+        <CollapsibleSection
+          title={
+            <>
+              {dictionary.rfpMessages.inboxTitle}
+              <span className="ml-2 rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">
+                {inbox.reduce((sum, r) => sum + r.unread, 0)}
+              </span>
+            </>
+          }
+          subtitle={dictionary.rfpMessages.inboxHint}
+          storageKey="rfp-list-messages"
+          className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="text-left text-xs font-medium text-slate-500">
+                <tr>
+                  <th className="py-2 pr-4">{dictionary.rfpMessages.colRfp}</th>
+                  <th className="py-2 pr-4">{dictionary.rfpMessages.colTitle}</th>
+                  <th className="py-2 pr-4">{dictionary.rfpMessages.colDate}</th>
+                  <th className="py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {inbox.map((r) => (
+                  <tr key={r.rfpId}>
+                    <td className="whitespace-nowrap py-2.5 pr-4 font-medium text-slate-800">{formatRfpNumber(r.number)}</td>
+                    <td className="py-2.5 pr-4 text-slate-700">{r.title}</td>
+                    <td className="whitespace-nowrap py-2.5 pr-4 text-slate-500">
+                      {formatDateTime(r.lastAt, { locale: localeForLanguage(user.language), timeZone: user.timezone })}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <Link
+                        href={`/rfps/${r.rfpId}#mensajes`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
+                      >
+                        {dictionary.rfpMessages.viewMessages}
+                        <span className="rounded-full bg-white/25 px-1.5">{r.unread}</span>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CollapsibleSection>
       )}
 
       <div className="mb-6">

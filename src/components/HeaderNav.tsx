@@ -24,6 +24,12 @@ export async function HeaderNav() {
               {companyNames(supplierUser)}
             </p>
           </div>
+          <Link
+            href="/supplier/company"
+            className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 hover:bg-slate-100"
+          >
+            {dictionary.supplierCompany.menu}
+          </Link>
           {isSupplierAdmin(supplierUser) && (
             <Link
               href="/supplier/contacts"

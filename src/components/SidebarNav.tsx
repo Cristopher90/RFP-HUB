@@ -96,7 +96,8 @@ function Icon({ name }: { name: SidebarIconName }) {
   }
 }
 
-export type SidebarItem = { href: string; label: string; icon: SidebarIconName };
+// badge: a count shown as an envelope with the number (unread messages) when above zero.
+export type SidebarItem = { href: string; label: string; icon: SidebarIconName; badge?: number };
 
 export function SidebarNav({ items }: { items: SidebarItem[] }) {
   const pathname = usePathname();
@@ -125,6 +126,19 @@ export function SidebarNav({ items }: { items: SidebarItem[] }) {
               <Icon name={item.icon} />
             </span>
             {item.label}
+            {item.badge !== undefined && item.badge > 0 && (
+              <span
+                className="ml-auto inline-flex items-center gap-1 rounded-full bg-violet-600 px-2 py-0.5 text-[11px] font-semibold text-white"
+                title={`${item.badge}`}
+                aria-label={`${item.badge}`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <path d="m3 7 9 6 9-6" />
+                </svg>
+                {item.badge}
+              </span>
+            )}
           </Link>
         );
       })}

@@ -10,6 +10,8 @@ export type WeekEvent = {
   title: string;
   closesAt: string;
   startsAt: string | null;
+  // Where the event links to; buyers go to the RFP, suppliers to their invitation.
+  href?: string;
 };
 
 const DAY_MS = 86_400_000;
@@ -116,7 +118,7 @@ export function WeekCalendar({ events }: { events: WeekEvent[] }) {
                 {closing.map((e) => (
                   <li key={`c-${e.id}`}>
                     <Link
-                      href={`/rfps/${e.id}`}
+                      href={e.href ?? `/rfps/${e.id}`}
                       title={`${t("rfpCalendar.closing")}: RFP-${e.number} — ${e.title}`}
                       className="flex items-start gap-1.5 rounded px-1 py-0.5 text-xs text-slate-700 hover:bg-red-50"
                     >
@@ -128,7 +130,7 @@ export function WeekCalendar({ events }: { events: WeekEvent[] }) {
                 {starting.map((e) => (
                   <li key={`s-${e.id}`}>
                     <Link
-                      href={`/rfps/${e.id}`}
+                      href={e.href ?? `/rfps/${e.id}`}
                       title={`${t("rfpCalendar.starting")}: RFP-${e.number} — ${e.title}`}
                       className="flex items-start gap-1.5 rounded px-1 py-0.5 text-xs text-slate-700 hover:bg-emerald-50"
                     >

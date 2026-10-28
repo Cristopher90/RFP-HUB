@@ -79,6 +79,16 @@ export default async function SupplierHomePage() {
   }
   const byClient = [...perClient.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
 
+  // The week calendar: each of this supplier's RFPs when it opens and when it closes.
+  const weekEvents = invitations.map((inv) => ({
+    id: inv.id,
+    number: inv.rfp.number,
+    title: inv.rfp.title,
+    closesAt: inv.rfp.deadlineAt.toISOString(),
+    startsAt: (inv.rfp.startDate ?? inv.rfp.publishedAt)?.toISOString() ?? null,
+    href: `/respond/${inv.token}`,
+  }));
+
   const unreadByInvitation = await unreadForSupplierInvitations(invitations.map((i) => i.id));
   const unread = invitations
     .filter((inv) => (unreadByInvitation.get(inv.id) ?? 0) > 0)
@@ -131,7 +141,7 @@ export default async function SupplierHomePage() {
         </Link>
       )}
 
-      {rows.length > 0 && <SupplierOverview expiring={expiring} byClient={byClient} unread={unread} />}
+      {rows.length > 0 && <SupplierOverview expiring={expiring} byClient={byClient} unread={unread} weekEvents={weekEvents} />}
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">

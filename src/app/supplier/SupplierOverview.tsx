@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePreferences } from "@/i18n/PreferencesProvider";
 import { Chart } from "@/components/charts/ChartKit";
 import { CountdownTimer } from "@/app/rfps/[id]/CountdownTimer";
+import { WeekCalendar, type WeekEvent } from "@/app/home/WeekCalendar";
 
 export type ExpiringRow = { token: string; rfpNumberLabel: string; rfpTitle: string; clientLabel: string; deadline: string };
 export type UnreadRow = { token: string; rfpNumberLabel: string; rfpTitle: string; count: number };
@@ -14,7 +15,9 @@ export function SupplierOverview({
   expiring,
   byClient,
   unread,
+  weekEvents,
 }: {
+  weekEvents: WeekEvent[];
   expiring: ExpiringRow[];
   byClient: { label: string; value: number }[];
   unread: UnreadRow[];
@@ -40,6 +43,11 @@ export function SupplierOverview({
         </section>
       )}
 
+      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-sm font-semibold text-slate-800">{t("homePage.weekTitle")}</h2>
+        <WeekCalendar events={weekEvents} />
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-800">{t("supplierOverview.expiringTitle")}</h2>
@@ -51,9 +59,12 @@ export function SupplierOverview({
               {expiring.map((e) => (
                 <li key={e.token} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-800">
+                    <Link
+                      href={`/respond/${e.token}`}
+                      className="block truncate text-sm font-medium text-slate-800 hover:text-violet-700 hover:underline"
+                    >
                       {e.rfpNumberLabel} · {e.rfpTitle}
-                    </p>
+                    </Link>
                     <p className="truncate text-xs text-slate-500">{e.clientLabel}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
