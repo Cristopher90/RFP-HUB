@@ -30,6 +30,8 @@ import { BuyerQuestionForm } from "./BuyerQuestionForm";
 import { DraftActions } from "./DraftActions";
 import { CopyRfpButton } from "./CopyRfpButton";
 import { PublishApprovalSection } from "./PublishApprovalSection";
+import { RfpMessages } from "./RfpMessages";
+import { chatOpen, threadsForRfp } from "@/lib/rfpMessages";
 import { CountdownTimer } from "./CountdownTimer";
 import { closeRfp, reopenRfp } from "./actions";
 import { syncAwaitingStart } from "@/lib/rfpStatus";
@@ -143,6 +145,11 @@ export default async function RfpDetailPage({
   const canDecidePublish =
     rfp.status === "PENDING_PUBLISH_APPROVAL" &&
     (await canDecideActiveLevel(rfp.id, "PUBLISH", user.id));
+
+  // Chat with the invited suppliers (published RFPs only, for those who can edit).
+  const showMessages = canEdit && chatOpen(rfp.status) && rfp.invitations.length > 0;
+  const messageThreads = showMessages ? await threadsForRfp(rfp.id) : {};
+  const unreadMessages = Object.values(messageThreads).flat().filter((m) => m.sender === "SUPPLIER" && !m.read).length;
 
   const history: { date: Date; label: string; detail?: string }[] = [
     { date: rfp.createdAt, label: dictionary.rfpDetail.creation },
@@ -738,6 +745,30 @@ export default async function RfpDetailPage({
           )}
         </div>
       </CollapsibleSection>
+
+      {showMessages && (
+        <div id="mensajes" className="mt-8">
+          <CollapsibleSection
+            title={
+              <>
+                {dictionary.rfpMessages.title}
+                {unreadMessages > 0 && (
+                  <span className="ml-2 rounded-full bg-violet-600 px-2 py-0.5 text-xs font-semibold text-white">{unreadMessages}</span>
+                )}
+              </>
+            }
+            storageKey="rfp-detail-messages"
+            className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+          >
+            <RfpMessages
+              rfpId={rfp.id}
+              canSend={canEdit}
+              suppliers={rfp.invitations.map((i) => ({ invitationId: i.id, name: i.supplier.name, company: i.supplier.company }))}
+              threads={messageThreads}
+            />
+          </CollapsibleSection>
+        </div>
+      )}
 
       <CollapsibleSection
         title={dictionary.rfpDetail.historyTitle}

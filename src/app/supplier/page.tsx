@@ -8,6 +8,8 @@ import { getViewerPreferences } from "@/lib/preferences";
 import { localeForLanguage } from "@/i18n/locale";
 import { getDictionary } from "@/i18n/getDictionary";
 import { SupplierRfpTable } from "./SupplierRfpTable";
+import { SupplierOverview } from "./SupplierOverview";
+import { unreadForSupplierInvitations } from "@/lib/rfpMessages";
 
 export default async function SupplierHomePage() {
   const supplierUser = await requireSupplierUser();
@@ -44,7 +46,8 @@ export default async function SupplierHomePage() {
     where: {
       supplier: { supplierDirectoryId: { in: directoryIds } },
       rfp: {
-        status: { notIn: ["AWAITING_START", "PENDING_PUBLISH_APPROVAL"] },
+        // Drafts and anything not published yet (or deleted) never show on the supplier side.
+        status: { notIn: ["DRAFT", "AWAITING_START", "PENDING_PUBLISH_APPROVAL", "DELETED"] },
       },
     },
     include: {
@@ -53,6 +56,33 @@ export default async function SupplierHomePage() {
     },
     orderBy: { invitedAt: "desc" },
   });
+
+  // RFPs about to expire: open, not answered yet, soonest deadline first.
+  const nowMs = Date.now();
+  const expiring = invitations
+    .filter((inv) => inv.rfp.status === "OPEN" && !inv.response && inv.rfp.deadlineAt.getTime() > nowMs)
+    .sort((a, b) => a.rfp.deadlineAt.getTime() - b.rfp.deadlineAt.getTime())
+    .slice(0, 6)
+    .map((inv) => ({
+      token: inv.token,
+      rfpNumberLabel: formatRfpNumber(inv.rfp.number),
+      rfpTitle: inv.rfp.title,
+      clientLabel: inv.rfp.client.description,
+      deadline: inv.rfp.deadlineAt.toISOString(),
+    }));
+
+  // How many RFPs each client has sent to this supplier.
+  const perClient = new Map<string, number>();
+  for (const inv of invitations) {
+    const label = inv.rfp.client.description;
+    perClient.set(label, (perClient.get(label) ?? 0) + 1);
+  }
+  const byClient = [...perClient.entries()].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
+
+  const unreadByInvitation = await unreadForSupplierInvitations(invitations.map((i) => i.id));
+  const unread = invitations
+    .filter((inv) => (unreadByInvitation.get(inv.id) ?? 0) > 0)
+    .map((inv) => ({ token: inv.token, rfpNumberLabel: formatRfpNumber(inv.rfp.number), rfpTitle: inv.rfp.title, count: unreadByInvitation.get(inv.id) ?? 0 }));
 
   const rows = invitations.map((inv) => ({
     id: inv.id,
@@ -100,6 +130,8 @@ export default async function SupplierHomePage() {
           ).replace("{count}", String(awaitingApproval))}
         </Link>
       )}
+
+      {rows.length > 0 && <SupplierOverview expiring={expiring} byClient={byClient} unread={unread} />}
 
       {rows.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">

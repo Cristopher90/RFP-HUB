@@ -7,6 +7,8 @@ import { getViewerPreferences } from "@/lib/preferences";
 import { localeForLanguage } from "@/i18n/locale";
 import { getDictionary } from "@/i18n/getDictionary";
 import { ResponseForm } from "./ResponseForm";
+import { SupplierMessages } from "./SupplierMessages";
+import { chatOpen, threadForInvitation } from "@/lib/rfpMessages";
 
 export default async function RespondPage({
   params,
@@ -35,6 +37,8 @@ export default async function RespondPage({
   });
 
   if (!invitation) notFound();
+  // A draft (or a deleted RFP) is not visible to suppliers at all.
+  if (invitation.rfp.status === "DRAFT" || invitation.rfp.status === "DELETED") notFound();
   // Derived from the RFP's owning client, not the (session-less) viewer's
   // default preference — see rfps/[id]/page.tsx for why.
   const currencyOptions = { locale, currency: invitation.rfp.client.currency };
@@ -199,6 +203,13 @@ export default async function RespondPage({
           rfpRegion={rfp.region}
           rfpCustom={rfpCustom}
         />
+      )}
+
+      {chatOpen(rfp.status) && (
+        <section id="mensajes" className="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-base font-semibold text-slate-900">{dictionary.rfpMessages.title}</h2>
+          <SupplierMessages token={token} messages={await threadForInvitation(invitation.id)} />
+        </section>
       )}
     </div>
   );

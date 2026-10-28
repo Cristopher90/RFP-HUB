@@ -125,6 +125,7 @@ model Client {
   templateQuestions      TemplateQuestion[]
   rfps                   Rfp[]
   rfpApprovals           RfpApproval[]
+  rfpMessages            RfpMessage[]
   rfpApprovalDecisions   RfpApprovalDecision[]
   rfpItems               RfpItem[]
   rfpQuestions           RfpQuestion[]
@@ -213,6 +214,7 @@ model User {
 
   createdRfps       Rfp[]
   approvalDecisions RfpApprovalDecision[]
+  sentMessages      RfpMessage[]
   supplierDocuments SupplierDocument[]
   rfpMemberships    RfpMember[]
   rfpEvents         RfpEvent[]
@@ -641,6 +643,7 @@ model Rfp {
   questions       RfpQuestion[]
   invitations     Invitation[]
   approvals       RfpApproval[]
+  messages        RfpMessage[]
   purchaseRequest PurchaseRequest?
   members         RfpMember[]
   events          RfpEvent[]
@@ -777,9 +780,10 @@ model Invitation {
   viewedAt   DateTime?
   notifiedAt DateTime? // cuándo se envió el correo de invitación (una sola vez por invitación)
 
-  rfp      Rfp       @relation(fields: [rfpId], references: [id], onDelete: Cascade)
-  supplier Supplier  @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  rfp      Rfp          @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  supplier Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   response Response?
+  messages RfpMessage[]
 
   @@unique([rfpId, supplierId])
 }
@@ -1335,4 +1339,32 @@ model SupplierEvent {
   createdAt           DateTime          @default(now())
 
   @@index([supplierDirectoryId, createdAt])
+}
+
+enum MessageSender {
+  BUYER
+  SUPPLIER
+}
+
+// Chat between the buyer and one invited supplier inside an RFP. One thread per
+// invitation: when the buyer writes to several suppliers at once, each of them
+// gets its own copy in its own thread.
+model RfpMessage {
+  id           String        @id @default(cuid())
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id])
+  rfpId        String
+  rfp          Rfp           @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  invitationId String
+  invitation   Invitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  sender       MessageSender
+  senderUserId String? // comprador que escribió (null si escribió el proveedor)
+  senderUser   User?         @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderName   String
+  body         String
+  createdAt    DateTime      @default(now())
+  readAt       DateTime? // cuándo lo leyó la otra parte
+
+  @@index([rfpId, invitationId, createdAt])
+  @@index([invitationId, sender, readAt])
 }

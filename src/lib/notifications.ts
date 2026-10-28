@@ -56,6 +56,8 @@ async function deliver(options: {
     supplier: "",
     responses: "",
     invited: "",
+    sender: "",
+    message: "",
     ...extra,
   };
   const rendered = renderTemplate(template, vars);
@@ -229,4 +231,50 @@ export async function notifySupplierResponded(
   invitationId: string,
 ): Promise<void> {
   defer(() => notifySupplierRespondedNow(rfpId, invitationId));
+}
+
+// A chat message between buyer and supplier: the other side gets an email with
+// the start of the text and a link straight to the conversation.
+async function notifyMessageNow(invitationId: string, from: "BUYER" | "SUPPLIER", senderName: string, body: string): Promise<void> {
+  try {
+    const invitation = await prisma.invitation.findUnique({
+      where: { id: invitationId },
+      include: { supplier: true, rfp: { include: { createdBy: true } } },
+    });
+    if (!invitation) return;
+    const rfp = invitation.rfp;
+    const preview = body.length > 400 ? `${body.slice(0, 400)}…` : body;
+    if (from === "BUYER") {
+      const email = invitation.supplier.email.trim();
+      if (!email) return;
+      const portalUser = await prisma.supplierUser.findUnique({ where: { email: email.toLowerCase() } });
+      await deliver({
+        kind: "messageToSupplier",
+        rfp,
+        recipient: {
+          email,
+          language: portalUser?.language ?? DEFAULT_PREFERENCES.language,
+          timeZone: portalUser?.timezone ?? DEFAULT_PREFERENCES.timeZone,
+        },
+        ctaPath: `/respond/${invitation.token}#mensajes`,
+        extra: { sender: senderName, message: preview },
+      });
+    } else {
+      const creator = rfp.createdBy;
+      if (!creator) return;
+      await deliver({
+        kind: "messageToBuyer",
+        rfp,
+        recipient: { email: creator.email, language: creator.language, timeZone: creator.timezone },
+        ctaPath: `/rfps/${rfp.id}#mensajes`,
+        extra: { sender: senderName, message: preview },
+      });
+    }
+  } catch (error) {
+    console.error("[notify:message]", invitationId, error);
+  }
+}
+
+export async function notifyMessage(invitationId: string, from: "BUYER" | "SUPPLIER", senderName: string, body: string): Promise<void> {
+  defer(() => notifyMessageNow(invitationId, from, senderName, body));
 }
