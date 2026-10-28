@@ -24,7 +24,7 @@ export default async function CommoditiesPage({
   const viewGroups = effectiveClientId ? await loadViewGroups(effectiveClientId) : [];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
+    <div className="mx-auto max-w-[1600px] px-6 py-10">
       <Link
         href="/admin"
         className="text-sm text-slate-500 hover:text-slate-700"

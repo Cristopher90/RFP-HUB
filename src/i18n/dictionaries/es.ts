@@ -1543,6 +1543,12 @@ export const es = {
     emptyTable: "Esta tabla está vacía.",
   },
   adminDashboard: {
+    filterTemplate: "Filtrar por plantilla",
+    filterCondition: "Filtrar por condiciones (commodity o región)",
+    filterAllClients: "Todos los clientes",
+    filterClear: "Limpiar filtros",
+    filterShowing: "Mostrando {shown} de {total}",
+    filterNoMatches: "Ninguna plantilla coincide con los filtros.",
     templatesLink: "Plantillas de RFP",
     copyTemplate: "Copiar",
     copySuffix: "(copia)",

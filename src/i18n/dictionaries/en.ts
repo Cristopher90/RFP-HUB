@@ -1542,6 +1542,12 @@ export const en: Dictionary = {
     emptyTable: "This table is empty.",
   },
   adminDashboard: {
+    filterTemplate: "Filter by template",
+    filterCondition: "Filter by conditions (commodity or region)",
+    filterAllClients: "All clients",
+    filterClear: "Clear filters",
+    filterShowing: "Showing {shown} of {total}",
+    filterNoMatches: "No template matches the filters.",
     templatesLink: "RFP templates",
     copyTemplate: "Copy",
     copySuffix: "(copy)",

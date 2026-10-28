@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireClientScope } from "@/lib/clientScope";
 import { getDictionary } from "@/i18n/getDictionary";
+import { TemplatesTable } from "./TemplatesTable";
 
 export default async function TemplatesPage() {
   const scope = await requireClientScope();
@@ -39,93 +40,20 @@ export default async function TemplatesPage() {
           {dictionary.adminDashboard.noTemplatesConfigured}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-3">{dictionary.adminDashboard.templateHeader}</th>
-                <th className="px-5 py-3">{dictionary.adminDashboard.clientHeader}</th>
-                <th className="px-5 py-3">{dictionary.adminDashboard.conditionHeader}</th>
-                <th className="px-5 py-3">{dictionary.adminDashboard.itemsHeader}</th>
-                <th className="px-5 py-3">{dictionary.adminDashboard.questionsHeader}</th>
-                <th className="px-5 py-3">{dictionary.adminDashboard.statusHeader}</th>
-                <th className="px-5 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {templates.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4">
-                    <Link
-                      href={`/admin/templates/${t.id}`}
-                      className="font-medium text-slate-900 hover:text-violet-600"
-                    >
-                      {t.name}
-                    </Link>
-                    {t.description && (
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {t.description}
-                      </p>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {t.client.icon ? `${t.client.icon} ` : ""}
-                    {t.client.description}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {t.matchCommodity || t.matchRegion ? (
-                      <>
-                        {t.matchCommodity && (
-                          <span className="mr-2">
-                            {dictionary.adminDashboard.commodityPrefix} {t.matchCommodity}
-                          </span>
-                        )}
-                        {t.matchRegion && (
-                          <span>{dictionary.adminDashboard.regionPrefix} {t.matchRegion}</span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-slate-400">{dictionary.adminDashboard.anyRfp}</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {t.items.length}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {t.questions.length}
-                  </td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        t.active
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {t.active ? dictionary.adminDashboard.active : dictionary.adminDashboard.inactive}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-4 text-right">
-                    <Link
-                      href={`/admin/templates/${t.id}`}
-                      className="text-sm font-medium text-violet-600 hover:text-violet-700"
-                    >
-                      {dictionary.adminDashboard.edit}
-                    </Link>
-                    <Link
-                      href={`/admin/templates/new?copyFrom=${t.id}&clientId=${t.clientId}`}
-                      className="ml-4 text-sm font-medium text-slate-500 hover:text-slate-700"
-                    >
-                      {dictionary.adminDashboard.copyTemplate}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </div>
+        <TemplatesTable
+          rows={templates.map((t) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            clientId: t.clientId,
+            clientLabel: `${t.client.icon ? `${t.client.icon} ` : ""}${t.client.description}`,
+            matchCommodity: t.matchCommodity,
+            matchRegion: t.matchRegion,
+            items: t.items.length,
+            questions: t.questions.length,
+            active: t.active,
+          }))}
+        />
       )}
     </div>
   );
