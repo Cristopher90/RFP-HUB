@@ -42,22 +42,10 @@ export default async function AdminPage() {
             {dictionary.adminDashboard.regions}
           </Link>
           <Link
-            href="/admin/master-data/suppliers"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {dictionary.adminDashboard.suppliers}
-          </Link>
-          <Link
             href="/admin/master-data/origins"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             {dictionary.adminDashboard.origins}
-          </Link>
-          <Link
-            href="/admin/master-data/approval-groups"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {dictionary.adminDashboard.approvalGroups}
           </Link>
           <Link
             href="/admin/master-data/items"
@@ -70,18 +58,6 @@ export default async function AdminPage() {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             {dictionary.lookups.title}
-          </Link>
-          <Link
-            href="/admin/master-data/document-types"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {dictionary.supplierDocs.typesTitle}
-          </Link>
-          <Link
-            href="/admin/master-data/view-groups"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            {dictionary.viewGroups.title}
           </Link>
           {scope.isSuperAdmin && (
             <Link
@@ -103,6 +79,28 @@ export default async function AdminPage() {
       </CollapsibleSection>
 
       <CollapsibleSection
+        title={dictionary.adminDashboard.suppliersTitle}
+        subtitle={dictionary.adminDashboard.suppliersSubtitle}
+        storageKey="admin-hub-suppliers"
+        className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/master-data/suppliers"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.adminDashboard.suppliers}
+          </Link>
+          <Link
+            href="/admin/master-data/document-types"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.supplierDocs.typesTitle}
+          </Link>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
         title={dictionary.adminDashboard.approvalsTitle}
         subtitle={dictionary.adminDashboard.approvalsSubtitle}
         storageKey="admin-hub-approvals"
@@ -114,6 +112,12 @@ export default async function AdminPage() {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             {dictionary.adminDashboard.approvalsTitle}
+          </Link>
+          <Link
+            href="/admin/master-data/approval-groups"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.adminDashboard.approvalGroups}
           </Link>
         </div>
       </CollapsibleSection>
@@ -136,6 +140,12 @@ export default async function AdminPage() {
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
           >
             {dictionary.adminDashboard.buyerGroupsLink}
+          </Link>
+          <Link
+            href="/admin/master-data/view-groups"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            {dictionary.viewGroups.title}
           </Link>
         </div>
       </CollapsibleSection>

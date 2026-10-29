@@ -1574,9 +1574,12 @@ export const es = {
     title: "Configuración",
     subtitle:
       "Datos maestros, plantillas, procesos de aprobación y usuarios de la organización.",
+    suppliersTitle: "Proveedores",
+    suppliersSubtitle:
+      "Directorio de proveedores y los tipos de documentos que se les solicitan.",
     masterDataTitle: "Datos maestros",
     masterDataSubtitle:
-      "Valores permitidos para los desplegables de Commodity y Región en las RFPs y plantillas, y el directorio de proveedores.",
+      "Valores permitidos para los desplegables de Commodity y Región en las RFPs y plantillas.",
     commodities: "Commodities",
     regions: "Regiones",
     suppliers: "Proveedores",

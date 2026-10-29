@@ -1573,9 +1573,12 @@ export const en: Dictionary = {
     title: "Settings",
     subtitle:
       "Master data, templates, approval workflows and users for the organization.",
+    suppliersTitle: "Suppliers",
+    suppliersSubtitle:
+      "Supplier directory and the document types requested from them.",
     masterDataTitle: "Master data",
     masterDataSubtitle:
-      "Allowed values for the Commodity and Region dropdowns in RFPs and templates, and the supplier directory.",
+      "Allowed values for the Commodity and Region dropdowns in RFPs and templates.",
     commodities: "Commodities",
     regions: "Regions",
     suppliers: "Suppliers",
