@@ -53,6 +53,7 @@ export default async function Home({
   const tab = requestedTab === "all" && canSeeAll ? "all" : "mine";
 
   const statusFilter = typeof sp.status === "string" ? sp.status : "";
+  const kindFilter: "RFP" | "RFI" | "" = sp.kind === "RFP" || sp.kind === "RFI" ? sp.kind : "";
   const commodityFilter = typeof sp.commodity === "string" ? sp.commodity : "";
   const regionFilter = typeof sp.region === "string" ? sp.region : "";
   const creatorFilter = typeof sp.creator === "string" ? sp.creator : "";
@@ -180,6 +181,7 @@ export default async function Home({
         ? participantWhere(user.id)
         : scope.where),
     ...(advancedWhere.length > 0 ? { AND: advancedWhere } : {}),
+    ...(kindFilter ? { kind: kindFilter } : {}),
     ...(commodityFilter ? { commodity: commodityFilter } : {}),
     ...(regionFilter ? { region: regionFilter } : {}),
     ...(tab === "all" && creatorFilter
@@ -224,6 +226,7 @@ export default async function Home({
     number: rfp.number,
     title: rfp.title,
     status: rfp.status,
+    kind: rfp.kind,
     commodity: rfp.commodity,
     region: rfp.region,
     creatorName:
@@ -257,6 +260,7 @@ export default async function Home({
     if (commodityFilter) params.set("commodity", commodityFilter);
     if (regionFilter) params.set("region", regionFilter);
     if (statusFilter) params.set("status", statusFilter);
+    if (kindFilter) params.set("kind", kindFilter);
     if (target === "all" && creatorFilter)
       params.set("creator", creatorFilter);
     if (target === "all" && clientFilter) params.set("client", clientFilter);

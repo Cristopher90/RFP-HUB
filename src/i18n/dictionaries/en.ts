@@ -147,6 +147,7 @@ export const en: Dictionary = {
     allTags: "All tags",
     allCommodities: "All commodities",
     allRegions: "All regions",
+    allKinds: "All types",
     allStatuses: "All statuses",
     allUsers: "All users",
     allClients: "All clients",
@@ -165,6 +166,7 @@ export const en: Dictionary = {
   rfpTable: {
     rfpColumn: "RFP",
     cliente: "Client",
+    tipo: "Type",
     estado: "Status",
     commodity: "Commodity",
     region: "Region",

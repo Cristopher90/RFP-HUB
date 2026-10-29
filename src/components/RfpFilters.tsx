@@ -34,6 +34,7 @@ const FILTER_PARAMS: Record<string, string[]> = {
   commodity: ["commodity"],
   region: ["region"],
   status: ["status"],
+  kind: ["kind"],
   client: ["client"],
   creator: ["creator"],
   createdDate: ["createdFrom", "createdTo"],
@@ -43,7 +44,7 @@ const FILTER_PARAMS: Record<string, string[]> = {
   tag: ["tag"],
 };
 const VISIBLE_FILTERS_PREF_KEY = "rfp-list-visible-filters";
-const DEFAULT_VISIBLE = ["commodity", "region", "status", "client", "tag"];
+const DEFAULT_VISIBLE = ["commodity", "region", "status", "kind", "client", "tag"];
 
 export function RfpFilters({
   commodities,
@@ -84,6 +85,7 @@ export function RfpFilters({
     { key: "commodity", label: dictionary.rfpTable.commodity },
     { key: "region", label: dictionary.rfpTable.region },
     { key: "status", label: dictionary.rfpTable.estado },
+    { key: "kind", label: dictionary.rfpTable.tipo },
     ...(clients ? [{ key: "client", label: dictionary.rfpTable.cliente }] : []),
     ...(creators ? [{ key: "creator", label: t("filters.creator") }] : []),
     { key: "createdDate", label: t("filters.createdDate") },
@@ -226,6 +228,17 @@ export function RfpFilters({
               {statusLabel(dictionary, value)}
             </option>
           ))}
+        </select>
+      )}
+      {isShown("kind") && (
+        <select
+          className={selectClass()}
+          value={searchParams.get("kind") ?? ""}
+          onChange={(e) => setParam("kind", e.target.value)}
+        >
+          <option value="">{t("filters.allKinds")}</option>
+          <option value="RFP">RFP</option>
+          <option value="RFI">RFI</option>
         </select>
       )}
       {clients && isShown("client") && (

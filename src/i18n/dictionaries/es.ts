@@ -148,6 +148,7 @@ export const es = {
     allTags: "Todas las etiquetas",
     allCommodities: "Todos los commodities",
     allRegions: "Todas las regiones",
+    allKinds: "Todos los tipos",
     allStatuses: "Todos los estados",
     allUsers: "Todos los usuarios",
     allClients: "Todos los clientes",
@@ -166,6 +167,7 @@ export const es = {
   rfpTable: {
     rfpColumn: "RFP",
     cliente: "Cliente",
+    tipo: "Tipo",
     estado: "Estado",
     commodity: "Commodity",
     region: "Región",

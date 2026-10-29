@@ -17,6 +17,7 @@ export type RfpRow = {
   number: number;
   title: string;
   status: RfpStatus;
+  kind: "RFP" | "RFI";
   commodity: string | null;
   region: string | null;
   creatorName: string;
@@ -32,6 +33,7 @@ export type RfpRow = {
 type ColumnKey =
   | "cliente"
   | "estado"
+  | "tipo"
   | "commodity"
   | "region"
   | "creador"
@@ -45,16 +47,17 @@ type ColumnKey =
 type SortKey = ColumnKey | "rfp";
 type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
 
-type GroupBy = "none" | "estado" | "commodity" | "region" | "creador" | "creacion" | "inicio" | "cierre";
+type GroupBy = "none" | "estado" | "tipo" | "commodity" | "region" | "creador" | "creacion" | "inicio" | "cierre";
 type DatePart = "day" | "month" | "year";
 
-const GROUP_OPTIONS: GroupBy[] = ["estado", "commodity", "region", "creador", "creacion", "inicio", "cierre"];
+const GROUP_OPTIONS: GroupBy[] = ["estado", "tipo", "commodity", "region", "creador", "creacion", "inicio", "cierre"];
 const GROUPING_STORAGE_KEY = "rfp-list-grouping";
 
 function allColumnDefs(dictionary: Dictionary): ColumnDef<ColumnKey>[] {
   return [
     { key: "cliente", label: dictionary.rfpTable.cliente, defaultWidth: 160, minWidth: 100 },
     { key: "estado", label: dictionary.rfpTable.estado, defaultWidth: 140, minWidth: 100 },
+    { key: "tipo", label: dictionary.rfpTable.tipo, defaultWidth: 90, minWidth: 70 },
     { key: "commodity", label: dictionary.rfpTable.commodity, defaultWidth: 200, minWidth: 100 },
     { key: "region", label: dictionary.rfpTable.region, defaultWidth: 140, minWidth: 90 },
     { key: "creador", label: dictionary.rfpTable.creador, defaultWidth: 170, minWidth: 100 },
@@ -141,6 +144,8 @@ export function RfpTable({
           return rfp.clientLabel;
         case "estado":
           return statusLabel(dictionary, rfp.status);
+        case "tipo":
+          return rfp.kind;
         case "commodity":
           return rfp.commodity;
         case "region":
@@ -216,6 +221,8 @@ export function RfpTable({
       switch (groupBy) {
         case "estado":
           return { key: rfp.status, label: statusLabel(dictionary, rfp.status) };
+        case "tipo":
+          return { key: rfp.kind, label: rfp.kind };
         case "commodity":
           return rfp.commodity
             ? { key: rfp.commodity, label: rfp.commodity }
@@ -278,6 +285,16 @@ export function RfpTable({
         return rfp.clientLabel ?? "—";
       case "estado":
         return <StatusBadge status={rfp.status} language={language} compact />;
+      case "tipo":
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              rfp.kind === "RFI" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {rfp.kind}
+          </span>
+        );
       case "commodity":
         return rfp.commodity ?? "—";
       case "region":
