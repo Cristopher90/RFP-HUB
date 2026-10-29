@@ -104,6 +104,10 @@ export const en: Dictionary = {
     VIEWED: "Viewed",
     RESPONDED: "Responded",
   },
+  // Shorter labels for tight tables; statuses not listed here use the full label.
+  statusShort: {
+    PENDING_PUBLISH_APPROVAL: "Approving",
+  },
   masterDataKind: {
     commodity: "Commodities",
     region: "Regions",

@@ -226,6 +226,15 @@ async function nextCumulativeApproverLimit(
   return Math.min(...remaining.map((m) => m.limit));
 }
 
+// Non-cumulative group levels: the approvers are the members with the LOWEST
+// limit that still covers the value (everyone tied at it). With limits 1,000 /
+// 5,000 / 5,000, a 800 RFP goes to the first only; a 4,000 one to either of
+// the other two. Null when no member covers the value.
+function lowestCoveringLimit(limits: (number | null)[], value: number): number | null {
+  const covering = limits.filter((l): l is number => l !== null && l >= value);
+  return covering.length ? Math.min(...covering) : null;
+}
+
 // Eligibility check shared by the UI (show/hide Aprobar/Rechazar) and the
 // action layer (authoritative gate) — must never drift between the two.
 export async function canDecide(
@@ -243,7 +252,17 @@ export async function canDecide(
   // per-user value, so an unrelated group membership never qualifies them.
   const membership = user.groups.find((g) => g.approvalGroupId === approval.approvalGroupId);
   if (!membership) return false;
-  if (!approval.cumulative) return membership.limit >= approval.requiredValue;
+  if (!approval.cumulative) {
+    const members = await prisma.userApprovalGroup.findMany({
+      where: { approvalGroupId: approval.approvalGroupId ?? "" },
+      select: { limit: true },
+    });
+    const lowest = lowestCoveringLimit(
+      members.map((m) => m.limit),
+      approval.requiredValue,
+    );
+    return lowest !== null && membership.limit === lowest;
+  }
 
   const nextLimit = await nextCumulativeApproverLimit(
     approval.id,
@@ -588,6 +607,15 @@ export async function userInApprovalFlow(rfpId: string, userId: string): Promise
   if (approvals.length === 0) return false;
   const memberships = await prisma.userApprovalGroup.findMany({ where: { userId } });
   const limitByGroup = new Map(memberships.map((m) => [m.approvalGroupId, m.limit]));
+  const groupIds = [
+    ...new Set(approvals.filter((a) => a.mode === "GROUP" && !a.cumulative).map((a) => a.approvalGroupId ?? "")),
+  ];
+  const groupMembers = groupIds.length
+    ? await prisma.userApprovalGroup.findMany({
+        where: { approvalGroupId: { in: groupIds } },
+        select: { approvalGroupId: true, limit: true },
+      })
+    : [];
   return approvals.some((a) => {
     if (a.decisions.some((d) => d.userId === userId)) return true;
     if (a.mode === "USERS") {
@@ -595,7 +623,13 @@ export async function userInApprovalFlow(rfpId: string, userId: string): Promise
       return ids.includes(userId);
     }
     const limit = limitByGroup.get(a.approvalGroupId ?? "");
-    return limit !== undefined && (a.cumulative || limit >= a.requiredValue);
+    if (limit === undefined) return false;
+    if (a.cumulative) return true;
+    const lowest = lowestCoveringLimit(
+      groupMembers.filter((m) => m.approvalGroupId === a.approvalGroupId).map((m) => m.limit),
+      a.requiredValue,
+    );
+    return lowest !== null && limit === lowest;
   });
 }
 
@@ -710,7 +744,14 @@ export async function describeApprovals(
               const nextLimit = Math.min(...remaining.map((m) => m.limit ?? Infinity));
               return remaining.filter((m) => m.limit === nextLimit);
             })()
-          : groupMembers.filter((m) => (m.limit ?? 0) >= a.requiredValue);
+          : (() => {
+              // Lowest limit that covers the value (ties all qualify).
+              const lowest = lowestCoveringLimit(
+                groupMembers.map((m) => m.limit),
+                a.requiredValue,
+              );
+              return lowest === null ? [] : groupMembers.filter((m) => m.limit === lowest);
+            })();
     return {
       id: a.id,
       order: a.order,

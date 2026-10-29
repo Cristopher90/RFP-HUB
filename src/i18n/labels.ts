@@ -10,6 +10,10 @@ export function statusLabel(dictionary: Dictionary, status: string): string {
   return (dictionary.status as Record<string, string>)[status] ?? status;
 }
 
+export function statusShortLabel(dictionary: Dictionary, status: string): string {
+  return (dictionary.statusShort as Record<string, string>)[status] ?? statusLabel(dictionary, status);
+}
+
 export function masterDataKindLabel(dictionary: Dictionary, kind: string): string {
   return (dictionary.masterDataKind as Record<string, string>)[kind] ?? kind;
 }

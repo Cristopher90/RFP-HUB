@@ -1,5 +1,5 @@
 import { getDictionary } from "@/i18n/getDictionary";
-import { statusLabel } from "@/i18n/labels";
+import { statusLabel, statusShortLabel } from "@/i18n/labels";
 
 const STYLES: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-600",
@@ -17,15 +17,16 @@ const STYLES: Record<string, string> = {
 // and Client Components (RfpTable.tsx, SupplierRfpTable.tsx) — a `language`
 // prop (rather than the usePreferences() hook) keeps it safe to call from
 // either, since hooks don't work when this renders as part of a server tree.
-export function StatusBadge({ status, language }: { status: string; language: string }) {
+export function StatusBadge({ status, language, compact = false }: { status: string; language: string; compact?: boolean }) {
   const dictionary = getDictionary(language);
   return (
     <span
+      title={compact ? statusLabel(dictionary, status) : undefined}
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
         STYLES[status] ?? "bg-slate-100 text-slate-600"
       }`}
     >
-      {statusLabel(dictionary, status)}
+      {compact ? statusShortLabel(dictionary, status) : statusLabel(dictionary, status)}
     </span>
   );
 }

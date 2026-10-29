@@ -105,6 +105,10 @@ export const es = {
     VIEWED: "Visto",
     RESPONDED: "Respondido",
   },
+  // Shorter labels for tight tables; statuses not listed here use the full label.
+  statusShort: {
+    PENDING_PUBLISH_APPROVAL: "Aprobando",
+  },
   masterDataKind: {
     commodity: "Commodities",
     region: "Regiones",

@@ -277,7 +277,7 @@ export function RfpTable({
       case "cliente":
         return rfp.clientLabel ?? "—";
       case "estado":
-        return <StatusBadge status={rfp.status} language={language} />;
+        return <StatusBadge status={rfp.status} language={language} compact />;
       case "commodity":
         return rfp.commodity ?? "—";
       case "region":
