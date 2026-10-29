@@ -36,7 +36,7 @@ export default async function LoginPage() {
           🔨
         </span>
         <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-          <span className="text-violet-600">RFP.HUB</span>
+          <span className="text-violet-600">procureHub</span>
         </h1>
         <p className="text-sm text-slate-500">{dictionary.login.subtitle}</p>
       </div>

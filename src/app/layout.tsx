@@ -30,7 +30,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RFP.HUB",
+  title: "procureHub",
   description: "Genera RFPs, invita proveedores, compara y adjudica cotizaciones.",
 };
 
@@ -119,8 +119,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 </Link>
               )}
             </div>
-            {/* Center: RFP HUB logo. */}
-            <Link href={user ? "/home" : "/"} aria-label="RFP HUB" className="flex items-center">
+            {/* Center: procureHub logo. */}
+            <Link href={user ? "/home" : "/"} aria-label="procureHub" className="flex items-center">
               <AppLogo height={36} />
             </Link>
             <div className="flex justify-end">

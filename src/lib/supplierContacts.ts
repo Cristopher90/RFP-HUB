@@ -54,7 +54,7 @@ async function send(
 }
 
 // Emails the person the invitation to accept. A brand-new account gets the
-// "join RFP HUB" email (they set their password on accepting); someone who
+// "join procureHub" email (they set their password on accepting); someone who
 // already has an account gets the "accept a connection with this client" one.
 // While the supplier is blocked nothing is sent: the invitation waits (notifiedAt
 // stays empty) and goes out when the supplier is unblocked.

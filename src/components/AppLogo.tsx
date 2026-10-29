@@ -1,6 +1,6 @@
-// RFP HUB logo (orbit with connected suppliers + wordmark). Drawn inline so it
+// procureHub logo (orbit with connected suppliers + wordmark). Drawn inline so it
 // follows the active theme color and light/dark mode instead of fixed colors.
-// The original file lives in public/rfp-hub-logo-orbita.svg.
+// The original file lives in public/rfp-hub-logo-orbita.svg (still the old RFP HUB artwork).
 export function AppLogo({ height = 36, className }: { height?: number; className?: string }) {
   const font = "var(--font-geist-sans), Inter, 'Segoe UI', Helvetica, Arial, sans-serif";
   return (
@@ -10,7 +10,7 @@ export function AppLogo({ height = 36, className }: { height?: number; className
       height={height}
       width={(height * 420) / 140}
       role="img"
-      aria-label="RFP HUB"
+      aria-label="procureHub"
       className={className}
     >
       <circle cx="70" cy="70" r="52" fill="none" strokeWidth="5" style={{ stroke: "var(--color-violet-300, #C4B5FD)" }} />
@@ -20,13 +20,11 @@ export function AppLogo({ height = 36, className }: { height?: number; className
       <circle cx="18" cy="70" r="8" style={{ fill: "var(--color-violet-400, #A78BFA)" }} />
       <circle cx="70" cy="70" r="32" style={{ fill: "var(--color-violet-600, #7C3AED)" }} />
       <text x="70" y="77" textAnchor="middle" fontSize="19" fontWeight="800" letterSpacing="0.5" fill="#FFFFFF" style={{ fontFamily: font }}>
-        RFP
+        PH
       </text>
-      <text x="152" y="88" fontSize="52" letterSpacing="1" fontWeight="700" style={{ fontFamily: font }}>
-        <tspan style={{ fill: "var(--color-slate-900, #1E1B4B)" }}>RFP</tspan>
-        <tspan dx="12" style={{ fill: "var(--color-violet-600, #7C3AED)" }}>
-          HUB
-        </tspan>
+      <text x="152" y="86" fontSize="44" letterSpacing="0.5" fontWeight="700" style={{ fontFamily: font }}>
+        <tspan style={{ fill: "var(--color-slate-900, #1E1B4B)" }}>procure</tspan>
+        <tspan style={{ fill: "var(--color-violet-600, #7C3AED)" }}>Hub</tspan>
       </text>
     </svg>
   );

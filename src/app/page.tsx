@@ -437,7 +437,7 @@ export default async function Home({
       )}
 
       <p className="mt-8 text-center text-xs text-slate-300">
-        RFP.HUB v{packageJson.version}
+        procureHub v{packageJson.version}
       </p>
     </div>
   );

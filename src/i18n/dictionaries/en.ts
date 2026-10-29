@@ -27,11 +27,11 @@ export const en: Dictionary = {
     reports: "Reports",
   },
   footer: {
-    tagline: "RFP.HUB · procurement and sourcing tool · demo data",
+    tagline: "procureHub · procurement and sourcing tool · demo data",
     sessionStarted: "Session started",
   },
   login: {
-    title: "RFP.HUB",
+    title: "procureHub",
     subtitle: "Sign in to continue",
     client: "Client",
     supplier: "Supplier",
@@ -768,7 +768,7 @@ export const en: Dictionary = {
     participate: "Participate →",
   },
   supplierAccept: {
-    title: "Invitation to RFP HUB",
+    title: "Invitation to procureHub",
     invalid: "This invitation link is not valid or was removed.",
     alreadyAccepted: "This invitation was already accepted.",
     goToLogin: "Go to sign in",
@@ -1990,15 +1990,15 @@ export const en: Dictionary = {
       cta: "Open monitor and award",
     },
     supplierInvite: {
-      subject: "You're invited to join RFP HUB",
-      heading: "You're invited to RFP HUB",
-      body: "Hi {name}, {client} added you as a contact of {company} on RFP HUB.\nCreate your password to accept the invitation and receive their requests for proposal (RFPs).",
+      subject: "You're invited to join procureHub",
+      heading: "You're invited to procureHub",
+      body: "Hi {name}, {client} added you as a contact of {company} on procureHub.\nCreate your password to accept the invitation and receive their requests for proposal (RFPs).",
       cta: "Accept invitation",
     },
     supplierClientAccess: {
-      subject: "{client} wants to add you as a contact on RFP HUB",
+      subject: "{client} wants to add you as a contact on procureHub",
       heading: "New connection with a client",
-      body: "Hi {name}, {client} added you as a contact of {company}.\nAccept the connection to see their RFPs from your same RFP HUB account.",
+      body: "Hi {name}, {client} added you as a contact of {company}.\nAccept the connection to see their RFPs from your same procureHub account.",
       cta: "Review and accept",
     },
     supplierContactApproval: {
@@ -2034,7 +2034,7 @@ export const en: Dictionary = {
     awardRejected: "Award rejected",
     awardRevoked: "Award revoked",
     supplierResponded: "A supplier responded",
-    supplierInvite: "Invitation to join RFP HUB (supplier contact)",
+    supplierInvite: "Invitation to join procureHub (supplier contact)",
     supplierClientAccess: "Connection with another client (existing contact)",
     supplierContactApproval: "New contact approval (supplier administrator)",
     messageToSupplier: "Message from the buyer to the supplier",

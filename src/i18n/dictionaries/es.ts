@@ -28,11 +28,11 @@ export const es = {
     reports: "Reportes",
   },
   footer: {
-    tagline: "RFP.HUB · herramienta de compras y sourcing · datos de demostración",
+    tagline: "procureHub · herramienta de compras y sourcing · datos de demostración",
     sessionStarted: "Sesión iniciada",
   },
   login: {
-    title: "RFP.HUB",
+    title: "procureHub",
     subtitle: "Inicia sesión para continuar",
     client: "Cliente",
     supplier: "Proveedor",
@@ -769,7 +769,7 @@ export const es = {
     participate: "Participar →",
   },
   supplierAccept: {
-    title: "Invitación a RFP HUB",
+    title: "Invitación a procureHub",
     invalid: "Este enlace de invitación no es válido o ya fue eliminado.",
     alreadyAccepted: "Esta invitación ya fue aceptada.",
     goToLogin: "Ir a iniciar sesión",
@@ -1994,15 +1994,15 @@ export const es = {
       cta: "Abrir monitor y adjudicación",
     },
     supplierInvite: {
-      subject: "Te invitamos a unirte a RFP HUB",
-      heading: "Te invitamos a RFP HUB",
-      body: "Hola {name}, {client} te ha agregado como contacto de {company} en RFP HUB.\nCrea tu contraseña para aceptar la invitación y recibir sus solicitudes de cotización (RFP).",
+      subject: "Te invitamos a unirte a procureHub",
+      heading: "Te invitamos a procureHub",
+      body: "Hola {name}, {client} te ha agregado como contacto de {company} en procureHub.\nCrea tu contraseña para aceptar la invitación y recibir sus solicitudes de cotización (RFP).",
       cta: "Aceptar invitación",
     },
     supplierClientAccess: {
-      subject: "{client} quiere agregarte como contacto en RFP HUB",
+      subject: "{client} quiere agregarte como contacto en procureHub",
       heading: "Nueva conexión con un cliente",
-      body: "Hola {name}, {client} te ha agregado como contacto de {company}.\nAcepta la conexión para ver sus RFP desde tu misma cuenta de RFP HUB.",
+      body: "Hola {name}, {client} te ha agregado como contacto de {company}.\nAcepta la conexión para ver sus RFP desde tu misma cuenta de procureHub.",
       cta: "Revisar y aceptar",
     },
     supplierContactApproval: {
@@ -2038,7 +2038,7 @@ export const es = {
     awardRejected: "Adjudicación rechazada",
     awardRevoked: "Adjudicación revocada",
     supplierResponded: "Un proveedor respondió",
-    supplierInvite: "Invitación a unirse a RFP HUB (contacto de proveedor)",
+    supplierInvite: "Invitación a unirse a procureHub (contacto de proveedor)",
     supplierClientAccess: "Conexión con otro cliente (contacto existente)",
     supplierContactApproval: "Aprobación de nuevo contacto (administrador del proveedor)",
     messageToSupplier: "Mensaje del comprador al proveedor",
