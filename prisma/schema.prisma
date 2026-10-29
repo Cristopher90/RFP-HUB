@@ -1369,3 +1369,11 @@ model RfpMessage {
   @@index([rfpId, invitationId, createdAt])
   @@index([invitationId, sender, readAt])
 }
+
+// Ajustes globales de la plataforma (no por cliente), clave → valor.
+// Hoy: "demoAccess" ("on"/"off"), el acceso rápido sin contraseña de la pantalla de ingreso.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}

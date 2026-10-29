@@ -33,9 +33,11 @@ function inputClass() {
 }
 
 export function LoginForm({
+  demoEnabled,
   users,
   supplierUsers,
 }: {
+  demoEnabled: boolean;
   users: LoginUserOption[];
   supplierUsers: LoginSupplierUserOption[];
 }) {
@@ -127,6 +129,8 @@ export function LoginForm({
         </button>
       </form>
 
+      {demoEnabled && (
+      <>
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-slate-200" />
@@ -195,6 +199,8 @@ export function LoginForm({
             {t("login.access")}
           </button>
         </div>
+      )}
+      </>
       )}
     </div>
   );

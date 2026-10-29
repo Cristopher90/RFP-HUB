@@ -4,6 +4,7 @@ import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { prisma } from "@/lib/prisma";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
+import { demoAccessEnabled } from "@/lib/appSettings";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
@@ -15,18 +16,23 @@ export default async function LoginPage() {
   if (supplierUser) redirect("/supplier");
   const dictionary = getDictionary((await getViewerPreferences()).language);
 
+  // The demo shortcut lists every account; with it off nothing is loaded or
+  // sent to the browser.
+  const demo = await demoAccessEnabled();
   const [users, supplierUsers] = await Promise.all([
-    prisma.user.findMany({
-      include: { client: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.supplierUser.findMany({
+    demo
+      ? prisma.user.findMany({
+          include: { client: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    demo ? prisma.supplierUser.findMany({
       where: { passwordHash: { not: null }, links: { some: { status: "ACCEPTED" } } },
       include: {
         links: { where: { status: "ACCEPTED" }, include: { supplierDirectory: true } },
       },
       orderBy: { name: "asc" },
-    }),
+    }) : Promise.resolve([]),
   ]);
 
   return (
@@ -41,6 +47,7 @@ export default async function LoginPage() {
         <p className="text-sm text-slate-500">{dictionary.login.subtitle}</p>
       </div>
       <LoginForm
+        demoEnabled={demo}
         users={users.map((u) => ({
           id: u.id,
           name: u.name,

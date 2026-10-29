@@ -12,6 +12,7 @@ import { getDictionary } from "@/i18n/getDictionary";
 import { localeForLanguage } from "@/i18n/locale";
 import { PreferencesProvider } from "@/i18n/PreferencesProvider";
 import { DARK_COLOR_MODES, PALETTE_MODES, forcedUiMode, glassCssVars } from "@/lib/themes";
+import { appEnv } from "@/lib/appEnv";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,10 +30,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "procureHub",
-  description: "Genera RFPs, invita proveedores, compara y adjudica cotizaciones.",
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: appEnv() === "test" ? "[TEST] procureHub" : "procureHub",
+    description: "Genera RFPs, invita proveedores, compara y adjudica cotizaciones.",
+  };
+}
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getCurrentUser();
@@ -92,6 +95,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+        {appEnv() === "test" && (
+          <div className="bg-amber-400 px-4 py-1 text-center text-xs font-semibold text-amber-950">
+            {dictionary.envBanner.test}
+          </div>
+        )}
         <div
           aria-hidden
           className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-96 bg-[radial-gradient(80%_60%_at_50%_-10%,color-mix(in_oklab,var(--color-violet-600)_12%,transparent),transparent)]"

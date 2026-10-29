@@ -1570,6 +1570,7 @@ export const es = {
     assistantLink: "Configurar el asistente",
     securitySubtitle: "Auditoría de accesos a la plataforma.",
     loginLogLink: "Registro de accesos",
+    demoAccessLink: "Acceso como usuario demo",
     changeLogLink: "Registro de cambios en tablas",
     title: "Configuración",
     subtitle:
@@ -2580,6 +2581,25 @@ export const es = {
     mappingTitle: "Campos personalizados de la RFP",
     mappingHint: "Dato de la solicitud que llena cada campo personalizado de cabecera.",
     mappingNone: "— No llenar —",
+  },
+  demoAccessPage: {
+    title: "Acceso como usuario demo",
+    subtitle:
+      "Controla el acceso rápido de la pantalla de ingreso («o entra como usuario demo»), que permite entrar como cualquier usuario sin contraseña. Solo para ambientes de prueba.",
+    backToSettings: "← Configuración",
+    environment: "Ambiente actual",
+    env_production: "Producción",
+    env_test: "Pruebas",
+    env_development: "Desarrollo",
+    toggleLabel: "Permitir acceso como usuario demo",
+    stateOn: "Activo: la pantalla de ingreso muestra la lista de usuarios y permite entrar sin contraseña.",
+    stateOff: "Inactivo: solo se puede entrar con correo y contraseña.",
+    lockedInProduction:
+      "En Producción el acceso demo está siempre desactivado y no se puede cambiar desde la aplicación.",
+    saveError: "No se pudo guardar el cambio.",
+  },
+  envBanner: {
+    test: "Ambiente de pruebas · los datos no son reales",
   },
   viewGroups: {
     title: "Grupos de visualización",

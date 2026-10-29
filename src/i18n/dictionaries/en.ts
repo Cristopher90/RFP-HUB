@@ -1569,6 +1569,7 @@ export const en: Dictionary = {
     assistantLink: "Configure the assistant",
     securitySubtitle: "Audit of access to the platform.",
     loginLogLink: "Access log",
+    demoAccessLink: "Demo user access",
     changeLogLink: "Table change log",
     title: "Settings",
     subtitle:
@@ -2576,6 +2577,25 @@ export const en: Dictionary = {
     mappingTitle: "RFP custom fields",
     mappingHint: "Request value that fills each custom header field.",
     mappingNone: "— Don't fill —",
+  },
+  demoAccessPage: {
+    title: "Demo user access",
+    subtitle:
+      "Controls the quick access on the login page (\"or sign in as a demo user\"), which lets anyone sign in as any user without a password. For test environments only.",
+    backToSettings: "← Settings",
+    environment: "Current environment",
+    env_production: "Production",
+    env_test: "Test",
+    env_development: "Development",
+    toggleLabel: "Allow demo user access",
+    stateOn: "On: the login page lists the users and lets you in without a password.",
+    stateOff: "Off: signing in requires email and password.",
+    lockedInProduction:
+      "In Production demo access is always off and cannot be changed from the application.",
+    saveError: "The change could not be saved.",
+  },
+  envBanner: {
+    test: "Test environment · data is not real",
   },
   viewGroups: {
     title: "View groups",

@@ -7,6 +7,7 @@ import { createSupplierSessionCookie } from "@/lib/supplierAuth";
 import { getViewerPreferences } from "@/lib/preferences";
 import { recordLoginEvent } from "@/lib/loginLog";
 import { getDictionary } from "@/i18n/getDictionary";
+import { demoAccessEnabled } from "@/lib/appSettings";
 
 export async function login(
   _prevState: { error: string | null },
@@ -77,6 +78,8 @@ export async function loginSupplier(
 // just grabbed "the first user with this role" and couldn't target a
 // particular account.
 export async function quickLoginAsUser(userId: string) {
+  // Authoritative gate: hiding the buttons is not enough, this is callable by anyone.
+  if (!(await demoAccessEnabled())) return;
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return;
   await createSessionCookie(user.id, "QUICK");
@@ -84,6 +87,7 @@ export async function quickLoginAsUser(userId: string) {
 }
 
 export async function quickLoginAsSupplierUser(supplierUserId: string) {
+  if (!(await demoAccessEnabled())) return;
   const supplierUser = await prisma.supplierUser.findUnique({
     where: { id: supplierUserId },
   });
