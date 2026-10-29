@@ -110,6 +110,7 @@ export type CreateRfpInput = {
   internalNotes?: string; // buyer-only notes; their #tags become filters
   buyerName: string;
   deadlineAt: string;
+  kind?: "RFP" | "RFI"; // por defecto RFP; un RFI no requiere artículos ni se adjudica
   commodity: string;
   region: string;
   startDate: string;
@@ -157,6 +158,7 @@ async function findMatchingTemplates(
   clientId: string,
   customValues?: Record<string, string>,
   viewer?: { role: string; viewGroupIds: string[] },
+  kind: "RFP" | "RFI" = "RFP",
 ) {
   const [templates, commodities, regions] = await Promise.all([
     prisma.rfpTemplate.findMany({
@@ -174,7 +176,7 @@ async function findMatchingTemplates(
   const commodityChain = ancestorChain(commodities, commodity);
   const regionChain = ancestorChain(regions, region);
   const matching = templates.filter((t) =>
-    matchesTemplate(t, commodityChain, regionChain, estimatedPrice, customValues ?? {}),
+    matchesTemplate(t, commodityChain, regionChain, estimatedPrice, customValues ?? {}, kind),
   );
   return resolveAppliedTemplates(matching, selectedTemplateId);
 }
@@ -354,6 +356,7 @@ export async function validateAndShapeRfp(
     clientId,
     "values" in earlyHeader ? earlyHeader.values : {},
     { role: user.role, viewGroupIds: user.viewGroupIds ?? [] },
+    input.kind === "RFI" ? "RFI" : "RFP",
   );
 
   // An RFP can't go on without at least one template applying to it.
@@ -415,7 +418,8 @@ export async function validateAndShapeRfp(
   }
 
   const items = shapeItems(input.items);
-  if (items.length === 0) {
+  // An RFI asks for information, not prices: no items needed.
+  if (items.length === 0 && input.kind !== "RFI") {
     return { error: dictionary.rfpActions.addAtLeastOneItem };
   }
   const questions = shapeQuestions(input.questions);
@@ -626,6 +630,7 @@ export async function createRfp(
       buyerName,
       deadlineAt: zonedTimeToUtc(input.deadlineAt, user.timezone),
       status,
+      kind: input.kind === "RFI" ? "RFI" : "RFP",
       publishedAt:
         status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
       // No start date: the publication date is used.

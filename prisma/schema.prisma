@@ -25,6 +25,11 @@ enum ApproverMode {
   SUPERIOR // la cadena de superiores del usuario que inicia la etapa
 }
 
+enum RfpKind {
+  RFP // solicitud de cotización: lleva artículos y se adjudica
+  RFI // solicitud de información: no requiere artículos ni se adjudica
+}
+
 enum ApprovalStageKind {
   PUBLISH
   AWARD
@@ -464,6 +469,7 @@ model RfpTemplate {
   description                      String?
   viewGroupIds                     String[]                @default([]) // grupos de visualización que ven la plantilla; vacío = todos
   documentRequirements             Json? // [{ "typeIds": ["..."], "condition": { "field": "...", "value": "..." } | null }]: el proveedor invitado debe tener vigente alguno de esos tipos de documento
+  matchKind                        RfpKind? // condición por tipo (RFP o RFI); vacío = aplica a ambos
   matchCommodity                   String?
   matchCommodityIncludeDescendants Boolean                 @default(false) // si matchCommodity también aplica a los niveles debajo de él en el árbol
   matchRegion                      String?
@@ -598,6 +604,7 @@ model Rfp {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  kind           RfpKind   @default(RFP) // RFP o RFI (un RFI no requiere artículos ni se adjudica)
   commodity      String?
   region         String?
   startDate      DateTime?

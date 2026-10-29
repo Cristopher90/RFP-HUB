@@ -192,6 +192,7 @@ export function TemplateForm({
   initial?: {
     name: string;
     description: string;
+    matchKind?: "RFP" | "RFI" | null;
     matchCommodity: string;
     matchCommodityIncludeDescendants: boolean;
     matchRegion: string;
@@ -223,6 +224,7 @@ export function TemplateForm({
   );
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [matchKind, setMatchKind] = useState<"RFP" | "RFI" | "">(initial?.matchKind ?? "");
   const [matchCommodity, setMatchCommodity] = useState(
     initial?.matchCommodity ?? "",
   );
@@ -589,6 +591,7 @@ export function TemplateForm({
     const payload: SaveTemplateInput = {
       name,
       description,
+      matchKind: matchKind || null,
       matchCommodity,
       matchCommodityIncludeDescendants,
       matchRegion,
@@ -657,6 +660,24 @@ export function TemplateForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+          </div>
+          <div className="sm:col-span-2">
+            <label
+              htmlFor={`${idBase}-kind`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("templateForm.appliesWhenKind")}
+            </label>
+            <select
+              id={`${idBase}-kind`}
+              className={inputClass()}
+              value={matchKind}
+              onChange={(e) => setMatchKind(e.target.value as "RFP" | "RFI" | "")}
+            >
+              <option value="">{t("templateForm.anyKind")}</option>
+              <option value="RFP">{t("rfpKind.RFP")}</option>
+              <option value="RFI">{t("rfpKind.RFI")}</option>
+            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="mb-1 block text-sm font-medium text-slate-700">

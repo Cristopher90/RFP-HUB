@@ -287,6 +287,9 @@ export const es = {
     startDateHint: "En caso de no completar será utilizada la fecha de publicación.",
     deadlineFromTemplate: "Por defecto: {days} días desde hoy, según la plantilla «{name}».",
     startDateLabel: "Fecha de inicio",
+    kindLabel: "Tipo",
+    kindRfiHint: "Un RFI solicita información: no requiere artículos y no se adjudica.",
+    itemsOptionalRfi: "Opcional en un RFI.",
     estimatedPriceLabel: "Precio estimado (USD)",
     estimatedPricePlaceholder: "Ej. 30000",
     originLabel: "Origen",
@@ -403,6 +406,8 @@ export const es = {
     nameLabel: "Nombre",
     namePlaceholder: "Ej. Estándar Hardware / IT",
     descriptionLabel: "Descripción",
+    appliesWhenKind: "Aplica cuando el tipo sea",
+    anyKind: "Cualquiera (RFP y RFI)",
     appliesWhenCommodity: "Aplica cuando el Commodity sea",
     any: "Cualquiera",
     includeDescendants: "También aplica a los niveles debajo de este",
@@ -1296,6 +1301,7 @@ export const es = {
     opens: "Abre",
     closes: "Cierra",
     monitorAndAward: "Monitor y Adjudicación",
+    monitor: "Monitor",
     exportToExcel: "Exportar a Excel",
     reopen: "Reabrir",
     closeRfp: "Cerrar RFP",
@@ -1335,6 +1341,7 @@ export const es = {
   comparePage: {
     backToRfp: "← Volver a la RFP",
     titlePrefix: "Monitor y Adjudicación",
+    titlePrefixRfi: "Monitor",
     respondedSuffix: "proveedores han respondido.",
     of: "de",
     previousPricesTitle: "Precios de proyectos anteriores",
@@ -1804,6 +1811,7 @@ export const es = {
     notPendingApproval: "Esta RFP no está pendiente de aprobación.",
   },
   compareActions: {
+    rfiNotAwardable: "Un RFI solo recopila información: no se adjudica.",
     rfpNotFound: "RFP no encontrada.",
     invitationNotFound: "Invitación no encontrada.",
     noPendingAwardApproval: "No hay una adjudicación pendiente de aprobación.",
@@ -2600,6 +2608,10 @@ export const es = {
   },
   envBanner: {
     test: "Ambiente de pruebas · los datos no son reales",
+  },
+  rfpKind: {
+    RFP: "RFP · solicitud de cotización",
+    RFI: "RFI · solicitud de información",
   },
   viewGroups: {
     title: "Grupos de visualización",

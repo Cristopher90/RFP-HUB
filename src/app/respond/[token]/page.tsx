@@ -118,6 +118,7 @@ export default async function RespondPage({
             {dictionary.respondPage.thanksPrefix}{" "}
             {formatDateTime(response.submittedAt, dateOptions)}.
           </h2>
+          {rfp.items.length > 0 && (
           <div className="mt-4 overflow-hidden rounded-lg border border-emerald-100 bg-white">
             <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
@@ -145,6 +146,7 @@ export default async function RespondPage({
             </table>
             </div>
           </div>
+          )}
           {supplierQuestions.length > 0 && (
             <div className="mt-4 space-y-2 text-sm text-slate-700">
               {supplierQuestions.map((q) => {

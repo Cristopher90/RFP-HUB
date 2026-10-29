@@ -81,6 +81,7 @@ export async function buildItemsFromSourceRfp(
       suppliers: NewSupplierInput[];
       sourceTitle: string;
       sourceNumber: number;
+      sourceKind: "RFP" | "RFI";
       sourceCommodity: string | null;
       sourceRegion: string | null;
       sourceEstimatedPrice: number | null;
@@ -194,6 +195,7 @@ export async function buildItemsFromSourceRfp(
     suppliers,
     sourceTitle: source.title,
     sourceNumber: source.number,
+    sourceKind: source.kind,
     sourceCommodity: source.commodity,
     sourceRegion: source.region,
     sourceEstimatedPrice: source.estimatedPrice,

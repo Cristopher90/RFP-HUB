@@ -1,6 +1,10 @@
 export type TemplatePriceCondition = "GREATER_THAN" | "LESS_THAN" | "BETWEEN";
 
+export type RfpKindValue = "RFP" | "RFI";
+
 export type MatchableTemplate = {
+  // null/undefined = applies to both RFP and RFI.
+  matchKind?: RfpKindValue | null;
   matchCommodity: string | null;
   matchCommodityIncludeDescendants: boolean;
   matchRegion: string | null;
@@ -106,7 +110,9 @@ export function matchesTemplate(
   regionChain: string[],
   estimatedPrice: number | null = null,
   customValues?: Record<string, string>,
+  kind: RfpKindValue = "RFP",
 ) {
+  const kindOk = !template.matchKind || template.matchKind === kind;
   const commodityOk =
     !template.matchCommodity ||
     (template.matchCommodityIncludeDescendants
@@ -121,6 +127,7 @@ export function matchesTemplate(
       : regionChain[0] !== undefined &&
         regionChain[0].trim().toLowerCase() === template.matchRegion.trim().toLowerCase());
   return (
+    kindOk &&
     commodityOk &&
     regionOk &&
     matchesPriceCondition(template, estimatedPrice) &&
@@ -134,7 +141,8 @@ export function matchesTemplate(
 // selected. Only templates with at least one condition are candidates.
 export function isConditionalTemplate(template: MatchableTemplate): boolean {
   return Boolean(
-    template.matchCommodity ||
+    template.matchKind ||
+      template.matchCommodity ||
       template.matchRegion ||
       template.matchPriceCondition ||
       parseMatchCustom(template.matchCustom).length > 0,

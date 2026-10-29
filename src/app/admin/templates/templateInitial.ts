@@ -15,6 +15,7 @@ export function templateInitial(template: TemplateWithContent) {
   return {
     name: template.name,
     description: template.description ?? "",
+    matchKind: template.matchKind,
     matchCommodity: template.matchCommodity ?? "",
     matchCommodityIncludeDescendants: template.matchCommodityIncludeDescendants,
     matchRegion: template.matchRegion ?? "",

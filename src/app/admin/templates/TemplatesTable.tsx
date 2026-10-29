@@ -10,6 +10,7 @@ export type TemplateRow = {
   description: string | null;
   clientId: string;
   clientLabel: string;
+  matchKind: "RFP" | "RFI" | null;
   matchCommodity: string | null;
   matchRegion: string | null;
   items: number;
@@ -38,7 +39,7 @@ export function TemplatesTable({ rows }: { rows: TemplateRow[] }) {
     return rows.filter((r) => {
       if (clientId && r.clientId !== clientId) return false;
       if (nameNeedle && !norm(`${r.name} ${r.description ?? ""}`).includes(nameNeedle)) return false;
-      if (conditionNeedle && !norm(`${r.matchCommodity ?? ""} ${r.matchRegion ?? ""}`).includes(conditionNeedle)) return false;
+      if (conditionNeedle && !norm(`${r.matchKind ?? ""} ${r.matchCommodity ?? ""} ${r.matchRegion ?? ""}`).includes(conditionNeedle)) return false;
       return true;
     });
   }, [rows, nameQuery, clientId, conditionQuery]);
@@ -131,8 +132,13 @@ export function TemplatesTable({ rows }: { rows: TemplateRow[] }) {
                   </td>
                   <td className="px-5 py-4 text-slate-600">{r.clientLabel}</td>
                   <td className="px-5 py-4 text-slate-600">
-                    {r.matchCommodity || r.matchRegion ? (
+                    {r.matchKind || r.matchCommodity || r.matchRegion ? (
                       <>
+                        {r.matchKind && (
+                          <span className="mr-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                            {r.matchKind}
+                          </span>
+                        )}
                         {r.matchCommodity && (
                           <span className="mr-2">
                             {t("adminDashboard.commodityPrefix")} {r.matchCommodity}

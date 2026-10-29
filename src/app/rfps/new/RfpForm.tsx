@@ -51,6 +51,7 @@ export type TemplateData = {
   id: string;
   name: string;
   description: string | null;
+  matchKind?: "RFP" | "RFI" | null;
   matchCommodity: string | null;
   matchCommodityIncludeDescendants: boolean;
   matchRegion: string | null;
@@ -228,6 +229,7 @@ export type RfpInitialData = {
   internalNotes?: string;
   buyerName: string;
   deadlineAt: string;
+  kind?: "RFP" | "RFI";
   commodity: string;
   region: string;
   startDate: string;
@@ -346,6 +348,9 @@ export function RfpForm({
   const [deadlineTouched, setDeadlineTouched] = useState(
     Boolean(initial?.deadlineAt) && !seedTemplates,
   );
+  const [kind, setKind] = useState<"RFP" | "RFI">(initial?.kind ?? "RFP");
+  // Handlers re-sync template content with the NEW kind before state settles.
+  const kindRef = useRef<"RFP" | "RFI">(initial?.kind ?? "RFP");
   const [commodity, setCommodity] = useState(initial?.commodity ?? "");
   const [region, setRegion] = useState(initial?.region ?? "");
   const [startDate, setStartDate] = useState(initial?.startDate ?? "");
@@ -437,7 +442,7 @@ export function RfpForm({
     const commodityChain = ancestorChain(commodities, newCommodity);
     const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, newPrice, custom),
+      matchesTemplate(t, commodityChain, regionChain, newPrice, custom, kindRef.current),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -520,7 +525,7 @@ export function RfpForm({
     const commodityChain = ancestorChain(commodities, newCommodity);
     const regionChain = ancestorChain(regions, newRegion);
     const rawMatching = templates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, newPrice, custom),
+      matchesTemplate(t, commodityChain, regionChain, newPrice, custom, kindRef.current),
     );
     const matching = resolveAppliedTemplates(rawMatching, newSelectedTemplateId);
     const matchingTemplateIds = new Set(matching.map((t) => t.id));
@@ -594,6 +599,7 @@ export function RfpForm({
         ancestorChain(regions, initial.region),
         parsePrice(initial.estimatedPrice),
         initial.customValues ?? {},
+        initial.kind ?? "RFP",
       ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
@@ -617,6 +623,7 @@ export function RfpForm({
         ancestorChain(regions, newRegion),
         newPrice,
         custom,
+        kindRef.current,
       ),
     );
     const { conditional } = splitConditionalTemplates(rawMatching);
@@ -628,6 +635,22 @@ export function RfpForm({
     return conditional.some((t) => t.id === selectedTemplateId)
       ? selectedTemplateId
       : (pickByPriority(conditional)?.id ?? null);
+  }
+
+  // RFP/RFI decides which templates apply (and whether items are needed).
+  function handleKindChange(value: "RFP" | "RFI") {
+    kindRef.current = value;
+    setKind(value);
+    const price = parsePrice(estimatedPrice);
+    const nextSelected = resolveSelection(commodity, region, price);
+    setSelectedTemplateId(nextSelected);
+    setItems((prev) => syncTemplateItems(prev, commodity, region, price, nextSelected));
+    setQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "EXTERNAL", price, nextSelected),
+    );
+    setInternalQuestions((prev) =>
+      syncTemplateQuestions(prev, commodity, region, "INTERNAL", price, nextSelected),
+    );
   }
 
   function handleCommodityChange(value: string) {
@@ -1180,6 +1203,7 @@ export function RfpForm({
         internalNotes,
         buyerName,
         deadlineAt,
+        kind,
         commodity,
         region,
         startDate,
@@ -1247,6 +1271,7 @@ export function RfpForm({
         ancestorChain(regions, region),
         parsePrice(estimatedPrice),
         headCustom,
+        kind,
       ),
     ),
   );
@@ -1463,6 +1488,26 @@ export function RfpForm({
                 </>
               );
             })()}
+          </div>
+          <div>
+            <label
+              htmlFor={`${idBase}-kind`}
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              {t("rfpForm.kindLabel")}
+            </label>
+            <select
+              id={`${idBase}-kind`}
+              className={inputClass()}
+              value={kind}
+              onChange={(e) => handleKindChange(e.target.value as "RFP" | "RFI")}
+            >
+              <option value="RFP">{t("rfpKind.RFP")}</option>
+              <option value="RFI">{t("rfpKind.RFI")}</option>
+            </select>
+            {kind === "RFI" && (
+              <p className="mt-1 text-xs text-slate-400">{t("rfpForm.kindRfiHint")}</p>
+            )}
           </div>
           <div>
             <label
@@ -1684,6 +1729,7 @@ export function RfpForm({
                     ancestorChain(regions, region),
                     parsePrice(estimatedPrice),
                     headCustom,
+                    kind,
                   ),
                 ),
               ).conditional
@@ -2484,6 +2530,7 @@ export function RfpForm({
 
       <CollapsibleSection
         title={t("rfpForm.itemsTitle")}
+        subtitle={kind === "RFI" ? t("rfpForm.itemsOptionalRfi") : undefined}
         storageKey="rfp-new-items"
         right={
           <div className="flex items-center gap-4">

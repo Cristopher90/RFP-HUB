@@ -47,6 +47,7 @@ export default async function TemplatesPage() {
             description: t.description,
             clientId: t.clientId,
             clientLabel: `${t.client.icon ? `${t.client.icon} ` : ""}${t.client.description}`,
+            matchKind: t.matchKind,
             matchCommodity: t.matchCommodity,
             matchRegion: t.matchRegion,
             items: t.items.length,

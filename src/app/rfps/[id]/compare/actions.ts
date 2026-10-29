@@ -54,6 +54,8 @@ export async function awardInvitation(
     include: { items: true },
   });
   if (!rfp) return { error: dictionary.compareActions.rfpNotFound };
+  // An RFI only gathers information: it is never awarded.
+  if (rfp.kind === "RFI") return { error: dictionary.compareActions.rfiNotAwardable };
 
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
@@ -80,7 +82,7 @@ export async function awardInvitation(
   const storedCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const matchingTemplates = resolveAppliedTemplates(
     allTemplates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, awardedValue, storedCustom),
+      matchesTemplate(t, commodityChain, regionChain, awardedValue, storedCustom, rfp.kind),
     ),
     rfp.selectedTemplateId,
   );

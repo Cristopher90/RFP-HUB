@@ -72,6 +72,7 @@ export type TemplatePriceCondition = "GREATER_THAN" | "LESS_THAN" | "BETWEEN";
 export type SaveTemplateInput = {
   name: string;
   description: string;
+  matchKind?: "RFP" | "RFI" | null; // tipo al que aplica; vacío = ambos
   matchCommodity: string;
   matchCommodityIncludeDescendants: boolean;
   matchRegion: string;
@@ -268,6 +269,7 @@ export async function saveTemplate(
     matchCustom: matchCustom.length > 0 ? matchCustom : Prisma.DbNull,
     viewGroupIds: await validViewGroupIds(clientId, input.viewGroupIds),
     documentRequirements: documentRequirements.length > 0 ? documentRequirements : Prisma.DbNull,
+    matchKind: input.matchKind === "RFP" || input.matchKind === "RFI" ? input.matchKind : null,
     matchCommodity: input.matchCommodity.trim() || null,
     matchCommodityIncludeDescendants: input.matchCommodity.trim()
       ? input.matchCommodityIncludeDescendants

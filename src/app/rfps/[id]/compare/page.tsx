@@ -223,7 +223,7 @@ export default async function ComparePage({
         {dictionary.comparePage.backToRfp}
       </Link>
       <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-        {dictionary.comparePage.titlePrefix} &middot; {rfp.title}
+        {rfp.kind === "RFI" ? dictionary.comparePage.titlePrefixRfi : dictionary.comparePage.titlePrefix} &middot; {rfp.title}
       </h1>
       <p className="mt-1 text-sm text-slate-500">
         {responded.length} {dictionary.comparePage.of} {rfp.invitations.length} {dictionary.comparePage.respondedSuffix}
@@ -417,7 +417,7 @@ export default async function ComparePage({
             </CollapsibleSection>
           )}
 
-          {(canEdit || canDecideAward) && (
+          {rfp.kind !== "RFI" && (canEdit || canDecideAward) && (
           <div className="mt-10">
             <h2 className="mb-4 text-lg font-semibold tracking-tight text-slate-900">
               {dictionary.comparePage.awardTitle}

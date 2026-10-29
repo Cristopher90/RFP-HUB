@@ -222,7 +222,7 @@ export async function publishRfp(rfpId: string) {
   const storedCustom = (await readCustomValues(rfp.clientId, "RFP", [rfp.id])).get(rfp.id) ?? {};
   const matchingTemplates = resolveAppliedTemplates(
     allTemplates.filter((t) =>
-      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice, storedCustom),
+      matchesTemplate(t, commodityChain, regionChain, rfp.estimatedPrice, storedCustom, rfp.kind),
     ),
     rfp.selectedTemplateId,
   );
@@ -420,6 +420,8 @@ export async function updateRfp(
       buyerName,
       deadlineAt: zonedTimeToUtc(input.deadlineAt, user.timezone),
       status,
+      // The type can only change while it is still a draft.
+      kind: existing.status === "DRAFT" ? (input.kind === "RFI" ? "RFI" : "RFP") : existing.kind,
       publishedAt:
         status === "OPEN" || status === "AWAITING_START" ? new Date() : null,
       // No start date: the publication date is used.

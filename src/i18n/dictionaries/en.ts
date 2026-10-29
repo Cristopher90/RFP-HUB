@@ -286,6 +286,9 @@ export const en: Dictionary = {
     startDateHint: "If left empty, the publication date will be used.",
     deadlineFromTemplate: "Default: {days} days from today, from the template “{name}”.",
     startDateLabel: "Start date",
+    kindLabel: "Type",
+    kindRfiHint: "An RFI requests information: no items are required and it is not awarded.",
+    itemsOptionalRfi: "Optional in an RFI.",
     estimatedPriceLabel: "Estimated price (USD)",
     estimatedPricePlaceholder: "E.g. 30000",
     originLabel: "Origin",
@@ -402,6 +405,8 @@ export const en: Dictionary = {
     nameLabel: "Name",
     namePlaceholder: "E.g. Standard Hardware / IT",
     descriptionLabel: "Description",
+    appliesWhenKind: "Applies when the type is",
+    anyKind: "Any (RFP and RFI)",
     appliesWhenCommodity: "Applies when the Commodity is",
     any: "Any",
     includeDescendants: "Also applies to the levels below this one",
@@ -1295,6 +1300,7 @@ export const en: Dictionary = {
     opens: "Opens",
     closes: "Closes",
     monitorAndAward: "Monitor and Award",
+    monitor: "Monitor",
     exportToExcel: "Export to Excel",
     reopen: "Reopen",
     closeRfp: "Close RFP",
@@ -1334,6 +1340,7 @@ export const en: Dictionary = {
   comparePage: {
     backToRfp: "← Back to the RFP",
     titlePrefix: "Monitor and Award",
+    titlePrefixRfi: "Monitor",
     respondedSuffix: "suppliers have responded.",
     of: "of",
     previousPricesTitle: "Prices from previous projects",
@@ -1800,6 +1807,7 @@ export const en: Dictionary = {
     notPendingApproval: "This RFP isn't pending approval.",
   },
   compareActions: {
+    rfiNotAwardable: "An RFI only gathers information: it is not awarded.",
     rfpNotFound: "RFP not found.",
     invitationNotFound: "Invitation not found.",
     noPendingAwardApproval: "There's no award pending approval.",
@@ -2596,6 +2604,10 @@ export const en: Dictionary = {
   },
   envBanner: {
     test: "Test environment · data is not real",
+  },
+  rfpKind: {
+    RFP: "RFP · request for proposal",
+    RFI: "RFI · request for information",
   },
   viewGroups: {
     title: "View groups",

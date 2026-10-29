@@ -275,6 +275,11 @@ export default async function RfpDetailPage({
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
             <StatusBadge status={rfp.status} language={user.language} />
+            {rfp.kind === "RFI" && (
+              <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-semibold text-violet-700">
+                {dictionary.rfpKind.RFI}
+              </span>
+            )}
             {awardedInvitation && (
               <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
                 {dictionary.rfpDetail.awardedTo} {awardedInvitation.supplier.name}
@@ -308,7 +313,7 @@ export default async function RfpDetailPage({
                 href={`/rfps/${rfp.id}/compare`}
                 className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
               >
-                {dictionary.rfpDetail.monitorAndAward} ({respondedCount})
+                {rfp.kind === "RFI" ? dictionary.rfpDetail.monitor : dictionary.rfpDetail.monitorAndAward} ({respondedCount})
               </Link>
             )}
           <a
