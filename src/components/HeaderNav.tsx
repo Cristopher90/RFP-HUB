@@ -5,6 +5,7 @@ import { logout, logoutSupplier } from "@/lib/authActions";
 import { getViewerPreferences } from "@/lib/preferences";
 import { getDictionary } from "@/i18n/getDictionary";
 import { roleLabel } from "@/i18n/labels";
+import { HeaderLoginLink } from "./HeaderLoginLink";
 
 export async function HeaderNav() {
   const user = await getCurrentUser();
@@ -48,16 +49,7 @@ export async function HeaderNav() {
         </nav>
       );
     }
-    return (
-      <nav className="text-sm font-medium text-slate-600">
-        <Link
-          href="/login"
-          className="rounded-lg bg-violet-600 px-4 py-2 text-white shadow-sm shadow-violet-600/20 hover:bg-violet-700"
-        >
-          {dictionary.login.signIn}
-        </Link>
-      </nav>
-    );
+    return <HeaderLoginLink label={dictionary.login.signIn} />;
   }
 
   return (
