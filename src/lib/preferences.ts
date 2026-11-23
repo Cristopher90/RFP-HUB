@@ -1,7 +1,7 @@
 import "server-only";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
-import { DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName, type UiStyle, isUiStyle, DEFAULT_GLASS, DEFAULT_GLASS_BACKGROUND, isGlassBackground, normalizeGlass } from "@/lib/themes";
+import { DEFAULT_UI_STYLE, DEFAULT_COLOR_MODE, DEFAULT_THEME, isColorMode, isTheme, type ColorMode, type ThemeName, type UiStyle, isUiStyle, DEFAULT_GLASS, DEFAULT_GLASS_BACKGROUND, isGlassBackground, normalizeGlass } from "@/lib/themes";
 
 export type ViewerPreferences = {
   language: string;
@@ -20,7 +20,7 @@ export const DEFAULT_PREFERENCES: ViewerPreferences = {
   currency: "USD",
   theme: DEFAULT_THEME,
   colorMode: DEFAULT_COLOR_MODE,
-  uiStyle: "standard",
+  uiStyle: DEFAULT_UI_STYLE,
   uiGlass: DEFAULT_GLASS,
   uiBackground: DEFAULT_GLASS_BACKGROUND,
 };
@@ -38,7 +38,7 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: user.currency,
       theme: isTheme(user.theme) ? user.theme : DEFAULT_THEME,
       colorMode: isColorMode(user.colorMode) ? user.colorMode : DEFAULT_COLOR_MODE,
-      uiStyle: isUiStyle(user.uiStyle) ? user.uiStyle : "standard",
+      uiStyle: isUiStyle(user.uiStyle) ? user.uiStyle : DEFAULT_UI_STYLE,
       uiGlass: normalizeGlass(user.uiGlass),
       uiBackground: isGlassBackground(user.uiBackground) ? user.uiBackground : DEFAULT_GLASS_BACKGROUND,
     };
@@ -51,7 +51,7 @@ export async function getViewerPreferences(): Promise<ViewerPreferences> {
       currency: supplierUser.currency,
       theme: isTheme(supplierUser.theme) ? supplierUser.theme : DEFAULT_THEME,
       colorMode: isColorMode(supplierUser.colorMode) ? supplierUser.colorMode : DEFAULT_COLOR_MODE,
-      uiStyle: isUiStyle(supplierUser.uiStyle) ? supplierUser.uiStyle : "standard",
+      uiStyle: isUiStyle(supplierUser.uiStyle) ? supplierUser.uiStyle : DEFAULT_UI_STYLE,
       uiGlass: normalizeGlass(supplierUser.uiGlass),
       uiBackground: isGlassBackground(supplierUser.uiBackground) ? supplierUser.uiBackground : DEFAULT_GLASS_BACKGROUND,
     };

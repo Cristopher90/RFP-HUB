@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getCurrentSupplierUser } from "@/lib/supplierAuth";
 import { getDictionary } from "@/i18n/getDictionary";
 import { CURRENCIES } from "@/lib/profileOptions";
-import { DEFAULT_GLASS_BACKGROUND, isGlassBackground, isUiStyle, normalizeGlass } from "@/lib/themes";
+import { DEFAULT_GLASS_BACKGROUND, DEFAULT_UI_STYLE, isGlassBackground, isUiStyle, normalizeGlass } from "@/lib/themes";
 import { ProfileForm } from "./ProfileForm";
 
 export default async function ProfilePage() {
@@ -28,7 +28,7 @@ export default async function ProfilePage() {
             currency: activeSession.currency,
             theme: activeSession.theme,
             colorMode: activeSession.colorMode,
-            uiStyle: isUiStyle(activeSession.uiStyle) ? activeSession.uiStyle : "standard",
+            uiStyle: isUiStyle(activeSession.uiStyle) ? activeSession.uiStyle : DEFAULT_UI_STYLE,
             uiGlass: normalizeGlass(activeSession.uiGlass),
             uiBackground: isGlassBackground(activeSession.uiBackground) ? activeSession.uiBackground : DEFAULT_GLASS_BACKGROUND,
           }}

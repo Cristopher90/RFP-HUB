@@ -174,7 +174,7 @@ model User {
   language           String    @default("es") // idioma de la interfaz ("es" o "en")
   theme              String    @default("violet") // color principal de la interfaz
   colorMode          String    @default("light") // "light", "dark" o "system"
-  uiStyle            String    @default("standard") // estilo visual: "standard", "pizarra", "cristal" o "panel"
+  uiStyle            String    @default("tickethub") // estilo visual: "tickethub" (por defecto), "standard", "pizarra", "cristal" o "panel"
   uiGlass            Int       @default(17) // estilo Cristal: opacidad de los paneles (0 a 100)
   uiBackground       String    @default("aurora") // estilo Cristal: fondo ("aurora", "oceano", ... o "custom:#rrggbb,#rrggbb")
   supervisorId       String? // supervisor del usuario (para flujos de aprobación "por superior")
@@ -384,7 +384,7 @@ model SupplierUser {
   language            String             @default("es") // idioma de la interfaz ("es" o "en")
   theme               String             @default("violet") // color principal de la interfaz
   colorMode           String             @default("light") // "light", "dark" o "system"
-  uiStyle             String             @default("standard") // estilo visual de la interfaz
+  uiStyle             String             @default("tickethub") // estilo visual de la interfaz
   uiGlass             Int                @default(17) // estilo Cristal: opacidad de los paneles (0 a 100)
   uiBackground        String             @default("aurora") // estilo Cristal: fondo
   links               SupplierUserLink[]

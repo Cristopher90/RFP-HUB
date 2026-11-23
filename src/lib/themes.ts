@@ -43,8 +43,12 @@ export const COLOR_MODE_SWATCH: Record<string, [string, string]> = {
 // (slate and teal, square and flat), "cristal" (dark translucent glass) and "panel"
 // (solid blue menu, light colorful cards) are offered to every user (internal and
 // supplier). They change looks, never behaviour.
-export const UI_STYLES = ["standard", "pizarra", "cristal", "panel"] as const;
+export const UI_STYLES = ["tickethub", "standard", "pizarra", "cristal", "panel"] as const;
 export type UiStyle = (typeof UI_STYLES)[number];
+
+// The style everyone starts with (new users, and visitors who are not signed in).
+// "tickethub": warm white, magenta accent, Inter, soft cards; follows light/dark.
+export const DEFAULT_UI_STYLE: UiStyle = "tickethub";
 
 // Styles with a fixed appearance: "cristal" is always dark and "panel" always
 // light, whatever color mode is chosen (the mode is ignored while they are on).

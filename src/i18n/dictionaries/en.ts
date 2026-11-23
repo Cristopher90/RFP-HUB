@@ -47,6 +47,7 @@ export const en: Dictionary = {
   },
   profile: {
     uiStyle: "Interface style",
+    uiStyle_tickethub: "TicketHub",
     uiStyle_standard: "Standard",
     uiStyle_pizarra: "Slate",
     uiStyle_cristal: "Glass",

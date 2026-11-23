@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Plus_Jakarta_Sans, Public_Sans, Sora } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Plus_Jakarta_Sans, Public_Sans, Sora } from "next/font/google";
 import Link from "next/link";
 import { HeaderNav } from "@/components/HeaderNav";
 import { Sidebar } from "@/components/Sidebar";
@@ -23,6 +23,7 @@ const geistSans = Geist({
 // Fonts of the alternative interface styles; they only load when a style uses them.
 const publicSans = Public_Sans({ variable: "--font-public-sans", subsets: ["latin"], preload: false });
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"], preload: false });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], preload: false });
 const jakarta = Plus_Jakarta_Sans({ variable: "--font-jakarta", subsets: ["latin"], preload: false });
 
 const geistMono = Geist_Mono({
@@ -83,7 +84,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           : undefined
       }
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${sora.variable} ${jakarta.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${publicSans.variable} ${sora.variable} ${jakarta.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
         {/* "System" mode: follow the OS before first paint (and while it changes). */}

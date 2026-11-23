@@ -48,6 +48,7 @@ export const es = {
   },
   profile: {
     uiStyle: "Estilo de interfaz",
+    uiStyle_tickethub: "TicketHub",
     uiStyle_standard: "Estándar",
     uiStyle_pizarra: "Pizarra",
     uiStyle_cristal: "Cristal",

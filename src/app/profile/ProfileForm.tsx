@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
-  COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, PALETTE_MODES, THEMES, UI_STYLES, forcedUiMode,
+  COLOR_MODES, COLOR_MODE_SWATCH, DARK_COLOR_MODES, DEFAULT_UI_STYLE, PALETTE_MODES, THEMES, UI_STYLES, forcedUiMode,
   DEFAULT_CUSTOM_COLORS, DEFAULT_GLASS, DEFAULT_GLASS_BACKGROUND, GLASS_BACKGROUNDS, customBackground, glassCssVars, parseCustomBackground,
 } from "@/lib/themes";
 import { usePreferences } from "@/i18n/PreferencesProvider";
@@ -77,7 +77,7 @@ export function ProfileForm({
     else root.removeAttribute("data-palette");
   }
 
-  const modeLocked = forcedUiMode(form.uiStyle ?? "standard") !== null;
+  const modeLocked = forcedUiMode(form.uiStyle ?? DEFAULT_UI_STYLE) !== null;
 
   function update(patch: Partial<ProfileFormInput>) {
     const next = { ...form, ...patch };
@@ -92,7 +92,7 @@ export function ProfileForm({
       }
     }
     if (patch.theme !== undefined || patch.colorMode !== undefined || patch.uiStyle !== undefined) {
-      previewAppearance(next.theme, next.colorMode, next.uiStyle ?? "standard");
+      previewAppearance(next.theme, next.colorMode, next.uiStyle ?? DEFAULT_UI_STYLE);
     }
   }
 
@@ -127,14 +127,14 @@ export function ProfileForm({
         <div className="space-y-4">
           <Fold
             title={t("profile.uiStyle")}
-            current={t(`profile.uiStyle_${form.uiStyle ?? "standard"}`)}
+            current={t(`profile.uiStyle_${form.uiStyle ?? DEFAULT_UI_STYLE}`)}
           >
               <div className="flex flex-wrap gap-3">
                 {UI_STYLES.map((style) => (
                   <label
                     key={style}
                     className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${
-                      (form.uiStyle ?? "standard") === style
+                      (form.uiStyle ?? DEFAULT_UI_STYLE) === style
                         ? "border-violet-500 ring-1 ring-violet-500"
                         : "border-slate-300 hover:bg-slate-50"
                     }`}
@@ -143,7 +143,7 @@ export function ProfileForm({
                       type="radio"
                       name="uiStyle"
                       className="sr-only"
-                      checked={(form.uiStyle ?? "standard") === style}
+                      checked={(form.uiStyle ?? DEFAULT_UI_STYLE) === style}
                       onChange={() => update({ uiStyle: style })}
                     />
                     {t(`profile.uiStyle_${style}`)}
@@ -151,7 +151,7 @@ export function ProfileForm({
                 ))}
               </div>
               <p className="mt-1.5 text-xs text-slate-500">{t("profile.uiStyleHint")}</p>
-              {(form.uiStyle ?? "standard") === "cristal" && (
+              {(form.uiStyle ?? DEFAULT_UI_STYLE) === "cristal" && (
                 <div className="mt-4 space-y-4 rounded-lg border border-slate-200 p-4">
                   <div>
                     <label htmlFor="uiGlass" className="mb-1 block text-sm font-medium text-slate-700">
