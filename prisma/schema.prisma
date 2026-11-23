@@ -208,6 +208,7 @@ model User {
   canCreateSuppliers     Boolean          @default(false) // crear proveedores desde la pantalla Proveedores
   canEditSuppliers       Boolean          @default(false) // editar los datos de un proveedor
   canAddSupplierContacts Boolean          @default(false) // agregar contactos a un proveedor
+  canRevokeAward         Boolean          @default(false) // puede quitar (desadjudicar) una adjudicación desde el monitor; los administradores pueden siempre
   // Grupos de visualización del usuario (ids de ViewGroup). Vacío = ve todo lo de su cliente.
   viewGroupIds           String[]         @default([])
   supplierRatings        SupplierRating[]

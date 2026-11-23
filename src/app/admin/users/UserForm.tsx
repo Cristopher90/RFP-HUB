@@ -68,6 +68,7 @@ export function UserForm({
     role: initial?.role ?? "BUYER",
     password: "",
     allowFreeTextItems: initial?.allowFreeTextItems ?? true,
+    canRevokeAward: initial?.canRevokeAward ?? false,
     canImportRequests: initial?.canImportRequests ?? false,
     canAssignRequests: initial?.canAssignRequests ?? false,
     seeUnassignedRequests: initial?.seeUnassignedRequests ?? false,
@@ -329,6 +330,16 @@ export function UserForm({
                 onChange={(e) => update({ allowFreeTextItems: e.target.checked })}
               />
               {t("userForm.allowFreeTextItems")}
+            </label>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                checked={form.canRevokeAward}
+                onChange={(e) => update({ canRevokeAward: e.target.checked })}
+              />
+              {t("userForm.canRevokeAward")}
             </label>
           </div>
           <div className="sm:col-span-2">

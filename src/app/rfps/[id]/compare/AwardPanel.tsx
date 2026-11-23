@@ -54,6 +54,9 @@ export function AwardPanel({
   initialPendingInvitationId,
   awardLevels,
   canDecideAward,
+  awardingLocked,
+  revokeLocked,
+  canRevoke,
   currency,
 }: {
   rfpId: string;
@@ -69,6 +72,9 @@ export function AwardPanel({
   initialPendingInvitationId: string | null;
   awardLevels: ApprovalLevelView[];
   canDecideAward: boolean;
+  awardingLocked: boolean; // closed RFP: no new awards
+  revokeLocked: boolean; // closed RFP: awards cannot be revoked
+  canRevoke: boolean; // user has the "revoke awards" permission
   currency: string;
 }) {
   const { formatCurrency, formatDateTime, dictionary, t } = usePreferences();
@@ -92,6 +98,9 @@ export function AwardPanel({
   );
   const [catalogName, setCatalogName] = useState(formatRfpNumber(rfpNumber));
   const [catalogSaved, setCatalogSaved] = useState(false);
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   const totalQuestionWeight = questions.reduce((sum, q) => sum + q.weight, 0);
   const totalItemWeight = items.reduce((sum, i) => sum + i.weight, 0);
@@ -197,9 +206,20 @@ export function AwardPanel({
   }
 
   function handleRevoke() {
+    if (!revokeReason.trim()) {
+      setRevokeError(t("compareActions.revokeReasonRequired"));
+      return;
+    }
     startTransition(async () => {
-      await revokeAward(rfpId);
+      const result = await revokeAward(rfpId, revokeReason);
+      if (result?.error) {
+        setRevokeError(result.error);
+        return;
+      }
       setAwardedId(null);
+      setRevokeOpen(false);
+      setRevokeReason("");
+      setRevokeError(null);
     });
   }
 
@@ -305,14 +325,67 @@ export function AwardPanel({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={handleRevoke}
-            disabled={pending}
-            className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+          {canRevoke && !revokeLocked && (
+            <button
+              type="button"
+              onClick={() => {
+                setRevokeError(null);
+                setRevokeOpen(true);
+              }}
+              disabled={pending}
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+            >
+              {t("awardPanel.revokeAward")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {(awardingLocked || (awardedSupplier && revokeLocked)) && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t("awardPanel.closedLockedNotice")}
+        </div>
+      )}
+
+      {revokeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+          onClick={() => !pending && setRevokeOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            {t("awardPanel.revokeAward")}
-          </button>
+            <p className="text-sm font-semibold text-slate-800">{t("awardPanel.revokeTitle")}</p>
+            <p className="mt-1 text-xs text-slate-500">{t("awardPanel.revokeHint")}</p>
+            <textarea
+              autoFocus
+              rows={3}
+              value={revokeReason}
+              onChange={(e) => setRevokeReason(e.target.value)}
+              placeholder={t("awardPanel.revokePlaceholder")}
+              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            />
+            {revokeError && <p className="mt-2 text-xs text-red-600">{revokeError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRevokeOpen(false)}
+                disabled={pending}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {t("awardPanel.revokeCancel")}
+              </button>
+              <button
+                type="button"
+                onClick={handleRevoke}
+                disabled={pending || !revokeReason.trim()}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {t("awardPanel.revokeConfirm")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -585,7 +658,7 @@ export function AwardPanel({
                       <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
                         {t("awardPanel.pendingApproval")}
                       </span>
-                    ) : (
+                    ) : awardingLocked ? null : (
                       <button
                         type="button"
                         onClick={() => handleAward(s.invitationId)}

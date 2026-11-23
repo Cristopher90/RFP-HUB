@@ -5,7 +5,7 @@ import { editDenied } from "@/lib/rfpAccess";
 import { readCustomValues } from "@/lib/customFields";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, requireUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import {
   matchesTemplate,
   resolveAppliedTemplates,
@@ -18,6 +18,7 @@ import {
   sendReminder,
 } from "@/lib/approvalEngine";
 import { addAwardedItemsToCatalog } from "@/lib/itemCatalog";
+import { awardingLocked, canRevokeAward, revokingLocked } from "@/lib/awardAccess";
 import { getDictionary } from "@/i18n/getDictionary";
 import { notifyCreatorOfStatusChange } from "@/lib/notifications";
 
@@ -56,6 +57,7 @@ export async function awardInvitation(
   if (!rfp) return { error: dictionary.compareActions.rfpNotFound };
   // An RFI only gathers information: it is never awarded.
   if (rfp.kind === "RFI") return { error: dictionary.compareActions.rfiNotAwardable };
+  if (awardingLocked(rfp)) return { error: dictionary.compareActions.rfpClosedLocked };
 
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
@@ -150,6 +152,9 @@ export async function approveAward(rfpId: string) {
   if (!rfp?.pendingAwardInvitationId) {
     return { error: getDictionary(user.language).compareActions.noPendingAwardApproval };
   }
+  if (awardingLocked(rfp)) {
+    return { error: getDictionary(user.language).compareActions.rfpClosedLocked };
+  }
   const result = await recordDecision({
     rfpId,
     stage: "AWARD",
@@ -199,19 +204,26 @@ export async function rejectAward(rfpId: string, reason: string) {
   revalidatePath(`/rfps/${rfpId}`);
 }
 
-export async function revokeAward(rfpId: string) {
+export async function revokeAward(rfpId: string, reason: string) {
   const user = await requireUser();
-  if (await editDenied(user, rfpId, "")) return;
-  await logRfpEvent(rfpId, user.id, "AWARD_REVOKED");
+  const d = getDictionary(user.language).compareActions;
+  if (!canRevokeAward(user)) return { error: d.noPermissionRevoke };
+  if (await editDenied(user, rfpId, "")) return { error: d.noPermissionRevoke };
+  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId } });
+  if (!rfp) return { error: d.rfpNotFound };
+  if (revokingLocked(rfp)) return { error: d.rfpClosedLocked };
+  const cleanReason = reason.trim();
+  if (!cleanReason) return { error: d.revokeReasonRequired };
+  await logRfpEvent(rfpId, user.id, "AWARD_REVOKED", { reason: cleanReason });
   await prisma.rfp.update({
     where: { id: rfpId },
     data: { awardedInvitationId: null, awardedAt: null },
   });
   await prisma.rfpApproval.deleteMany({ where: { rfpId, stage: "AWARD" } });
-  const actor = await getCurrentUser();
-  await notifyCreatorOfStatusChange(rfpId, "awardRevoked", { actorUserId: actor?.id });
+  await notifyCreatorOfStatusChange(rfpId, "awardRevoked", { actorUserId: user.id });
   revalidatePath(`/rfps/${rfpId}/compare`);
   revalidatePath(`/rfps/${rfpId}`);
+  return { error: null };
 }
 
 export async function sendApprovalReminder(rfpId: string, approvalId: string) {

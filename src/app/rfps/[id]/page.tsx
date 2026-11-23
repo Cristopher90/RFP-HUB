@@ -201,7 +201,10 @@ export default async function RfpDetailPage({
         label = ev.supplierInvited.replace("{name}", name);
         break;
       case "AWARD_REVOKED":
-        label = ev.awardRevoked;
+        label =
+          typeof d.reason === "string" && d.reason
+            ? `${ev.awardRevoked}: ${d.reason}`
+            : ev.awardRevoked;
         break;
       default:
         continue;

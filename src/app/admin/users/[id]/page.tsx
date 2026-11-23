@@ -78,6 +78,7 @@ export default async function EditUserPage({
             costCenter: user.costCenter ?? "",
             role: user.role,
             allowFreeTextItems: user.allowFreeTextItems,
+            canRevokeAward: user.canRevokeAward,
             canImportRequests: user.canImportRequests,
             canAssignRequests: user.canAssignRequests,
             canNoteOwn: user.canNoteOwn,

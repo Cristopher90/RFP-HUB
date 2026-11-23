@@ -30,6 +30,7 @@ export type UserFormInput = {
   role: UserRole;
   password: string;
   allowFreeTextItems: boolean;
+  canRevokeAward: boolean;
   canImportRequests: boolean;
   canAssignRequests: boolean;
   seeUnassignedRequests: boolean;
@@ -248,6 +249,7 @@ export async function createUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       allowFreeTextItems: input.allowFreeTextItems,
+      canRevokeAward: input.canRevokeAward,
       canImportRequests: input.canImportRequests,
       canAssignRequests: input.canAssignRequests,
       canNoteOwn: input.canNoteOwn,
@@ -345,6 +347,7 @@ export async function updateUser(
       costCenter: input.costCenter.trim() || null,
       role: input.role,
       allowFreeTextItems: input.allowFreeTextItems,
+      canRevokeAward: input.canRevokeAward,
       canImportRequests: input.canImportRequests,
       canAssignRequests: input.canAssignRequests,
       canNoteOwn: input.canNoteOwn,

@@ -11,6 +11,7 @@ import { colorForIndex } from "@/lib/chartColors";
 import { isQuestionConditionMet } from "@/lib/questionCondition";
 import { describeApprovals, canDecideActiveLevel } from "@/lib/approvalEngine";
 import { ComparisonCharts } from "./ComparisonCharts";
+import { awardingLocked, canRevokeAward, revokingLocked } from "@/lib/awardAccess";
 import { AwardPanel } from "./AwardPanel";
 import { ItemPriceTable } from "./ItemPriceTable";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
@@ -453,6 +454,9 @@ export default async function ComparePage({
               initialPendingInvitationId={rfp.pendingAwardInvitationId}
               awardLevels={awardLevels}
               canDecideAward={canDecideAward}
+              awardingLocked={awardingLocked(rfp)}
+              revokeLocked={revokingLocked(rfp)}
+              canRevoke={canRevokeAward(user)}
               currency={rfp.client.currency}
             />
           </div>
